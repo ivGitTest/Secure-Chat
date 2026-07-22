@@ -20,13 +20,14 @@
 
 set -e
 
-# Path to the admin CLI (adjust for dev vs production)
-if [ -f "$(dirname "$0")/../artifacts/api-server/dist/admin.mjs" ]; then
-  # Development: built locally
-  ADMIN="node $(dirname "$0")/../artifacts/api-server/dist/admin.mjs"
+# Detect environment:
+#   - pnpm workspace (dev/Replit) → run via tsx, no build needed
+#   - Docker container             → use pre-built /app/dist/admin.mjs
+WORKSPACE_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -f "$WORKSPACE_ROOT/pnpm-workspace.yaml" ]; then
+  RUN_ADMIN="pnpm --dir \"$WORKSPACE_ROOT\" --filter @workspace/scripts run admin --"
 else
-  # Production: inside Docker container
-  ADMIN="node /app/dist/admin.mjs"
+  RUN_ADMIN="node /app/dist/admin.mjs"
 fi
 
 create_user() {
@@ -34,7 +35,7 @@ create_user() {
   name="$2"
   pin="$3"
   echo "Creating user: $id ($name)..."
-  $ADMIN create-user --id "$id" --name "$name" --pin "$pin"
+  eval "$RUN_ADMIN create-user --id \"$id\" --name \"$name\" --pin \"$pin\""
 }
 
 # ─── Add your family members below ───────────────────────────────────────────
