@@ -6,6 +6,9 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Trust proxy headers (for correct req.ip behind nginx/load balancer)
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,
