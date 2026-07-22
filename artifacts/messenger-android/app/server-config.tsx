@@ -38,8 +38,17 @@ export default function ServerConfigScreen() {
 
     setLoading(true);
     try {
-      // Quick reachability check
-      const resp = await fetch(`${trimmed}/api/v1/health`, { signal: AbortSignal.timeout(5000) });
+      // Quick reachability check.
+      // AbortSignal.timeout() is not supported in React Native / Hermes —
+      // use a manual AbortController + setTimeout instead.
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      let resp: Response;
+      try {
+        resp = await fetch(`${trimmed}/api/v1/health`, { signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
       if (!resp.ok) throw new Error('Сервер недоступен');
     } catch {
       Alert.alert(
