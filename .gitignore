@@ -51,3 +51,25 @@ Thumbs.db
 # Local scripts with real user data — never commit these
 scripts/create-users.sh
 deploy/.env
+
+# Android signing / service credentials (often accidentally added to app.json or project root)
+*.jks
+*.p8
+*.p12
+*.keystore
+*.key
+*.mobileprovision
+service-account*.json
+google-services.json
+GoogleService-Info.plist
+
+# Expo / EAS local secrets
+eas.json
+eas-credentials.json
+
+# Additional env / secret files
+*.env
+.env.*
+.secrets
+*.secret
+*.credentials

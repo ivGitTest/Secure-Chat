@@ -24,7 +24,8 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE"
-      ]
+      ],
+      "package": "com.ivaexpi.messengerandroid"
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -41,6 +42,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "31cfd34c-5e09-47a2-8e45-8fab241f3c71"
+      }
     }
   }
 }
