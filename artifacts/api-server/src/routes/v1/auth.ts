@@ -17,10 +17,27 @@ function getJwtSecret(): string {
   return secret;
 }
 
+/**
+ * Parse a duration string such as "7d", "24h", "3600s", or a plain number of seconds.
+ * Supported suffixes: s (seconds), m (minutes), h (hours), d (days), w (weeks).
+ * Falls back to 86400 (24 hours) when the value is absent or unrecognised.
+ */
 function getExpiresInSeconds(): number {
-  const raw = process.env["JWT_EXPIRES_IN"];
-  const parsed = raw ? parseInt(raw, 10) : NaN;
-  return isNaN(parsed) ? 86400 : parsed;
+  const raw = process.env["JWT_EXPIRES_IN"] ?? "";
+  if (!raw) return 86400;
+
+  const match = /^(\d+)(s|m|h|d|w)?$/.exec(raw.trim());
+  if (!match) return 86400;
+
+  const value = parseInt(match[1]!, 10);
+  const multipliers: Record<string, number> = {
+    s: 1,
+    m: 60,
+    h: 3600,
+    d: 86400,
+    w: 604800,
+  };
+  return value * (multipliers[match[2] ?? "s"] ?? 1);
 }
 
 // Rate limiter for login: 5 requests per minute per IP
