@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Local scripts with real user data — never commit these
+scripts/create-users.sh
+deploy/.env
