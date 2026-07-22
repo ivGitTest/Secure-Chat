@@ -1,0 +1,226 @@
+import type { RawData } from "ws";
+import { eq, ne, and, inArray } from "drizzle-orm";
+import { db } from "@workspace/db";
+import { messages, participants, conversations, users } from "@workspace/db";
+import { logger } from "../lib/logger";
+import { send, sendToUser } from "./connections";
+import { handleSignaling } from "./signaling";
+import type { ExtendedWebSocket, WsEnvelope } from "./types";
+
+/** Parse raw WS data into an envelope; returns null on parse failure. */
+function parseEnvelope(data: RawData): WsEnvelope | null {
+  let text: string;
+  try {
+    if (Buffer.isBuffer(data)) {
+      text = data.toString("utf-8");
+    } else if (data instanceof ArrayBuffer) {
+      text = Buffer.from(data).toString("utf-8");
+    } else {
+      // Buffer[]
+      text = Buffer.concat(data as Buffer[]).toString("utf-8");
+    }
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const obj = parsed as Record<string, unknown>;
+    if (typeof obj["type"] !== "string") return null;
+    return {
+      type: obj["type"] as string,
+      payload:
+        typeof obj["payload"] === "object" && obj["payload"] !== null
+          ? (obj["payload"] as Record<string, unknown>)
+          : {},
+      timestamp:
+        typeof obj["timestamp"] === "string"
+          ? (obj["timestamp"] as string)
+          : new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Main dispatcher — called for every incoming WS message. */
+export function handleMessage(ws: ExtendedWebSocket, data: RawData): void {
+  const envelope = parseEnvelope(data);
+  if (!envelope) {
+    send(ws, {
+      type: "error",
+      payload: { code: "INVALID_MESSAGE", message: "Malformed JSON envelope." },
+    });
+    return;
+  }
+
+  switch (envelope.type) {
+    case "message.send":
+      void handleMessageSend(ws, envelope);
+      break;
+    case "message.ack":
+      handleMessageAck(ws, envelope);
+      break;
+    case "ping":
+      send(ws, { type: "pong", timestamp: new Date().toISOString() });
+      break;
+    default:
+      // Delegate call/webrtc events to the signaling module
+      handleSignaling(ws, envelope);
+      break;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// message.send
+// ---------------------------------------------------------------------------
+
+async function handleMessageSend(ws: ExtendedWebSocket, envelope: WsEnvelope): Promise<void> {
+  const { userId } = ws;
+  const payload = envelope.payload ?? {};
+  const text = payload["text"];
+  if (typeof text !== "string" || text.trim() === "") {
+    send(ws, { type: "error", payload: { code: "INVALID_MESSAGE", message: "text is required." } });
+    return;
+  }
+
+  try {
+    let conversationId: string;
+    let recipientId: string;
+
+    const rawConvId = payload["conversationId"];
+    const rawRecipId = payload["recipientId"];
+
+    if (typeof rawConvId === "string" && rawConvId.trim() !== "") {
+      // Existing conversation: verify sender is a participant
+      conversationId = rawConvId.trim();
+      const [membership] = await db
+        .select({ conversationId: participants.conversationId })
+        .from(participants)
+        .where(and(eq(participants.conversationId, conversationId), eq(participants.userId, userId)))
+        .limit(1);
+
+      if (!membership) {
+        send(ws, { type: "error", payload: { code: "NOT_FOUND", message: "Conversation not found." } });
+        return;
+      }
+
+      // Find the other participant
+      const [otherParticipant] = await db
+        .select({ userId: participants.userId })
+        .from(participants)
+        .where(and(eq(participants.conversationId, conversationId), ne(participants.userId, userId)))
+        .limit(1);
+
+      if (!otherParticipant) {
+        send(ws, { type: "error", payload: { code: "NOT_FOUND", message: "Conversation has no other participant." } });
+        return;
+      }
+      recipientId = otherParticipant.userId;
+    } else if (typeof rawRecipId === "string" && rawRecipId.trim() !== "") {
+      // New or existing conversation identified by recipient user ID
+      const normalizedRecipId = rawRecipId.trim();
+      if (normalizedRecipId === userId) {
+        send(ws, { type: "error", payload: { code: "INVALID_MESSAGE", message: "Cannot message yourself." } });
+        return;
+      }
+
+      // Verify recipient exists
+      const [recipientUser] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, normalizedRecipId))
+        .limit(1);
+
+      if (!recipientUser) {
+        send(ws, { type: "error", payload: { code: "NOT_FOUND", message: "Recipient not found." } });
+        return;
+      }
+      recipientId = normalizedRecipId;
+
+      // Find or create conversation between sender and recipient
+      const senderParticipations = await db
+        .select({ conversationId: participants.conversationId })
+        .from(participants)
+        .where(eq(participants.userId, userId));
+
+      const senderConvIds = senderParticipations.map((p) => p.conversationId);
+
+      let foundConvId: string | null = null;
+      if (senderConvIds.length > 0) {
+        const [existing] = await db
+          .select({ conversationId: participants.conversationId })
+          .from(participants)
+          .where(
+            and(eq(participants.userId, recipientId), inArray(participants.conversationId, senderConvIds)),
+          )
+          .limit(1);
+        if (existing) foundConvId = existing.conversationId;
+      }
+
+      if (foundConvId) {
+        conversationId = foundConvId;
+      } else {
+        // Create a new conversation and add both participants
+        const [newConv] = await db.insert(conversations).values({}).returning({ id: conversations.id });
+        if (!newConv) throw new Error("Failed to create conversation");
+        await db.insert(participants).values([
+          { conversationId: newConv.id, userId },
+          { conversationId: newConv.id, userId: recipientId },
+        ]);
+        conversationId = newConv.id;
+      }
+    } else {
+      send(ws, {
+        type: "error",
+        payload: { code: "INVALID_MESSAGE", message: "Either conversationId or recipientId is required." },
+      });
+      return;
+    }
+
+    // Persist the message
+    const [saved] = await db
+      .insert(messages)
+      .values({ conversationId, senderId: userId, text: text.trim() })
+      .returning();
+
+    if (!saved) throw new Error("Failed to save message");
+
+    logger.info({ userId, conversationId, messageId: saved.id }, "WS: message.send");
+
+    const messagePayload = {
+      id: saved.id,
+      conversationId: saved.conversationId,
+      senderId: saved.senderId,
+      text: saved.text,
+      createdAt: saved.createdAt.toISOString(),
+    };
+
+    // Deliver to recipient if online
+    sendToUser(recipientId, {
+      type: "message.new",
+      payload: messagePayload,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Acknowledge to sender
+    send(ws, {
+      type: "message.delivered",
+      payload: { messageId: saved.id },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: unknown) {
+    logger.error({ err, userId }, "WS: handleMessageSend error");
+    send(ws, { type: "error", payload: { code: "INTERNAL_ERROR", message: "Failed to send message." } });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// message.ack
+// ---------------------------------------------------------------------------
+
+function handleMessageAck(ws: ExtendedWebSocket, envelope: WsEnvelope): void {
+  const messageId = envelope.payload?.["messageId"];
+  if (typeof messageId !== "string") {
+    send(ws, { type: "error", payload: { code: "INVALID_MESSAGE", message: "messageId is required." } });
+    return;
+  }
+  // MVP: ack is logged; no read-receipt persistence in schema
+  logger.info({ userId: ws.userId, messageId }, "WS: message.ack");
+}
