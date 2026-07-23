@@ -103,16 +103,16 @@ If nothing was renewed, it exits without touching nginx.
 Set it up once:
 
 ```bash
-# 1. Make the script executable
-chmod +x /path/to/messenger/deploy/scripts/renew-certs.sh
+# 1. Make the script executable (run from the repo root)
+chmod +x deploy/scripts/renew-certs.sh
 
 # 2. Test it manually (as root — certbot needs /etc/letsencrypt access)
-sudo DOMAIN=chat.naviry.xyz /path/to/messenger/deploy/scripts/renew-certs.sh
+sudo DOMAIN=chat.naviry.xyz $(pwd)/deploy/scripts/renew-certs.sh
 
 # 3. Schedule it weekly in root's crontab
 sudo crontab -e
-# Add:
-0 3 * * 1 DOMAIN=chat.naviry.xyz /path/to/messenger/deploy/scripts/renew-certs.sh >> /var/log/renew-certs.log 2>&1
+# Add the line below — replace /home/user/messenger with your actual repo path:
+# 0 3 * * 1 DOMAIN=chat.naviry.xyz /home/user/messenger/deploy/scripts/renew-certs.sh >> /var/log/renew-certs.log 2>&1
 ```
 
 Notes:
@@ -126,13 +126,16 @@ Notes:
   option: `sudo certbot renew --pre-hook "docker compose -f /path/to/messenger/deploy/docker-compose.yml stop nginx" --post-hook "docker compose -f /path/to/messenger/deploy/docker-compose.yml start nginx"` — but the weekly script above with default standalone renewal works if certbot was originally set up with `--standalone` and port 80 is briefly freed. To avoid any downtime, register the pre/post hooks once:
 
 ```bash
-sudo tee /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh > /dev/null <<'EOF'
+# Replace /home/user/messenger with your actual repo path
+REPO=/home/user/messenger
+
+sudo tee /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh > /dev/null <<EOF
 #!/bin/sh
-docker compose -f /path/to/messenger/deploy/docker-compose.yml stop nginx
+docker compose -f $REPO/deploy/docker-compose.yml stop nginx
 EOF
-sudo tee /etc/letsencrypt/renewal-hooks/post/start-nginx.sh > /dev/null <<'EOF'
+sudo tee /etc/letsencrypt/renewal-hooks/post/start-nginx.sh > /dev/null <<EOF
 #!/bin/sh
-docker compose -f /path/to/messenger/deploy/docker-compose.yml start nginx
+docker compose -f $REPO/deploy/docker-compose.yml start nginx
 EOF
 sudo chmod +x /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh \
               /etc/letsencrypt/renewal-hooks/post/start-nginx.sh
@@ -193,22 +196,31 @@ curl -i -N \
 
 ---
 
-## Step 6 — Create admin users
+## Step 6 — Create users
 
-Run the admin CLI inside the api container:
+Run the admin CLI inside the api container. The CLI takes flags — there are no interactive prompts.
 
 ```bash
-docker compose exec api node /app/dist/admin.mjs create-user
-# Prompts for userId, name, and PIN
+# Create a user (PIN must be exactly 6 digits)
+docker compose exec api node /app/dist/admin.mjs create-user \
+  --id alice --name "Alice" --pin 123456
+
+# List all users
+docker compose exec api node /app/dist/admin.mjs list-users
+
+# Block / unblock a user
+docker compose exec api node /app/dist/admin.mjs block-user   --id alice
+docker compose exec api node /app/dist/admin.mjs unblock-user --id alice
 ```
 
 Available commands:
-```
-create-user       Create a new user
-block-user        Block a user account
-unblock-user      Unblock a user account
-list-users        List all users
-```
+
+| Command | Required flags |
+|---------|---------------|
+| `create-user` | `--id <userId>` `--name <name>` `--pin <6-digit-pin>` |
+| `list-users` | — |
+| `block-user` | `--id <userId>` |
+| `unblock-user` | `--id <userId>` |
 
 ---
 
