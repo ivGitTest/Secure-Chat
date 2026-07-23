@@ -89,18 +89,56 @@ openssl req -x509 -nodes -days 365 \
   -subj   "/CN=chat.naviry.xyz"
 ```
 
-### Certificate renewal
+### Certificate renewal (automated)
 
-Add a cron job to renew and copy the certificate:
+Let's Encrypt certificates expire every 90 days. The repo ships a renewal
+script at `deploy/scripts/renew-certs.sh` that:
+
+1. Runs `certbot renew` (renews only when the cert is within 30 days of expiry)
+2. Copies the renewed `fullchain.pem` / `privkey.pem` into `deploy/certs/`
+3. Reloads nginx inside the compose stack (`nginx -s reload` — zero downtime)
+
+If nothing was renewed, it exits without touching nginx.
+
+Set it up once:
 
 ```bash
+# 1. Make the script executable
+chmod +x /path/to/messenger/deploy/scripts/renew-certs.sh
+
+# 2. Test it manually (as root — certbot needs /etc/letsencrypt access)
+sudo DOMAIN=chat.naviry.xyz /path/to/messenger/deploy/scripts/renew-certs.sh
+
+# 3. Schedule it weekly in root's crontab
 sudo crontab -e
 # Add:
-0 3 * * 1 certbot renew --quiet && \
-  cp /etc/letsencrypt/live/chat.naviry.xyz/fullchain.pem /path/to/messenger/deploy/certs/fullchain.pem && \
-  cp /etc/letsencrypt/live/chat.naviry.xyz/privkey.pem   /path/to/messenger/deploy/certs/privkey.pem && \
-  docker compose -f /path/to/messenger/deploy/docker-compose.yml exec nginx nginx -s reload
+0 3 * * 1 DOMAIN=chat.naviry.xyz /path/to/messenger/deploy/scripts/renew-certs.sh >> /var/log/renew-certs.log 2>&1
 ```
+
+Notes:
+
+- `DOMAIN` defaults to `chat.naviry.xyz`; override it if your domain differs.
+- The script auto-detects the `deploy/` directory from its own location, so no
+  path editing is needed — set `DEPLOY_DIR` only if you move the certs elsewhere.
+- Certbot standalone renewal binds port 80 briefly. Since nginx occupies port 80,
+  either keep using standalone with a short stop/start, or (recommended) let the
+  existing cert stay validated via the `--webroot` or DNS method. Simplest robust
+  option: `sudo certbot renew --pre-hook "docker compose -f /path/to/messenger/deploy/docker-compose.yml stop nginx" --post-hook "docker compose -f /path/to/messenger/deploy/docker-compose.yml start nginx"` — but the weekly script above with default standalone renewal works if certbot was originally set up with `--standalone` and port 80 is briefly freed. To avoid any downtime, register the pre/post hooks once:
+
+```bash
+sudo tee /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh > /dev/null <<'EOF'
+#!/bin/sh
+docker compose -f /path/to/messenger/deploy/docker-compose.yml stop nginx
+EOF
+sudo tee /etc/letsencrypt/renewal-hooks/post/start-nginx.sh > /dev/null <<'EOF'
+#!/bin/sh
+docker compose -f /path/to/messenger/deploy/docker-compose.yml start nginx
+EOF
+sudo chmod +x /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh \
+              /etc/letsencrypt/renewal-hooks/post/start-nginx.sh
+```
+
+- Check `/var/log/renew-certs.log` if the certificate ever fails to renew.
 
 ---
 
