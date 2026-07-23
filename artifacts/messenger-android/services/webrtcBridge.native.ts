@@ -71,5 +71,24 @@ export const RTCPeerConnection: RNWebRTC['RTCPeerConnection'] =
 export const RTCIceCandidate: RNWebRTC['RTCIceCandidate'] =
   native?.RTCIceCandidate ?? (StubIceCandidate as unknown as RNWebRTC['RTCIceCandidate']);
 
-export const mediaDevices: RNWebRTC['mediaDevices'] =
-  native?.mediaDevices ?? stubMediaDevices;
+// Wrap getUserMedia explicitly to:
+//   1. Keep the correct `this` binding (prototype method on the native object).
+//   2. Fall back to stubs when the native module loaded but getUserMedia is
+//      not yet available (e.g. New Architecture lazy initialisation).
+export const mediaDevices: typeof stubMediaDevices = {
+  getUserMedia: async (constraints: object): Promise<MediaStreamLike> => {
+    const md = native?.mediaDevices;
+    if (md && typeof md.getUserMedia === 'function') {
+      return md.getUserMedia.call(md, constraints) as Promise<MediaStreamLike>;
+    }
+    if (__DEV__) {
+      console.warn(
+        '[webrtcBridge] mediaDevices.getUserMedia not a function — using stub.',
+        'native loaded:', native !== null,
+        'mediaDevices type:', typeof md,
+        'getUserMedia type:', typeof md?.getUserMedia,
+      );
+    }
+    return stubMediaDevices.getUserMedia(constraints);
+  },
+};
