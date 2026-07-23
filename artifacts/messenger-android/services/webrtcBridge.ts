@@ -24,7 +24,7 @@ export class RTCPeerConnection {
   addIceCandidate(_candidate: object): Promise<void> {
     return Promise.resolve();
   }
-  addStream(_stream: object): void {}
+  addTrack(_track: object): void {}
   close(): void {}
 }
 
@@ -36,11 +36,15 @@ export class RTCIceCandidate {
 }
 
 export const mediaDevices = {
-  getUserMedia: (_constraints: object): Promise<{
-    getTracks(): Array<{ stop(): void }>;
-  }> => Promise.resolve({ getTracks: () => [] }),
+  getUserMedia: (_constraints: object): Promise<MediaStreamLike> =>
+    Promise.resolve({ getTracks: () => [] }),
+};
+
+export type MediaStreamTrackLike = {
+  stop(): void;
+  enabled: boolean;
 };
 
 export type MediaStreamLike = {
-  getTracks(): Array<{ stop(): void }>;
+  getTracks(): Array<MediaStreamTrackLike>;
 };

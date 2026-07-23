@@ -12,8 +12,13 @@
  */
 
 // ─── Type shared with the web stub ───────────────────────────────────────────
+export type MediaStreamTrackLike = {
+  stop(): void;
+  enabled: boolean;
+};
+
 export type MediaStreamLike = {
-  getTracks(): Array<{ stop(): void }>;
+  getTracks(): Array<MediaStreamTrackLike>;
 };
 
 // ─── Inline no-op stubs (mirrors webrtcBridge.ts) ────────────────────────────
@@ -30,7 +35,8 @@ class StubPeerConnection {
   setLocalDescription(_desc: object): Promise<void> { return Promise.resolve(); }
   setRemoteDescription(_desc: object): Promise<void> { return Promise.resolve(); }
   addIceCandidate(_candidate: object): Promise<void> { return Promise.resolve(); }
-  addStream(_stream: object): void {}
+  // addStream was removed in react-native-webrtc v100+; use addTrack instead
+  addTrack(_track: object): void {}
   close(): void {}
 }
 

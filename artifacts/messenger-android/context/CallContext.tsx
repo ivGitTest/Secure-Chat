@@ -24,7 +24,7 @@ import {
   RTCPeerConnection,
   mediaDevices,
 } from '@/services/webrtcBridge';
-import type { MediaStreamLike } from '@/services/webrtcBridge';
+import type { MediaStreamLike, MediaStreamTrackLike } from '@/services/webrtcBridge';
 import { wsService } from '@/services/wsService';
 import type { IncomingCallState } from '@/types';
 import { useAuth } from './AuthContext';
@@ -224,7 +224,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     try {
       const stream = await mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
-      pc.addStream(stream);
+      // addStream was removed in react-native-webrtc v100+; add each track individually
+      stream.getTracks().forEach((track) => pc.addTrack(track));
     } catch (err: unknown) {
       const msg =
         err instanceof Error
@@ -292,8 +293,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [incomingCall]);
 
   const toggleMute = useCallback(() => {
-    localStreamRef.current?.getTracks().forEach((t) => {
-      const track = t as unknown as { enabled: boolean };
+    localStreamRef.current?.getTracks().forEach((track: MediaStreamTrackLike) => {
       track.enabled = isMuted;
     });
     setIsMuted((v) => !v);
