@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 20.5.1",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -20,7 +20,6 @@
       }
     },
     "production": {
-      "autoIncrement": true,
       "env": {
         "NODE_ENV": "production"
       },

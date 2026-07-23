@@ -27,7 +27,8 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.BLUETOOTH_CONNECT"
       ],
-      "package": "com.ivaexpi.messengerandroid"
+      "package": "com.ivaexpi.messengerandroid",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/images/icon.png"
