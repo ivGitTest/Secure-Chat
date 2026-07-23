@@ -20,7 +20,7 @@ COPY artifacts/api-server/ ./artifacts/api-server/
 COPY deploy/api/migrate.ts ./deploy/api/migrate.ts
 
 # Install ALL dependencies (dev included — esbuild is needed for build)
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Build the API server bundle → artifacts/api-server/dist/
 RUN pnpm --filter @workspace/api-server run build
