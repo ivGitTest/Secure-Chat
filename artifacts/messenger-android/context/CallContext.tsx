@@ -44,6 +44,13 @@ const CallContext = createContext<CallContextValue | null>(null);
 async function requestMicPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
   try {
+    // Check first — on Android 14 calling request() on an already-granted
+    // permission can behave unexpectedly on some devices.
+    const already = await PermissionsAndroid.check(
+      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+    );
+    if (already) return true;
+
     const result = await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
       {
@@ -218,8 +225,16 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       const stream = await mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
       pc.addStream(stream);
-    } catch {
-      Alert.alert('Ошибка', 'Не удалось получить доступ к микрофону');
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? `${err.name}: ${err.message}`
+          : String(err);
+      console.error('[CallContext] getUserMedia failed:', msg);
+      Alert.alert(
+        'Ошибка микрофона',
+        `Не удалось получить доступ к микрофону.\n\n${msg}\n\nПроверьте настройки → Приложения → Разрешения.`,
+      );
       pc.close();
       return null;
     }
