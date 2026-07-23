@@ -1,31 +1,49 @@
-# .github/workflows/build-android.yml
+# ─────────────────────────────────────────────────────────────────────────────
+# Build Android APK — local EAS build on GitHub Actions
+#
+# Required GitHub Secrets:
+#   EXPO_TOKEN               — from https://expo.dev/accounts/<user>/settings/access-tokens
+#   ANDROID_KEYSTORE_BASE64  — base64-encoded keystore file (see scripts/gen-keystore.sh)
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+# ─────────────────────────────────────────────────────────────────────────────
+
 name: Build Android APK
 
 on:
+  # Run manually from GitHub Actions UI
   workflow_dispatch:
+  # Task #9: trigger once after Expo quota resets on Aug 1
+  schedule:
+    - cron: '0 9 1 8 *'   # 01 Aug at 09:00 UTC
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      # ── Source ────────────────────────────────────────────────────────────
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
+      # ── Node / pnpm ────────────────────────────────────────────────────────
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: '10'
 
-      - name: Install dependencies
-        run: |
-          pnpm install --frozen-lockfile
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
 
-      - name: Setup Java
+      - name: Install monorepo dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      # ── Java / Android SDK / NDK ───────────────────────────────────────────
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -34,22 +52,60 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Setup Expo
+      - name: Install Android NDK 27.1
+        # react-native-webrtc and other native modules require NDK 27.1
+        run: sdkmanager --install "ndk;27.1.12297006"
+
+      # ── EAS CLI ────────────────────────────────────────────────────────────
+      - name: Setup EAS CLI
         uses: expo/expo-github-action@v8
         with:
-          expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build Android app
+      # ── Android keystore ───────────────────────────────────────────────────
+      - name: Prepare keystore & credentials.json
+        working-directory: artifacts/messenger-android
+        env:
+          KS_BASE64:  ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS:    ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS:  ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS:   ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          npx eas-cli build --platform android \
-            --profile preview \
-            --local --non-interactive \
-            --output app-release.apk
+          echo "$KS_BASE64" | base64 --decode > keystore.jks
+          # credentials.json is read by EAS CLI when credentialsSource = "local"
+          cat > credentials.json <<EOF
+          {
+            "android": {
+              "keystore": {
+                "keystorePath": "keystore.jks",
+                "keystorePassword": "$KS_PASS",
+                "keyAlias": "$KEY_ALIAS",
+                "keyPassword": "$KEY_PASS"
+              }
+            }
+          }
+          EOF
 
-      - name: Upload APK artifact
+      # ── Build ──────────────────────────────────────────────────────────────
+      - name: Build APK (EAS local)
+        working-directory: artifacts/messenger-android
+        env:
+          NODE_ENV: production
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
+          ANDROID_NDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.1.12297006
+        run: |
+          eas build \
+            --platform android \
+            --profile preview \
+            --local \
+            --non-interactive \
+            --output "${{ github.workspace }}/messenger-family.apk"
+
+      # ── Artifact ───────────────────────────────────────────────────────────
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: app-release.apk
+          name: messenger-android-v${{ github.run_number }}
+          path: messenger-family.apk
+          retention-days: 30
