@@ -12,11 +12,7 @@
 name: Build Android APK
 
 on:
-  # Run manually from GitHub Actions UI
   workflow_dispatch:
-  # Task #9: trigger once after Expo quota resets on Aug 1
-  schedule:
-    - cron: '0 9 1 8 *'   # 01 Aug at 09:00 UTC
 
 jobs:
   build:
