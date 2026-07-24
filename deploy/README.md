@@ -63,30 +63,32 @@ openssl rand -hex 32
 
 Nginx expects the certificate at `deploy/certs/fullchain.pem` and the private key at `deploy/certs/privkey.pem`.
 
-### Option A — Certbot standalone (recommended for first setup)
+### Option A — Certbot DNS challenge (works when ports 80/443 are occupied)
+
+Use this when another service (e.g. n8n, Caddy, Traefik) already holds port 80 or 443.  
+No port needs to be free — Let's Encrypt validates ownership via a DNS TXT record instead.
 
 ```bash
 sudo apt-get install -y certbot
+sudo certbot certonly --manual --preferred-challenges dns -d chat.naviry.xyz
 ```
 
-Certbot standalone needs port 80 to be free. Run the command that matches your situation:
+Certbot will print something like:
 
-**If the docker compose stack is not running yet** (fresh VPS):
-
-```bash
-sudo certbot certonly --standalone -d chat.naviry.xyz
+```
+Please deploy a DNS TXT record under the name:
+_acme-challenge.chat.naviry.xyz
+with the following value:
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-**If nginx is already up** (you started the stack before getting the cert):
-
-```bash
-# Stop nginx, get the cert, start nginx again
-docker compose stop nginx
-sudo certbot certonly --standalone -d chat.naviry.xyz
-docker compose start nginx
-```
-
-> Run both `docker compose` commands from the `deploy/` directory (i.e. where `docker-compose.yml` lives).
+1. Log in to your DNS provider and add that TXT record.
+2. Wait ~60 seconds for propagation, then verify it is live:
+   ```bash
+   dig TXT _acme-challenge.chat.naviry.xyz +short
+   # Must return the value certbot printed above
+   ```
+3. Press **Enter** in the certbot prompt to complete validation.
 
 Then copy the certificate files into `deploy/certs/`:
 
@@ -96,6 +98,26 @@ sudo cp /etc/letsencrypt/live/$DOMAIN/fullchain.pem deploy/certs/fullchain.pem
 sudo cp /etc/letsencrypt/live/$DOMAIN/privkey.pem   deploy/certs/privkey.pem
 sudo chown $USER deploy/certs/*.pem
 ```
+
+### Option B — Certbot standalone (only if port 80 is free)
+
+Use this on a fresh VPS where nothing else listens on port 80.
+
+```bash
+sudo apt-get install -y certbot
+sudo certbot certonly --standalone -d chat.naviry.xyz
+```
+
+If nginx from the docker compose stack is already running, stop it first:
+
+```bash
+# Run from the deploy/ directory
+docker compose stop nginx
+sudo certbot certonly --standalone -d chat.naviry.xyz
+docker compose start nginx
+```
+
+Then copy the certificate files the same way as Option A above.
 
 ### Option B — Self-signed certificate (testing only, not trusted by Android)
 
