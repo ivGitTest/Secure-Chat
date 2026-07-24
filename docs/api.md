@@ -1,7 +1,7 @@
 # API Reference
 
-**Base URL:** `https://chat.naviry.xyz`  
-**WebSocket:** `wss://chat.naviry.xyz/ws`  
+**Base URL:** `https://<your-domain>`  
+**WebSocket:** `wss://<your-domain>/ws`  
 **Transport:** JSON over HTTPS / WSS  
 **Auth:** Bearer JWT в заголовке `Authorization: Bearer <token>` (HTTP) и том же заголовке при WebSocket-апгрейде.
 
@@ -29,7 +29,7 @@
 
 **Тело запроса**
 ```json
-{ "userId": "ivan_rybakov", "pin": "111111" }
+{ "userId": "alexey_petrov", "pin": "4829" }
 ```
 
 **Ответ `200`**
@@ -37,8 +37,8 @@
 {
   "token": "<jwt>",
   "user": {
-    "id": "ivan_rybakov",
-    "name": "Иван"
+    "id": "alexey_petrov",
+    "name": "Алексей"
   }
 }
 ```
@@ -67,8 +67,8 @@
 **Ответ `200`**
 ```json
 [
-  { "id": "ivan_rybakov", "name": "Иван" },
-  { "id": "larisa_rybakova", "name": "Лариса" }
+  { "id": "alexey_petrov", "name": "Алексей" },
+  { "id": "marina_sokolova", "name": "Марина" }
 ]
 ```
 
@@ -81,7 +81,7 @@
 
 **Ответ `200`**
 ```json
-{ "id": "ivan_rybakov", "name": "Иван" }
+{ "id": "alexey_petrov", "name": "Алексей" }
 ```
 
 ---
@@ -95,9 +95,9 @@
 ```json
 [
   {
-    "id": "9f11f491-a54a-40d6-82f9-aa2c9fbc117b",
-    "createdAt": "2026-07-24T20:00:00.000Z",
-    "participants": ["ivan_rybakov", "larisa_rybakova"]
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "createdAt": "2026-01-01T10:00:00.000Z",
+    "participants": ["alexey_petrov", "marina_sokolova"]
   }
 ]
 ```
@@ -111,11 +111,11 @@
 ```json
 [
   {
-    "id": "fde51324-2f46-471b-8069-4e634a1a2d0a",
-    "conversationId": "9f11f491-...",
-    "senderId": "ivan_rybakov",
+    "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "conversationId": "a1b2c3d4-...",
+    "senderId": "alexey_petrov",
     "text": "Привет!",
-    "createdAt": "2026-07-24T22:43:12.000Z"
+    "createdAt": "2026-01-01T10:05:00.000Z"
   }
 ]
 ```
@@ -130,9 +130,9 @@
 **Ответ `200`**
 ```json
 {
-  "stunServers": ["stun:chat.naviry.xyz:3478"],
-  "turnServers": ["turn:chat.naviry.xyz:3478"],
-  "turnRealm": "naviry.xyz"
+  "stunServers": ["stun:<your-domain>:3478"],
+  "turnServers": ["turn:<your-domain>:3478"],
+  "turnRealm": "<your-domain>"
 }
 ```
 
@@ -147,7 +147,7 @@
 {
   "type": "<event_type>",
   "payload": { ... },
-  "timestamp": "2026-07-24T22:43:12.000Z"
+  "timestamp": "2026-01-01T10:05:00.000Z"
 }
 ```
 
