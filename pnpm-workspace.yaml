@@ -68,7 +68,7 @@ catalog:
 
 autoInstallPeers: false
 
-onlyBuiltDependencies:
+approvedBuilds:
   - '@swc/core'
   - argon2
   - esbuild
