@@ -174,10 +174,38 @@ async function handleMessageSend(ws: ExtendedWebSocket, envelope: WsEnvelope): P
       return;
     }
 
+    // Extract optional idempotency key sent by the client
+    const rawClientId = payload["clientId"];
+    const clientId = typeof rawClientId === "string" && rawClientId.trim() !== ""
+      ? rawClientId.trim()
+      : null;
+
+    // Idempotency check: if clientId was provided and already exists, the
+    // client is retrying a message we already saved (e.g. double-tap or
+    // reconnect before receiving message.delivered). Return the saved message
+    // without inserting a duplicate.
+    if (clientId) {
+      const [existing] = await db
+        .select()
+        .from(messages)
+        .where(eq(messages.clientId, clientId))
+        .limit(1);
+
+      if (existing) {
+        logger.info({ userId, clientId, messageId: existing.id }, "WS: message.send deduplicated");
+        send(ws, {
+          type: "message.delivered",
+          payload: { messageId: existing.id, clientId },
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+    }
+
     // Persist the message
     const [saved] = await db
       .insert(messages)
-      .values({ conversationId, senderId: userId, text: text.trim() })
+      .values({ conversationId, senderId: userId, text: text.trim(), clientId })
       .returning();
 
     if (!saved) throw new Error("Failed to save message");
@@ -199,10 +227,11 @@ async function handleMessageSend(ws: ExtendedWebSocket, envelope: WsEnvelope): P
       timestamp: new Date().toISOString(),
     });
 
-    // Acknowledge to sender
+    // Acknowledge to sender — include clientId so the client can match the
+    // temp message it showed optimistically.
     send(ws, {
       type: "message.delivered",
-      payload: { messageId: saved.id },
+      payload: { messageId: saved.id, clientId },
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {

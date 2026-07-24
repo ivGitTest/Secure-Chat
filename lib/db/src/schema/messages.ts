@@ -11,6 +11,12 @@ export const messages = pgTable("messages", {
     .notNull()
     .references(() => users.id),
   text: text("text").notNull(),
+  /**
+   * Client-generated idempotency key (UUID). When provided, the server will
+   * not insert a duplicate if the same clientId is received again (e.g. after
+   * a reconnect or a double-tap). Nullable for backwards compatibility.
+   */
+  clientId: text("client_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

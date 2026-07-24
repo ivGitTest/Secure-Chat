@@ -57,8 +57,12 @@ CREATE TABLE IF NOT EXISTS messages (
   conversation_id UUID         NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   sender_id       VARCHAR(64)  NOT NULL REFERENCES users(id),
   text            TEXT         NOT NULL,
+  client_id       TEXT         UNIQUE,
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+
+-- Idempotent backfill: add client_id to existing tables created before this column existed
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS client_id TEXT UNIQUE;
 
 CREATE TABLE IF NOT EXISTS call_logs (
   id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),

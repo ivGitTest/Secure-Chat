@@ -5,6 +5,14 @@ import React, {
   useRef,
   useState,
 } from 'react';
+
+/** Simple UUID v4 generator — works in Hermes without expo-crypto. */
+function uuid4(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
 import {
   ActivityIndicator,
   Alert,
@@ -74,6 +82,9 @@ export default function ChatScreen() {
     isNew ? undefined : id,
   );
 
+  // Maps clientId → tempId so message.delivered can replace the optimistic bubble
+  const pendingRef = useRef<Map<string, string>>(new Map());
+
   // Set header title + call button
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -112,6 +123,28 @@ export default function ChatScreen() {
     })();
   }, [id, isNew]);
 
+  // Subscribe to message.delivered — replace optimistic temp bubble with real message
+  useEffect(() => {
+    const unsub = wsService.on('message.delivered', (payload) => {
+      const messageId = payload['messageId'] as string | undefined;
+      const clientId = payload['clientId'] as string | undefined;
+      if (!messageId || !clientId) return;
+
+      const tempId = pendingRef.current.get(clientId);
+      if (!tempId) return;
+      pendingRef.current.delete(clientId);
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId
+            ? { ...m, id: messageId } // swap temp id → real server id
+            : m,
+        ),
+      );
+    });
+    return unsub;
+  }, []);
+
   // Subscribe to incoming WS messages
   useEffect(() => {
     const unsub = wsService.on('message.new', (payload) => {
@@ -124,13 +157,20 @@ export default function ChatScreen() {
 
       if (!currentConvId && convId) setCurrentConvId(convId);
 
+      const msgId = payload['id'] as string;
       const newMsg: Message = {
-        id: payload['id'] as string,
+        id: msgId,
         senderId: senderId ?? '',
         text: payload['text'] as string,
         createdAt: payload['createdAt'] as string,
       };
-      setMessages((prev) => [newMsg, ...prev]);
+
+      setMessages((prev) => {
+        // Deduplicate: skip if this message id already exists (e.g. server
+        // sent message.new twice, or the temp bubble was already replaced)
+        if (prev.some((m) => m.id === msgId)) return prev;
+        return [newMsg, ...prev];
+      });
     });
     return unsub;
   }, [currentConvId, isNew, recipientId]);
@@ -143,9 +183,15 @@ export default function ChatScreen() {
       return;
     }
 
+    // Unique key for this send intent — used for idempotency on the server
+    // and to match the optimistic bubble with message.delivered.
+    const clientId = uuid4();
+    const tempId = `temp-${clientId}`;
+    pendingRef.current.set(clientId, tempId);
+
     // Optimistic update
     const tempMsg: Message = {
-      id: `temp-${Date.now()}`,
+      id: tempId,
       senderId: userId ?? '',
       text,
       createdAt: new Date().toISOString(),
@@ -153,7 +199,7 @@ export default function ChatScreen() {
     setMessages((prev) => [tempMsg, ...prev]);
     setInputText('');
 
-    const payload: Record<string, unknown> = { text };
+    const payload: Record<string, unknown> = { text, clientId };
     if (currentConvId) {
       payload['conversationId'] = currentConvId;
     } else {
