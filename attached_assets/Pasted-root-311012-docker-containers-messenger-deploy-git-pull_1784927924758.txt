@@ -1,0 +1,107 @@
+root@311012:~/docker_containers/messenger/deploy# git pull
+remote: Enumerating objects: 27, done.
+remote: Counting objects: 100% (27/27), done.
+remote: Compressing objects: 100% (10/10), done.
+remote: Total 21 (delta 14), reused 18 (delta 11), pack-reused 0 (from 0)
+Unpacking objects: 100% (21/21), 4.68 KiB | 239.00 KiB/s, done.
+From github.com:ivGitTest/Secure-Chat
+   c814623..b2ca0b6  main       -> origin/main
+Updating c814623..b2ca0b6
+Fast-forward
+ attached_assets/Pasted-root-311012-docker-containers-messenger-deploy-certs-ss_1784925781701.txt | 30 ++++++++++++++++++++++++++++++
+ attached_assets/Pasted-root-311012-docker-containers-messenger-deploy-docker-c_1784927531019.txt | 71 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ deploy/README.md                                                                                 | 46 +++++++++++++++++++++++++++++++++++++++++++---
+ deploy/api/Dockerfile                                                                            |  6 +++---
+ 4 files changed, 147 insertions(+), 6 deletions(-)
+ create mode 100644 attached_assets/Pasted-root-311012-docker-containers-messenger-deploy-certs-ss_1784925781701.txt
+ create mode 100644 attached_assets/Pasted-root-311012-docker-containers-messenger-deploy-docker-c_1784927531019.txt
+root@311012:~/docker_containers/messenger/deploy# docker compose up -d --build
+[+] Building 30.6s (17/25)
+ => [internal] load local bake definitions                                                                                                                                                                                             0.0s
+ => => reading from stdin 515B                                                                                                                                                                                                         0.0s
+ => [internal] load build definition from Dockerfile                                                                                                                                                                                   0.0s
+ => => transferring dockerfile: 2.88kB                                                                                                                                                                                                 0.0s
+ => [internal] load metadata for docker.io/library/node:22-slim                                                                                                                                                                        1.1s
+ => [internal] load .dockerignore                                                                                                                                                                                                      0.0s
+ => => transferring context: 2B                                                                                                                                                                                                        0.0s
+ => [internal] load build context                                                                                                                                                                                                      0.0s
+ => => transferring context: 4.35kB                                                                                                                                                                                                    0.0s
+ => [builder  1/14] FROM docker.io/library/node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3                                                                                                        4.6s
+ => => resolve docker.io/library/node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3                                                                                                                  0.0s
+ => => sha256:597c6c618d36213af657a6a8444a5d87801f9a219682b206ad21ccb8f3e57bbd 28.23MB / 28.23MB                                                                                                                                       0.9s
+ => => sha256:437216719022b2853003498de36b055604c6ff1bcee290b912ed44226f2d3d46 446B / 446B                                                                                                                                             0.2s
+ => => sha256:bb65bd65926c2b38f8a7d518cefa8524e1484182dd6ffba7883654d886b4cfb3 49.94MB / 49.94MB                                                                                                                                      29.2s
+ => => sha256:392df1351ac2d7628088ee58b248e62a2c1b749e4beb94b7640994df1857c8ca 1.71MB / 1.71MB                                                                                                                                         0.9s
+ => => sha256:e33bee2ce77b0c3748e6a8f2b808a5ab1d2ed466d5ee5a9b991cba597bd028e2 3.31kB / 3.31kB                                                                                                                                         0.3s
+ => => extracting sha256:597c6c618d36213af657a6a8444a5d87801f9a219682b206ad21ccb8f3e57bbd                                                                                                                                              1.6s
+ => => extracting sha256:e33bee2ce77b0c3748e6a8f2b808a5ab1d2ed466d5ee5a9b991cba597bd028e2                                                                                                                                              0.0s
+ => => extracting sha256:bb65bd65926c2b38f8a7d518cefa8524e1484182dd6ffba7883654d886b4cfb3                                                                                                                                              1.6s
+ => => extracting sha256:392df1351ac2d7628088ee58b248e62a2c1b749e4beb94b7640994df1857c8ca                                                                                                                                              0.1s
+ => => extracting sha256:437216719022b2853003498de36b055604c6ff1bcee290b912ed44226f2d3d46                                                                                                                                              0.0s
+ => [runner 2/7] WORKDIR /app                                                                                                                                                                                                          1.8s
+ => [builder  2/14] WORKDIR /monorepo                                                                                                                                                                                                  1.8s
+ => [builder  3/14] RUN corepack enable                                                                                                                                                                                                0.8s
+ => [runner 3/7] RUN groupadd --gid 1001 nodejs  && useradd --uid 1001 --gid 1001 --no-create-home --shell /bin/false nodejs                                                                                                           0.7s
+ => [builder  4/14] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./                                                                                                                                                            0.2s
+ => [builder  5/14] COPY tsconfig.base.json ./                                                                                                                                                                                         0.1s
+ => [builder  6/14] COPY lib/       ./lib/                                                                                                                                                                                             0.2s
+ => [builder  7/14] COPY scripts/   ./scripts/                                                                                                                                                                                         0.2s
+ => [builder  8/14] COPY artifacts/api-server/ ./artifacts/api-server/                                                                                                                                                                 0.1s
+ => [builder  9/14] COPY deploy/api/migrate.ts ./deploy/api/migrate.ts                                                                                                                                                                 0.1s
+ => ERROR [builder 10/14] RUN pnpm install --no-frozen-lockfile                                                                                                                                                                       21.1s
+------
+ > [builder 10/14] RUN pnpm install --no-frozen-lockfile:
+0.548 ! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.17.0.tgz
+2.893 Scope: all 7 workspace projects
+3.163 ? Verifying lockfile against supply-chain policies (1082 entries)...
+4.033 Progress: resolved 1, reused 0, downloaded 0, added 0
+5.044 Progress: resolved 17, reused 0, downloaded 14, added 0
+6.054 Progress: resolved 22, reused 0, downloaded 22, added 0
+7.086 Progress: resolved 27, reused 0, downloaded 26, added 0
+8.094 Progress: resolved 28, reused 0, downloaded 27, added 0
+9.115 Progress: resolved 29, reused 0, downloaded 28, added 0
+10.12 Progress: resolved 29, reused 0, downloaded 29, added 0
+11.13 Progress: resolved 30, reused 0, downloaded 30, added 0
+13.72 [WARN] Request took 10224ms: https://registry.npmjs.org/typescript
+14.88 Progress: resolved 31, reused 0, downloaded 30, added 0
+16.03 ✓ Lockfile passes supply-chain policies (1082 entries in 12.8s)
+16.07 Progress: resolved 140, reused 0, downloaded 43, added 0
+17.01 Packages: +263
+17.01 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+17.07 Progress: resolved 264, reused 0, downloaded 126, added 0
+18.07 Progress: resolved 264, reused 0, downloaded 213, added 8
+18.89 Progress: resolved 264, reused 0, downloaded 263, added 263, done
+19.43 . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+19.50 . preinstall: Done
+19.58 [WARN] Issues with peer dependencies found. Run "pnpm peers check" to list them.
+19.59
+19.59 dependencies:
+19.59 + @replit/connectors-sdk 0.4.1
+19.59
+19.59 devDependencies:
+19.59 + prettier 3.9.5 (3.9.6 is available)
+19.59 + typescript 5.9.3 (7.0.2 is available)
+19.59
+19.66 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: argon2@0.43.1, esbuild@0.27.3
+19.66
+19.66 Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+------
+[+] up 0/1
+ ⠙ Image deploy-api Building                                                                                                                                                                                                           30.7s
+Dockerfile:23
+
+--------------------
+
+  21 |
+
+  22 |     # Install ALL dependencies (dev included — esbuild is needed for build)
+
+  23 | >>> RUN pnpm install --no-frozen-lockfile
+
+  24 |
+
+  25 |     # Build the API server bundle → artifacts/api-server/dist/
+
+--------------------
+
+failed to solve: process "/bin/sh -c pnpm install --no-frozen-lockfile" did not complete successfully: exit code: 1
