@@ -32,8 +32,10 @@ RUN pnpm --filter @workspace/api-server run build
 RUN pnpm --filter @workspace/api-server run bundle-migrate
 RUN pnpm --filter @workspace/api-server run bundle-admin
 
-# Extract argon2 from pnpm virtual store (pnpm does not hoist deps to root node_modules)
-RUN cp -rL node_modules/.pnpm/argon2@*/node_modules/argon2 /tmp/argon2
+# Copy argon2 AND all its runtime deps from the pnpm virtual store.
+# pnpm stores a package's deps as siblings in .pnpm/<pkg>/node_modules/:
+#   argon2/, @phc/format, node-addon-api, node-gyp-build — all needed at runtime.
+RUN cp -rL node_modules/.pnpm/argon2@*/node_modules /tmp/argon2_deps
 
 # ============================================================
 # Stage 2: runner — minimal production image
@@ -50,8 +52,8 @@ RUN groupadd --gid 1001 nodejs \
 # Bundle contains everything except argon2 (externalized native module)
 COPY --from=builder /monorepo/artifacts/api-server/dist/ ./dist/
 
-# argon2 must be present as a real directory (not a symlink) for Node.js to find it
-COPY --from=builder /tmp/argon2/ ./node_modules/argon2/
+# argon2 + its runtime deps (resolved from pnpm virtual store, no dangling symlinks)
+COPY --from=builder /tmp/argon2_deps/ ./node_modules/
 
 # Entrypoint: run migrations then exec the API server
 COPY deploy/api/entrypoint.sh /entrypoint.sh
