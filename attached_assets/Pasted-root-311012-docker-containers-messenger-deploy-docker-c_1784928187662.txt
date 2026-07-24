@@ -1,0 +1,78 @@
+root@311012:~/docker_containers/messenger/deploy# docker compose up -d --build
+[+] Building 21.6s (17/25)
+ => [internal] load local bake definitions                                                                                                                                                                                             0.0s
+ => => reading from stdin 515B                                                                                                                                                                                                         0.0s
+ => [internal] load build definition from Dockerfile                                                                                                                                                                                   0.0s
+ => => transferring dockerfile: 2.88kB                                                                                                                                                                                                 0.0s
+ => [internal] load metadata for docker.io/library/node:22-slim                                                                                                                                                                        0.4s
+ => [internal] load .dockerignore                                                                                                                                                                                                      0.0s
+ => => transferring context: 2B                                                                                                                                                                                                        0.0s
+ => [internal] load build context                                                                                                                                                                                                      0.0s
+ => => transferring context: 10.95kB                                                                                                                                                                                                   0.0s
+ => [builder  1/14] FROM docker.io/library/node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3                                                                                                        0.0s
+ => => resolve docker.io/library/node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3                                                                                                                  0.0s
+ => CACHED [runner 2/7] WORKDIR /app                                                                                                                                                                                                   0.0s
+ => CACHED [runner 3/7] RUN groupadd --gid 1001 nodejs  && useradd --uid 1001 --gid 1001 --no-create-home --shell /bin/false nodejs                                                                                                    0.0s
+ => CACHED [builder  2/14] WORKDIR /monorepo                                                                                                                                                                                           0.0s
+ => CACHED [builder  3/14] RUN corepack enable                                                                                                                                                                                         0.0s
+ => [builder  4/14] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./                                                                                                                                                            0.1s
+ => [builder  5/14] COPY tsconfig.base.json ./                                                                                                                                                                                         0.1s
+ => [builder  6/14] COPY lib/       ./lib/                                                                                                                                                                                             0.1s
+ => [builder  7/14] COPY scripts/   ./scripts/                                                                                                                                                                                         0.2s
+ => [builder  8/14] COPY artifacts/api-server/ ./artifacts/api-server/                                                                                                                                                                 0.2s
+ => [builder  9/14] COPY deploy/api/migrate.ts ./deploy/api/migrate.ts                                                                                                                                                                 0.1s
+ => ERROR [builder 10/14] RUN pnpm install --no-frozen-lockfile                                                                                                                                                                       19.9s
+------
+ > [builder 10/14] RUN pnpm install --no-frozen-lockfile:
+0.711 ! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.17.0.tgz
+3.162 Scope: all 7 workspace projects
+3.587 ? Verifying lockfile against supply-chain policies (1082 entries)...
+4.138 Progress: resolved 1, reused 0, downloaded 0, added 0
+5.161 Progress: resolved 21, reused 0, downloaded 18, added 0
+6.166 Progress: resolved 23, reused 0, downloaded 22, added 0
+7.227 Progress: resolved 27, reused 0, downloaded 26, added 0
+8.240 Progress: resolved 29, reused 0, downloaded 28, added 0
+9.249 Progress: resolved 29, reused 0, downloaded 29, added 0
+10.26 Progress: resolved 30, reused 0, downloaded 30, added 0
+14.05 Progress: resolved 31, reused 0, downloaded 30, added 0
+15.05 Progress: resolved 151, reused 0, downloaded 85, added 0
+15.58 ✓ Lockfile passes supply-chain policies (1082 entries in 11.9s)
+15.87 Packages: +263
+15.87 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+16.24 Progress: resolved 264, reused 0, downloaded 120, added 0
+17.24 Progress: resolved 264, reused 0, downloaded 220, added 8
+17.91 Progress: resolved 264, reused 0, downloaded 263, added 263, done
+18.41 . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+18.48 . preinstall: Done
+18.55 [WARN] Issues with peer dependencies found. Run "pnpm peers check" to list them.
+18.55
+18.55 dependencies:
+18.55 + @replit/connectors-sdk 0.4.1
+18.55
+18.55 devDependencies:
+18.55 + prettier 3.9.5 (3.9.6 is available)
+18.55 + typescript 5.9.3 (7.0.2 is available)
+18.55
+18.62 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: argon2@0.43.1, esbuild@0.27.3
+18.62
+18.62 Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+------
+[+] up 0/1
+ ⠙ Image deploy-api Building                                                                                                                                                                                                           21.7s
+Dockerfile:23
+
+--------------------
+
+  21 |
+
+  22 |     # Install ALL dependencies (dev included — esbuild is needed for build)
+
+  23 | >>> RUN pnpm install --no-frozen-lockfile
+
+  24 |
+
+  25 |     # Build the API server bundle → artifacts/api-server/dist/
+
+--------------------
+
+failed to solve: process "/bin/sh -c pnpm install --no-frozen-lockfile" did not complete successfully: exit code: 1
