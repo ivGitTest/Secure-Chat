@@ -1,0 +1,251 @@
+root@311012:~/docker_containers/messenger/deploy# docker compose logs api
+api-1  | [entrypoint] Applying database migrations…
+api-1  | [migrate] Schema applied successfully
+api-1  | [entrypoint] Migrations OK — starting API server on port 3000…
+api-1  | node:internal/modules/cjs/loader:1430
+api-1  |   const err = new Error(message);
+api-1  |               ^
+api-1  |
+api-1  | Error: Cannot find module '@phc/format'
+api-1  | Require stack:
+api-1  | - /app/node_modules/argon2/argon2.cjs
+api-1  |     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+api-1  |     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+api-1  |     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+api-1  |     at Function._load (node:internal/modules/cjs/loader:1216:25)
+api-1  |     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+api-1  |     at Module.require (node:internal/modules/cjs/loader:1527:12)
+api-1  |     at require (node:internal/modules/helpers:147:16)
+api-1  |     at Object.<anonymous> (/app/node_modules/argon2/argon2.cjs:4:36)
+api-1  |     at Module._compile (node:internal/modules/cjs/loader:1781:14)
+api-1  |     at Object..js (node:internal/modules/cjs/loader:1913:10) {
+api-1  |   code: 'MODULE_NOT_FOUND',
+api-1  |   requireStack: [ '/app/node_modules/argon2/argon2.cjs' ]
+api-1  | }
+api-1  |
+api-1  | Node.js v22.23.1
+api-1  | [entrypoint] Applying database migrations…
+api-1  | [migrate] Schema applied successfully
+api-1  | [entrypoint] Migrations OK — starting API server on port 3000…
+api-1  | node:internal/modules/cjs/loader:1430
+api-1  |   const err = new Error(message);
+api-1  |               ^
+api-1  |
+api-1  | Error: Cannot find module '@phc/format'
+api-1  | Require stack:
+api-1  | - /app/node_modules/argon2/argon2.cjs
+api-1  |     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+api-1  |     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+api-1  |     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+api-1  |     at Function._load (node:internal/modules/cjs/loader:1216:25)
+api-1  |     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+api-1  |     at Module.require (node:internal/modules/cjs/loader:1527:12)
+api-1  |     at require (node:internal/modules/helpers:147:16)
+api-1  |     at Object.<anonymous> (/app/node_modules/argon2/argon2.cjs:4:36)
+api-1  |     at Module._compile (node:internal/modules/cjs/loader:1781:14)
+api-1  |     at Object..js (node:internal/modules/cjs/loader:1913:10) {
+api-1  |   code: 'MODULE_NOT_FOUND',
+api-1  |   requireStack: [ '/app/node_modules/argon2/argon2.cjs' ]
+api-1  | }
+api-1  |
+api-1  | Node.js v22.23.1
+api-1  | [entrypoint] Applying database migrations…
+api-1  | [migrate] Schema applied successfully
+api-1  | [entrypoint] Migrations OK — starting API server on port 3000…
+api-1  | node:internal/modules/cjs/loader:1430
+api-1  |   const err = new Error(message);
+api-1  |               ^
+api-1  |
+api-1  | Error: Cannot find module '@phc/format'
+api-1  | Require stack:
+api-1  | - /app/node_modules/argon2/argon2.cjs
+api-1  |     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+api-1  |     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+api-1  |     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+api-1  |     at Function._load (node:internal/modules/cjs/loader:1216:25)
+api-1  |     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+api-1  |     at Module.require (node:internal/modules/cjs/loader:1527:12)
+api-1  |     at require (node:internal/modules/helpers:147:16)
+api-1  |     at Object.<anonymous> (/app/node_modules/argon2/argon2.cjs:4:36)
+api-1  |     at Module._compile (node:internal/modules/cjs/loader:1781:14)
+api-1  |     at Object..js (node:internal/modules/cjs/loader:1913:10) {
+api-1  |   code: 'MODULE_NOT_FOUND',
+api-1  |   requireStack: [ '/app/node_modules/argon2/argon2.cjs' ]
+api-1  | }
+api-1  |
+api-1  | Node.js v22.23.1
+api-1  | [entrypoint] Applying database migrations…
+api-1  | [migrate] Schema applied successfully
+api-1  | [entrypoint] Migrations OK — starting API server on port 3000…
+api-1  | node:internal/modules/cjs/loader:1430
+api-1  |   const err = new Error(message);
+api-1  |               ^
+api-1  |
+api-1  | Error: Cannot find module '@phc/format'
+api-1  | Require stack:
+api-1  | - /app/node_modules/argon2/argon2.cjs
+api-1  |     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+api-1  |     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+api-1  |     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+api-1  |     at Function._load (node:internal/modules/cjs/loader:1216:25)
+api-1  |     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+api-1  |     at Module.require (node:internal/modules/cjs/loader:1527:12)
+api-1  |     at require (node:internal/modules/helpers:147:16)
+api-1  |     at Object.<anonymous> (/app/node_modules/argon2/argon2.cjs:4:36)
+api-1  |     at Module._compile (node:internal/modules/cjs/loader:1781:14)
+api-1  |     at Object..js (node:internal/modules/cjs/loader:1913:10) {
+api-1  |   code: 'MODULE_NOT_FOUND',
+api-1  |   requireStack: [ '/app/node_modules/argon2/argon2.cjs' ]
+api-1  | }
+api-1  |
+api-1  | Node.js v22.23.1
+api-1  | [entrypoint] Applying database migrations…
+api-1  | [migrate] Schema applied successfully
+api-1  | [entrypoint] Migrations OK — starting API server on port 3000…
+api-1  | node:internal/modules/cjs/loader:1430
+api-1  |   const err = new Error(message);
+api-1  |               ^
+api-1  |
+api-1  | Error: Cannot find module '@phc/format'
+api-1  | Require stack:
+api-1  | - /app/node_modules/argon2/argon2.cjs
+api-1  |     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+api-1  |     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+api-1  |     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+api-1  |     at Function._load (node:internal/modules/cjs/loader:1216:25)
+api-1  |     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+api-1  |     at Module.require (node:internal/modules/cjs/loader:1527:12)
+api-1  |     at require (node:internal/modules/helpers:147:16)
+api-1  |     at Object.<anonymous> (/app/node_modules/argon2/argon2.cjs:4:36)
+api-1  |     at Module._compile (node:internal/modules/cjs/loader:1781:14)
+api-1  |     at Object..js (node:internal/modules/cjs/loader:1913:10) {
+api-1  |   code: 'MODULE_NOT_FOUND',
+api-1  |   requireStack: [ '/app/node_modules/argon2/argon2.cjs' ]
+api-1  | }
+api-1  |
+api-1  | Node.js v22.23.1
+api-1  | [entrypoint] Applying database migrations…
+api-1  | [migrate] Schema applied successfully
+api-1  | [entrypoint] Migrations OK — starting API server on port 3000…
+api-1  | node:internal/modules/cjs/loader:1430
+api-1  |   const err = new Error(message);
+api-1  |               ^
+api-1  |
+api-1  | Error: Cannot find module '@phc/format'
+api-1  | Require stack:
+api-1  | - /app/node_modules/argon2/argon2.cjs
+api-1  |     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+api-1  |     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+api-1  |     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+api-1  |     at Function._load (node:internal/modules/cjs/loader:1216:25)
+api-1  |     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+api-1  |     at Module.require (node:internal/modules/cjs/loader:1527:12)
+api-1  |     at require (node:internal/modules/helpers:147:16)
+api-1  |     at Object.<anonymous> (/app/node_modules/argon2/argon2.cjs:4:36)
+api-1  |     at Module._compile (node:internal/modules/cjs/loader:1781:14)
+api-1  |     at Object..js (node:internal/modules/cjs/loader:1913:10) {
+api-1  |   code: 'MODULE_NOT_FOUND',
+api-1  |   requireStack: [ '/app/node_modules/argon2/argon2.cjs' ]
+api-1  | }
+api-1  |
+api-1  | Node.js v22.23.1
+api-1  | [entrypoint] Applying database migrations…
+api-1  | [migrate] Schema applied successfully
+api-1  | [entrypoint] Migrations OK — starting API server on port 3000…
+api-1  | node:internal/modules/cjs/loader:1430
+api-1  |   const err = new Error(message);
+api-1  |               ^
+api-1  |
+api-1  | Error: Cannot find module '@phc/format'
+api-1  | Require stack:
+api-1  | - /app/node_modules/argon2/argon2.cjs
+api-1  |     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+api-1  |     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+api-1  |     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+api-1  |     at Function._load (node:internal/modules/cjs/loader:1216:25)
+api-1  |     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+api-1  |     at Module.require (node:internal/modules/cjs/loader:1527:12)
+api-1  |     at require (node:internal/modules/helpers:147:16)
+api-1  |     at Object.<anonymous> (/app/node_modules/argon2/argon2.cjs:4:36)
+api-1  |     at Module._compile (node:internal/modules/cjs/loader:1781:14)
+api-1  |     at Object..js (node:internal/modules/cjs/loader:1913:10) {
+api-1  |   code: 'MODULE_NOT_FOUND',
+api-1  |   requireStack: [ '/app/node_modules/argon2/argon2.cjs' ]
+api-1  | }
+api-1  |
+api-1  | Node.js v22.23.1
+api-1  | [entrypoint] Applying database migrations…
+api-1  | [migrate] Schema applied successfully
+api-1  | [entrypoint] Migrations OK — starting API server on port 3000…
+api-1  | node:internal/modules/cjs/loader:1430
+api-1  |   const err = new Error(message);
+api-1  |               ^
+api-1  |
+api-1  | Error: Cannot find module '@phc/format'
+api-1  | Require stack:
+api-1  | - /app/node_modules/argon2/argon2.cjs
+api-1  |     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+api-1  |     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+api-1  |     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+api-1  |     at Function._load (node:internal/modules/cjs/loader:1216:25)
+api-1  |     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+api-1  |     at Module.require (node:internal/modules/cjs/loader:1527:12)
+api-1  |     at require (node:internal/modules/helpers:147:16)
+api-1  |     at Object.<anonymous> (/app/node_modules/argon2/argon2.cjs:4:36)
+api-1  |     at Module._compile (node:internal/modules/cjs/loader:1781:14)
+api-1  |     at Object..js (node:internal/modules/cjs/loader:1913:10) {
+api-1  |   code: 'MODULE_NOT_FOUND',
+api-1  |   requireStack: [ '/app/node_modules/argon2/argon2.cjs' ]
+api-1  | }
+api-1  |
+api-1  | Node.js v22.23.1
+api-1  | [entrypoint] Applying database migrations…
+api-1  | [migrate] Schema applied successfully
+api-1  | [entrypoint] Migrations OK — starting API server on port 3000…
+api-1  | node:internal/modules/cjs/loader:1430
+api-1  |   const err = new Error(message);
+api-1  |               ^
+api-1  |
+api-1  | Error: Cannot find module '@phc/format'
+api-1  | Require stack:
+api-1  | - /app/node_modules/argon2/argon2.cjs
+api-1  |     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+api-1  |     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+api-1  |     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+api-1  |     at Function._load (node:internal/modules/cjs/loader:1216:25)
+api-1  |     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+api-1  |     at Module.require (node:internal/modules/cjs/loader:1527:12)
+api-1  |     at require (node:internal/modules/helpers:147:16)
+api-1  |     at Object.<anonymous> (/app/node_modules/argon2/argon2.cjs:4:36)
+api-1  |     at Module._compile (node:internal/modules/cjs/loader:1781:14)
+api-1  |     at Object..js (node:internal/modules/cjs/loader:1913:10) {
+api-1  |   code: 'MODULE_NOT_FOUND',
+api-1  |   requireStack: [ '/app/node_modules/argon2/argon2.cjs' ]
+api-1  | }
+api-1  |
+api-1  | Node.js v22.23.1
+api-1  | [entrypoint] Applying database migrations…
+api-1  | [migrate] Schema applied successfully
+api-1  | [entrypoint] Migrations OK — starting API server on port 3000…
+api-1  | node:internal/modules/cjs/loader:1430
+api-1  |   const err = new Error(message);
+api-1  |               ^
+api-1  |
+api-1  | Error: Cannot find module '@phc/format'
+api-1  | Require stack:
+api-1  | - /app/node_modules/argon2/argon2.cjs
+api-1  |     at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)
+api-1  |     at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)
+api-1  |     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)
+api-1  |     at Function._load (node:internal/modules/cjs/loader:1216:25)
+api-1  |     at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)
+api-1  |     at Module.require (node:internal/modules/cjs/loader:1527:12)
+api-1  |     at require (node:internal/modules/helpers:147:16)
+api-1  |     at Object.<anonymous> (/app/node_modules/argon2/argon2.cjs:4:36)
+api-1  |     at Module._compile (node:internal/modules/cjs/loader:1781:14)
+api-1  |     at Object..js (node:internal/modules/cjs/loader:1913:10) {
+api-1  |   code: 'MODULE_NOT_FOUND',
+api-1  |   requireStack: [ '/app/node_modules/argon2/argon2.cjs' ]
+api-1  | }
+api-1  |
+api-1  | Node.js v22.23.1
