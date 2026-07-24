@@ -1,0 +1,65 @@
+root@311012:~/docker_containers/messenger/deploy# docker compose up -d --build
+[+] Building 1.9s (19/25)
+ => [internal] load local bake definitions                                                                                                                                                                                             0.0s
+ => => reading from stdin 515B                                                                                                                                                                                                         0.0s
+ => [internal] load build definition from Dockerfile                                                                                                                                                                                   0.0s
+ => => transferring dockerfile: 3.31kB                                                                                                                                                                                                 0.0s
+ => [internal] load metadata for docker.io/library/node:22-slim                                                                                                                                                                        0.4s
+ => [internal] load .dockerignore                                                                                                                                                                                                      0.0s
+ => => transferring context: 2B                                                                                                                                                                                                        0.0s
+ => [internal] load build context                                                                                                                                                                                                      0.0s
+ => => transferring context: 4.35kB                                                                                                                                                                                                    0.0s
+ => [builder  1/14] FROM docker.io/library/node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3                                                                                                        0.0s
+ => => resolve docker.io/library/node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3                                                                                                                  0.0s
+ => CACHED [runner 2/7] WORKDIR /app                                                                                                                                                                                                   0.0s
+ => CACHED [runner 3/7] RUN groupadd --gid 1001 nodejs  && useradd --uid 1001 --gid 1001 --no-create-home --shell /bin/false nodejs                                                                                                    0.0s
+ => CACHED [builder  2/14] WORKDIR /monorepo                                                                                                                                                                                           0.0s
+ => CACHED [builder  3/14] RUN npm install -g pnpm@10.26.1 --no-update-notifier                                                                                                                                                        0.0s
+ => CACHED [builder  4/14] COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./                                                                                                                                                     0.0s
+ => CACHED [builder  5/14] COPY tsconfig.base.json ./                                                                                                                                                                                  0.0s
+ => CACHED [builder  6/14] COPY lib/       ./lib/                                                                                                                                                                                      0.0s
+ => CACHED [builder  7/14] COPY scripts/   ./scripts/                                                                                                                                                                                  0.0s
+ => CACHED [builder  8/14] COPY artifacts/api-server/ ./artifacts/api-server/                                                                                                                                                          0.0s
+ => CACHED [builder  9/14] COPY deploy/api/migrate.ts ./deploy/api/migrate.ts                                                                                                                                                          0.0s
+ => CACHED [builder 10/14] RUN pnpm install --no-frozen-lockfile                                                                                                                                                                       0.0s
+ => CACHED [builder 11/14] RUN pnpm --filter @workspace/api-server run build                                                                                                                                                           0.0s
+ => ERROR [builder 12/14] RUN pnpm --filter @workspace/api-server exec -- esbuild       --bundle       --platform=node       --format=esm       --external:*.node       --banner:js="import { createRequire as __crReq } from 'node:m  1.1s
+------
+ > [builder 12/14] RUN pnpm --filter @workspace/api-server exec -- esbuild       --bundle       --platform=node       --format=esm       --external:*.node       --banner:js="import { createRequire as __crReq } from 'node:module'; globalThis.require = __crReq(import.meta.url);"       --outfile=artifacts/api-server/dist/migrate.mjs       deploy/api/migrate.ts:
+0.936 ✘ [ERROR] Could not resolve "deploy/api/migrate.ts"
+0.936
+0.942 1 error
+0.967 undefined
+0.969 /monorepo/artifacts/api-server:
+0.969  ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: esbuild --bundle --platform=node --format=esm --external:*.node --banner:js=import { createRequire as __crReq } from 'node:module'; globalThis.require = __crReq(import.meta.url); --outfile=artifacts/api-server/dist/migrate.mjs deploy/api/migrate.ts
+------
+[+] up 0/1
+ ⠙ Image deploy-api Building                                                                                                                                                                                                            2.0s
+Dockerfile:33
+
+--------------------
+
+  32 |     # Use pnpm exec so esbuild is resolved from api-server's own deps, not root node_modules/.bin
+
+  33 | >>> RUN pnpm --filter @workspace/api-server exec -- esbuild \
+
+  34 | >>>       --bundle \
+
+  35 | >>>       --platform=node \
+
+  36 | >>>       --format=esm \
+
+  37 | >>>       --external:*.node \
+
+  38 | >>>       --banner:js="import { createRequire as __crReq } from 'node:module'; globalThis.require = __crReq(import.meta.url);" \
+
+  39 | >>>       --outfile=artifacts/api-server/dist/migrate.mjs \
+
+  40 | >>>       deploy/api/migrate.ts
+
+  41 |
+
+--------------------
+
+failed to solve: process "/bin/sh -c pnpm --filter @workspace/api-server exec -- esbuild       --bundle       --platform=node       --format=esm       --external:*.node       --banner:js=\"import { createRequire as __crReq } from 'node:module'; globalThis.require = __crReq(import.meta.url);\"       --outfile=artifacts/api-server/dist/migrate.mjs       deploy/api/migrate.ts" did not complete successfully: exit code: 1
+
