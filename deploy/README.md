@@ -12,7 +12,7 @@ This guide walks you through deploying the messenger on a fresh Ubuntu VPS using
 | Docker Engine | 24+ |
 | Docker Compose Plugin | v2.20+ |
 | A domain with DNS A record | Pointing to your VPS IP |
-| Open ports | 80, 443 (TCP) · 3478 (UDP) · 49152-65535 (UDP) |
+| Open ports | 3478 (UDP) · 49152-65535 (UDP) — ports 80/443 handled by host proxy |
 
 ### Install Docker (Ubuntu)
 
@@ -59,129 +59,89 @@ openssl rand -hex 32
 
 ---
 
-## Step 3 — Obtain a TLS certificate (Certbot)
+## Step 3 — Configure the host reverse proxy
 
-Nginx expects the certificate at `deploy/certs/fullchain.pem` and the private key at `deploy/certs/privkey.pem`.
+The messenger's nginx runs inside Docker on `127.0.0.1:7080` (HTTP only).
+Your host reverse proxy handles TLS for `chat.naviry.xyz` and forwards traffic here.
 
-### Option A — Certbot DNS challenge (works when ports 80/443 are occupied)
+### If the host proxy is nginx (system service)
 
-Use this when another service (e.g. n8n, Caddy, Traefik) already holds port 80 or 443.  
-No port needs to be free — Let's Encrypt validates ownership via a DNS TXT record instead.
+Add a new site file, e.g. `/etc/nginx/sites-available/chat.naviry.xyz`:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name chat.naviry.xyz;
+
+    ssl_certificate     /etc/letsencrypt/live/chat.naviry.xyz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/chat.naviry.xyz/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    # WebSocket — must appear before /api/
+    location /ws {
+        proxy_pass         http://127.0.0.1:7080/ws;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade    $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location / {
+        proxy_pass         http://127.0.0.1:7080;
+        proxy_http_version 1.1;
+        proxy_set_header   Host             $host;
+        proxy_set_header   X-Real-IP        $remote_addr;
+        proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto https;
+    }
+}
+
+server {
+    listen 80;
+    server_name chat.naviry.xyz;
+    return 301 https://$host$request_uri;
+}
+```
+
+Then enable it and reload:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/chat.naviry.xyz /etc/nginx/sites-enabled/
+sudo nginx -t && sudo nginx -s reload
+```
+
+### If the host proxy is Caddy
+
+Add to your `Caddyfile`:
+
+```
+chat.naviry.xyz {
+    reverse_proxy /ws 127.0.0.1:7080 {
+        transport http {
+            versions 1.1
+        }
+        header_up Upgrade {http.upgrade}
+        header_up Connection "upgrade"
+    }
+    reverse_proxy 127.0.0.1:7080
+}
+```
+
+Then reload: `sudo systemctl reload caddy`
+
+### TLS certificate for the host proxy
+
+If the host proxy does not yet have a cert for `chat.naviry.xyz`, obtain one via DNS challenge (no ports needed):
 
 ```bash
 sudo apt-get install -y certbot
 sudo certbot certonly --manual --preferred-challenges dns -d chat.naviry.xyz
 ```
 
-Certbot will print something like:
-
-```
-Please deploy a DNS TXT record under the name:
-_acme-challenge.chat.naviry.xyz
-with the following value:
-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
-
-1. Log in to your DNS provider and add that TXT record.
-2. Wait ~60 seconds for propagation, then verify it is live:
-   ```bash
-   dig TXT _acme-challenge.chat.naviry.xyz +short
-   # Must return the value certbot printed above
-   ```
-3. Press **Enter** in the certbot prompt to complete validation.
-
-Then copy the certificate files into `deploy/certs/`:
-
-```bash
-DOMAIN=chat.naviry.xyz
-sudo cp /etc/letsencrypt/live/$DOMAIN/fullchain.pem deploy/certs/fullchain.pem
-sudo cp /etc/letsencrypt/live/$DOMAIN/privkey.pem   deploy/certs/privkey.pem
-sudo chown $USER deploy/certs/*.pem
-```
-
-### Option B — Certbot standalone (only if port 80 is free)
-
-Use this on a fresh VPS where nothing else listens on port 80.
-
-```bash
-sudo apt-get install -y certbot
-sudo certbot certonly --standalone -d chat.naviry.xyz
-```
-
-If nginx from the docker compose stack is already running, stop it first:
-
-```bash
-# Run from the deploy/ directory
-docker compose stop nginx
-sudo certbot certonly --standalone -d chat.naviry.xyz
-docker compose start nginx
-```
-
-Then copy the certificate files the same way as Option A above.
-
-### Option B — Self-signed certificate (testing only, not trusted by Android)
-
-```bash
-openssl req -x509 -nodes -days 365 \
-  -newkey rsa:2048 \
-  -keyout deploy/certs/privkey.pem \
-  -out    deploy/certs/fullchain.pem \
-  -subj   "/CN=chat.naviry.xyz"
-```
-
-### Certificate renewal (automated)
-
-Let's Encrypt certificates expire every 90 days. The repo ships a renewal
-script at `deploy/scripts/renew-certs.sh` that:
-
-1. Runs `certbot renew` (renews only when the cert is within 30 days of expiry)
-2. Copies the renewed `fullchain.pem` / `privkey.pem` into `deploy/certs/`
-3. Reloads nginx inside the compose stack (`nginx -s reload` — zero downtime)
-
-If nothing was renewed, it exits without touching nginx.
-
-Set it up once:
-
-```bash
-# 1. Make the script executable (run from the repo root)
-chmod +x deploy/scripts/renew-certs.sh
-
-# 2. Test it manually (as root — certbot needs /etc/letsencrypt access)
-sudo DOMAIN=chat.naviry.xyz $(pwd)/deploy/scripts/renew-certs.sh
-
-# 3. Schedule it weekly in root's crontab
-sudo crontab -e
-# Add the line below — replace /home/user/messenger with your actual repo path:
-# 0 3 * * 1 DOMAIN=chat.naviry.xyz /home/user/messenger/deploy/scripts/renew-certs.sh >> /var/log/renew-certs.log 2>&1
-```
-
-Notes:
-
-- `DOMAIN` defaults to `chat.naviry.xyz`; override it if your domain differs.
-- The script auto-detects the `deploy/` directory from its own location, so no
-  path editing is needed — set `DEPLOY_DIR` only if you move the certs elsewhere.
-- Certbot standalone renewal binds port 80 briefly. Since nginx occupies port 80,
-  either keep using standalone with a short stop/start, or (recommended) let the
-  existing cert stay validated via the `--webroot` or DNS method. Simplest robust
-  option: `sudo certbot renew --pre-hook "docker compose -f /path/to/messenger/deploy/docker-compose.yml stop nginx" --post-hook "docker compose -f /path/to/messenger/deploy/docker-compose.yml start nginx"` — but the weekly script above with default standalone renewal works if certbot was originally set up with `--standalone` and port 80 is briefly freed. To avoid any downtime, register the pre/post hooks once:
-
-```bash
-# Replace /home/user/messenger with your actual repo path
-REPO=/home/user/messenger
-
-sudo tee /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh > /dev/null <<EOF
-#!/bin/sh
-docker compose -f $REPO/deploy/docker-compose.yml stop nginx
-EOF
-sudo tee /etc/letsencrypt/renewal-hooks/post/start-nginx.sh > /dev/null <<EOF
-#!/bin/sh
-docker compose -f $REPO/deploy/docker-compose.yml start nginx
-EOF
-sudo chmod +x /etc/letsencrypt/renewal-hooks/pre/stop-nginx.sh \
-              /etc/letsencrypt/renewal-hooks/post/start-nginx.sh
-```
-
-- Check `/var/log/renew-certs.log` if the certificate ever fails to renew.
+Follow the prompts to add a TXT record, then verify and press Enter.
 
 ---
 
