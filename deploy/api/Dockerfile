@@ -1,10 +1,10 @@
 # ============================================================
 # Stage 1: builder — installs deps and builds the application
 # ============================================================
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 WORKDIR /monorepo
 
-# Enable pnpm via corepack (bundled with Node 20)
+# Enable pnpm via corepack (bundled with Node 22)
 RUN corepack enable
 
 # Copy workspace manifests first for better layer caching
@@ -51,7 +51,7 @@ RUN cp -rL node_modules/argon2 /tmp/argon2
 # ============================================================
 # Stage 2: runner — minimal production image
 # ============================================================
-FROM node:20-slim AS runner
+FROM node:22-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
