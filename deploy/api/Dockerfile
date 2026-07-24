@@ -29,7 +29,8 @@ RUN pnpm install --no-frozen-lockfile
 RUN pnpm --filter @workspace/api-server run build
 
 # Bundle the migration script (pg is bundled in; self-contained, no extra node_modules needed)
-RUN node_modules/.bin/esbuild \
+# Use pnpm exec so esbuild is resolved from api-server's own deps, not root node_modules/.bin
+RUN pnpm --filter @workspace/api-server exec -- esbuild \
       --bundle \
       --platform=node \
       --format=esm \
@@ -39,7 +40,7 @@ RUN node_modules/.bin/esbuild \
       deploy/api/migrate.ts
 
 # Bundle the admin CLI (argon2 externalized — same native module as the app)
-RUN node_modules/.bin/esbuild \
+RUN pnpm --filter @workspace/api-server exec -- esbuild \
       --bundle \
       --platform=node \
       --format=esm \
