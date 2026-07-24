@@ -32,8 +32,8 @@ RUN pnpm --filter @workspace/api-server run build
 RUN pnpm --filter @workspace/api-server run bundle-migrate
 RUN pnpm --filter @workspace/api-server run bundle-admin
 
-# Extract argon2 native module (follow pnpm symlinks → actual files, no dangling symlinks)
-RUN cp -rL node_modules/argon2 /tmp/argon2
+# Extract argon2 from pnpm virtual store (pnpm does not hoist deps to root node_modules)
+RUN cp -rL node_modules/.pnpm/argon2@*/node_modules/argon2 /tmp/argon2
 
 # ============================================================
 # Stage 2: runner — minimal production image
