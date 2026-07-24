@@ -4,8 +4,11 @@
 FROM node:22-slim AS builder
 WORKDIR /monorepo
 
-# Enable pnpm via corepack (bundled with Node 22)
-RUN corepack enable
+# Install pnpm at the exact same version used in the monorepo dev environment.
+# Do NOT use corepack here — without a packageManager field in package.json,
+# corepack resolves the latest pnpm release (currently 11.x), which has a
+# breaking build-approval API incompatible with this lockfile (v9, pnpm 10).
+RUN npm install -g pnpm@10.26.1 --no-update-notifier
 
 # Copy workspace manifests first for better layer caching
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
