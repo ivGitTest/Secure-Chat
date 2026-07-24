@@ -67,10 +67,28 @@ Nginx expects the certificate at `deploy/certs/fullchain.pem` and the private ke
 
 ```bash
 sudo apt-get install -y certbot
+```
+
+Certbot standalone needs port 80 to be free. Run the command that matches your situation:
+
+**If the docker compose stack is not running yet** (fresh VPS):
+
+```bash
 sudo certbot certonly --standalone -d chat.naviry.xyz
 ```
 
-Then link the files:
+**If nginx is already up** (you started the stack before getting the cert):
+
+```bash
+# Stop nginx, get the cert, start nginx again
+docker compose stop nginx
+sudo certbot certonly --standalone -d chat.naviry.xyz
+docker compose start nginx
+```
+
+> Run both `docker compose` commands from the `deploy/` directory (i.e. where `docker-compose.yml` lives).
+
+Then copy the certificate files into `deploy/certs/`:
 
 ```bash
 DOMAIN=chat.naviry.xyz
