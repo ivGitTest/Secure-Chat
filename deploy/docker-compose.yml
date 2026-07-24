@@ -9,7 +9,10 @@ services:
       POSTGRES_USER:     messenger
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      # Bind mount to a host path so that `docker compose down -v` or
+      # `docker volume prune` can never delete the data.
+      # The directory is created automatically by Docker on first run.
+      - ${POSTGRES_DATA_DIR:-/opt/messenger/postgres-data}:/var/lib/postgresql/data
     networks:
       - messenger
     healthcheck:
@@ -102,5 +105,5 @@ networks:
     driver: bridge
 
 # ─── Volumes ──────────────────────────────────────────────────────────────────
-volumes:
-  postgres-data:
+# No named volumes — postgres uses a bind mount (see POSTGRES_DATA_DIR in .env)
+# so that `docker compose down -v` and `docker volume prune` cannot delete data.
