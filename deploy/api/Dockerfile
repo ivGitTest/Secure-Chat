@@ -28,26 +28,9 @@ RUN pnpm install --no-frozen-lockfile
 # Build the API server bundle → artifacts/api-server/dist/
 RUN pnpm --filter @workspace/api-server run build
 
-# Bundle the migration script (pg is bundled in; self-contained, no extra node_modules needed)
-# Use pnpm exec so esbuild is resolved from api-server's own deps, not root node_modules/.bin
-RUN pnpm --filter @workspace/api-server exec -- esbuild \
-      --bundle \
-      --platform=node \
-      --format=esm \
-      --external:*.node \
-      --banner:js="import { createRequire as __crReq } from 'node:module'; globalThis.require = __crReq(import.meta.url);" \
-      --outfile=artifacts/api-server/dist/migrate.mjs \
-      deploy/api/migrate.ts
-
-# Bundle the admin CLI (argon2 externalized — same native module as the app)
-RUN pnpm --filter @workspace/api-server exec -- esbuild \
-      --bundle \
-      --platform=node \
-      --format=esm \
-      --external:*.node \
-      --banner:js="import { createRequire as __crReq } from 'node:module'; globalThis.require = __crReq(import.meta.url);" \
-      --outfile=artifacts/api-server/dist/admin.mjs \
-      scripts/src/admin.ts
+# Bundle migrate + admin via package scripts (paths are relative to the api-server package dir)
+RUN pnpm --filter @workspace/api-server run bundle-migrate
+RUN pnpm --filter @workspace/api-server run bundle-admin
 
 # Extract argon2 native module (follow pnpm symlinks → actual files, no dangling symlinks)
 RUN cp -rL node_modules/argon2 /tmp/argon2

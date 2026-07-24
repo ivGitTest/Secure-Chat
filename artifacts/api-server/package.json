@@ -7,7 +7,9 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "bundle-migrate": "esbuild --bundle --platform=node --format=esm --external:*.node \"--banner:js=import { createRequire as __crReq } from 'node:module'; globalThis.require = __crReq(import.meta.url);\" --outfile=dist/migrate.mjs ../../deploy/api/migrate.ts",
+    "bundle-admin": "esbuild --bundle --platform=node --format=esm --external:*.node \"--banner:js=import { createRequire as __crReq } from 'node:module'; globalThis.require = __crReq(import.meta.url);\" --outfile=dist/admin.mjs ../../scripts/src/admin.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
