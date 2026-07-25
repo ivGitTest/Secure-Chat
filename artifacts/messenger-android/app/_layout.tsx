@@ -24,10 +24,24 @@ import { CallProvider } from '@/context/CallContext';
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const data = notification.request.content.data as { type?: string };
+    // Suppress message notifications in foreground — WebSocket delivers them live in the UI
     if (data?.type === 'message') {
-      return { shouldShowAlert: false, shouldPlaySound: false, shouldSetBadge: false };
+      return {
+        shouldShowAlert: false,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+        shouldShowBanner: false,
+        shouldShowList: false,
+      };
     }
-    return { shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false };
+    // Show call notifications (belt-and-suspenders alongside the WebSocket path)
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    };
   },
 });
 

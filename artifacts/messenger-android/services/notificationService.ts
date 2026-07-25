@@ -54,19 +54,14 @@ export async function registerForPushNotifications(): Promise<void> {
     // Set up channels first so they exist before any notification arrives
     await setupNotificationChannels();
 
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+    // Request notification permission — Android 13+ shows the dialog once.
+    // On older Android it's always granted. We don't check the return value because
+    // the NotificationPermissionsStatus type doesn't resolve cleanly through the
+    // pnpm workspace; instead we let getExpoPushTokenAsync throw if denied.
+    await Notifications.requestPermissionsAsync();
 
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') {
-      console.log('[Push] Notification permission denied — skipping push registration');
-      return;
-    }
-
+    // Throws if permission was denied, if google-services.json is missing (Expo Go),
+    // or if the device has no Google Play Services. All caught below.
     const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
     const token = tokenResult.data;
 
