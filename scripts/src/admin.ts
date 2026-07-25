@@ -120,6 +120,41 @@ async function unblockUser(args: Map<string, string>): Promise<void> {
   console.log(`User '${id}' unblocked.`);
 }
 
+async function changePin(args: Map<string, string>): Promise<void> {
+  const id = args.get("id");
+  const pin = args.get("pin");
+
+  if (!id || !pin) {
+    console.error("Usage: change-pin --id <userId> --pin <6-digit-pin>");
+    process.exit(1);
+  }
+
+  if (!/^\d{6}$/.test(pin)) {
+    console.error("Error: PIN must be exactly 6 digits.");
+    process.exit(1);
+  }
+
+  const db = getDb();
+  const [user] = await db
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.id, id))
+    .limit(1);
+
+  if (!user) {
+    console.error(`Error: User '${id}' not found.`);
+    process.exit(1);
+  }
+
+  const pinHash = await argon2.hash(pin, { type: argon2.argon2id });
+  await db
+    .update(schema.users)
+    .set({ pinHash, failedAttempts: 0, isBlocked: false })
+    .where(eq(schema.users.id, id));
+
+  console.log(`PIN for user '${id}' changed successfully.`);
+}
+
 async function listUsers(): Promise<void> {
   const db = getDb();
   const allUsers = await db
@@ -156,6 +191,9 @@ async function main(): Promise<void> {
       break;
     case "list-users":
       await listUsers();
+      break;
+    case "change-pin":
+      await changePin(args);
       break;
     default:
       console.error(`Unknown command: '${command ?? ""}'`);
