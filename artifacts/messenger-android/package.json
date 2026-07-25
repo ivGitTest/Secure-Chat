@@ -55,7 +55,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
-    "expo-notifications": "^57.0.7",
+    "expo-notifications": "~0.32.17",
     "expo-secure-store": "^15.0.8",
     "react-native-webrtc": "^124.0.8"
   }
