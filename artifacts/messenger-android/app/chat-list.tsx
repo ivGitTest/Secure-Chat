@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -8,8 +9,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
+
+const APP_VERSION: string = Constants.expoConfig?.version ?? '1.0.1';
 import { getConversations } from '@/api/client';
 import colors from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
@@ -68,13 +72,22 @@ export default function ChatListScreen() {
     navigation.setOptions({
       title: userName ?? 'Чаты',
       headerRight: () => (
-        <TouchableOpacity
-          onPress={() => void handleLogout()}
-          style={{ marginRight: 16 }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="log-out-outline" size={24} color={C.destructive} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 8 }}>
+          <TouchableOpacity
+            onPress={handleInfo}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ padding: 6 }}
+          >
+            <Ionicons name="information-circle-outline" size={24} color={C.mutedForeground} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => void handleLogout()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ padding: 6 }}
+          >
+            <Ionicons name="log-out-outline" size={24} color={C.destructive} />
+          </TouchableOpacity>
+        </View>
       ),
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,6 +96,14 @@ export default function ChatListScreen() {
   async function handleLogout() {
     await clearAuth();
     router.replace('/login');
+  }
+
+  function handleInfo() {
+    Alert.alert(
+      'Семейный мессенджер',
+      `Версия ${APP_VERSION}\n\nЗакрытый семейный мессенджер с поддержкой голосовых звонков.`,
+      [{ text: 'OK' }],
+    );
   }
 
   function handleUserPress(row: ContactRow) {
