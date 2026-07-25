@@ -28,7 +28,8 @@
         "android.permission.BLUETOOTH_CONNECT"
       ],
       "package": "com.ivaexpi.messengerandroid",
-      "versionCode": 1
+      "versionCode": 1,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/images/icon.png"

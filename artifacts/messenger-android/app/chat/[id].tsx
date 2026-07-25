@@ -24,7 +24,10 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+// KeyboardAvoidingView removed — keyboard is handled natively via
+// softwareKeyboardLayoutMode:"resize" in app.json (adjustResize). The OS
+// shrinks the window height when the keyboard appears, so no JS compensation
+// is needed and no conflict with react-native-keyboard-controller arises.
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMessages } from '@/api/client';
@@ -222,11 +225,7 @@ export default function ChatScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior="padding"
-      keyboardVerticalOffset={0}
-    >
+    <View style={styles.root}>
       <FlatList<Message>
         data={messages}
         inverted
@@ -263,7 +262,7 @@ export default function ChatScreen() {
           <Ionicons name="send" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
