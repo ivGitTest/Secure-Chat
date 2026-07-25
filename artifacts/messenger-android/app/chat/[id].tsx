@@ -24,10 +24,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-// KeyboardAvoidingView removed — keyboard is handled natively via
-// softwareKeyboardLayoutMode:"resize" in app.json (adjustResize). The OS
-// shrinks the window height when the keyboard appears, so no JS compensation
-// is needed and no conflict with react-native-keyboard-controller arises.
+import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMessages } from '@/api/client';
@@ -77,6 +75,13 @@ export default function ChatScreen() {
   const { userId } = useAuth();
   const { makeCall, callState } = useCall();
   const insets = useSafeAreaInsets();
+
+  // Keyboard spacer: height animates from 0 → keyboardHeight as keyboard appears.
+  // Works in Expo Go (adjustNothing) and standalone builds (adjustResize — spacer = 0).
+  const { height: kbdHeight } = useReanimatedKeyboardAnimation();
+  const keyboardSpacerStyle = useAnimatedStyle(() => ({
+    height: Math.max(0, -kbdHeight.value),
+  }));
 
   const [messages, setMessages] = useState<Message[]>([]); // newest-first (for inverted FlatList)
   const [inputText, setInputText] = useState('');
@@ -262,6 +267,9 @@ export default function ChatScreen() {
           <Ionicons name="send" size={20} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      {/* Spacer that grows with the keyboard so the input bar is never hidden */}
+      <Animated.View style={keyboardSpacerStyle} />
     </View>
   );
 }
