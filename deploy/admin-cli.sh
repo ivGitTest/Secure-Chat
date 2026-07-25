@@ -42,21 +42,20 @@ check_container() {
   fi
 }
 
-# ── Прочитать строку с подсказкой ─────────────────────────────────────────────
-prompt() {
-  printf "%s" "$1"
-  read -r REPLY
-  printf "%s" "$REPLY"
+# ── Ввод строки: prompt <подсказка> <имя_переменной> ────────────────────────
+# Не использует command substitution — результат кладётся в переменную напрямую.
+ask() {
+  printf "%b" "$1"
+  read -r "$2" </dev/tty
 }
 
-# ── Прочитать PIN без вывода на экран ────────────────────────────────────────
-prompt_pin() {
-  printf "%s" "$1"
+# ── Ввод PIN без вывода на экран ─────────────────────────────────────────────
+ask_pin() {
+  printf "%b" "$1"
   stty -echo 2>/dev/null || true
-  read -r REPLY
+  read -r "$2" </dev/tty
   stty echo 2>/dev/null || true
   printf "\n"
-  printf "%s" "$REPLY"
 }
 
 # ── Меню ─────────────────────────────────────────────────────────────────────
@@ -83,25 +82,24 @@ do_list() {
 do_create() {
   printf "\n${YELLOW}Создание пользователя${RESET}\n"
 
-  USER_ID=$(prompt "  ID (логин, латиница без пробелов): ")
+  ask "  ID (логин, латиница без пробелов): " USER_ID
   [ -z "$USER_ID" ] && printf "${RED}ID не может быть пустым.${RESET}\n" && return
 
-  USER_NAME=$(prompt "  Отображаемое имя: ")
+  ask "  Отображаемое имя: " USER_NAME
   [ -z "$USER_NAME" ] && printf "${RED}Имя не может быть пустым.${RESET}\n" && return
 
-  USER_PIN=$(prompt_pin "  PIN (6 цифр, ввод скрыт): ")
+  ask_pin "  PIN (6 цифр, ввод скрыт): " USER_PIN
   if ! printf "%s" "$USER_PIN" | grep -qE '^[0-9]{6}$'; then
     printf "${RED}Ошибка: PIN должен состоять ровно из 6 цифр.${RESET}\n"
     return
   fi
 
-  PIN2=$(prompt_pin "  Повторите PIN: ")
+  ask_pin "  Повторите PIN: " PIN2
   if [ "$USER_PIN" != "$PIN2" ]; then
     printf "${RED}Ошибка: PIN-коды не совпадают.${RESET}\n"
     return
   fi
 
-  printf "\n"
   if run_admin create-user --id "$USER_ID" --name "$USER_NAME" --pin "$USER_PIN"; then
     printf "${GREEN}✓ Пользователь создан.${RESET}\n"
   fi
@@ -110,7 +108,7 @@ do_create() {
 do_block() {
   printf "\n${YELLOW}Блокировка пользователя${RESET}\n"
   do_list
-  USER_ID=$(prompt "  ID пользователя для блокировки: ")
+  ask "  ID пользователя для блокировки: " USER_ID
   [ -z "$USER_ID" ] && return
   if run_admin block-user --id "$USER_ID"; then
     printf "${GREEN}✓ Пользователь заблокирован.${RESET}\n"
@@ -120,7 +118,7 @@ do_block() {
 do_unblock() {
   printf "\n${YELLOW}Разблокировка пользователя${RESET}\n"
   do_list
-  USER_ID=$(prompt "  ID пользователя для разблокировки: ")
+  ask "  ID пользователя для разблокировки: " USER_ID
   [ -z "$USER_ID" ] && return
   if run_admin unblock-user --id "$USER_ID"; then
     printf "${GREEN}✓ Пользователь разблокирован.${RESET}\n"
@@ -130,22 +128,21 @@ do_unblock() {
 do_change_pin() {
   printf "\n${YELLOW}Смена PIN${RESET}\n"
   do_list
-  USER_ID=$(prompt "  ID пользователя: ")
+  ask "  ID пользователя: " USER_ID
   [ -z "$USER_ID" ] && return
 
-  USER_PIN=$(prompt_pin "  Новый PIN (6 цифр, ввод скрыт): ")
+  ask_pin "  Новый PIN (6 цифр, ввод скрыт): " USER_PIN
   if ! printf "%s" "$USER_PIN" | grep -qE '^[0-9]{6}$'; then
     printf "${RED}Ошибка: PIN должен состоять ровно из 6 цифр.${RESET}\n"
     return
   fi
 
-  PIN2=$(prompt_pin "  Повторите новый PIN: ")
+  ask_pin "  Повторите новый PIN: " PIN2
   if [ "$USER_PIN" != "$PIN2" ]; then
     printf "${RED}Ошибка: PIN-коды не совпадают.${RESET}\n"
     return
   fi
 
-  printf "\n"
   if run_admin change-pin --id "$USER_ID" --pin "$USER_PIN"; then
     printf "${GREEN}✓ PIN изменён.${RESET}\n"
   fi
@@ -156,7 +153,7 @@ check_container
 
 while true; do
   show_menu
-  CHOICE=$(prompt "  Выберите действие [0-5]: ")
+  ask "  Выберите действие [0-5]: " CHOICE
   case "$CHOICE" in
     1) do_list ;;
     2) do_create ;;
