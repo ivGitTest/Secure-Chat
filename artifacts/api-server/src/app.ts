@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -8,6 +9,14 @@ const app: Express = express();
 
 // Trust proxy headers (for correct req.ip behind nginx/load balancer)
 app.set("trust proxy", 1);
+
+// Security headers — must be first middleware so headers appear on every response.
+// contentSecurityPolicy is disabled: this server returns JSON/WebSocket only, no HTML.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  }),
+);
 
 app.use(
   pinoHttp({
