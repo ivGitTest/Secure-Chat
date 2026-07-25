@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "617733600904",
+    "project_id": "chat-b79fc",
+    "storage_bucket": "chat-b79fc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:617733600904:android:1060a4e062c91ff777513d",
+        "android_client_info": {
+          "package_name": "com.ivaexpi.messengerandroid"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-XasXS02_ofJURu_bMcDHRSopg2Cm7ns"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:617733600904:android:a19736421888d96777513d",
+        "android_client_info": {
+          "package_name": "com.naviry.messenger"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-XasXS02_ofJURu_bMcDHRSopg2Cm7ns"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
