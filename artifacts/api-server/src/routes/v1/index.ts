@@ -4,6 +4,7 @@ import authRouter from "./auth";
 import usersRouter from "./users";
 import conversationsRouter from "./conversations";
 import configRouter from "./config";
+import devicesRouter from "./devices";
 import { requireAuth } from "../../middlewares/auth";
 
 const router: IRouter = Router();
@@ -32,5 +33,6 @@ router.use("/auth", authRouter);
 router.use("/users", requireAuth, apiRateLimiter, usersRouter);
 router.use("/conversations", requireAuth, apiRateLimiter, conversationsRouter);
 router.use("/config", requireAuth, apiRateLimiter, configRouter);
+router.use("/devices", requireAuth, apiRateLimiter, devicesRouter);
 
 export default router;

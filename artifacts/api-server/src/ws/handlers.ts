@@ -1,7 +1,8 @@
 import type { RawData } from "ws";
 import { eq, ne, and, inArray } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { messages, participants, conversations, users } from "@workspace/db";
+import { messages, participants, conversations, users, pushTokens } from "@workspace/db";
+import { sendPushNotification } from "../lib/pushService";
 import { logger } from "../lib/logger";
 import { send, sendToUser } from "./connections";
 import { handleSignaling } from "./signaling";
@@ -220,12 +221,33 @@ async function handleMessageSend(ws: ExtendedWebSocket, envelope: WsEnvelope): P
       createdAt: saved.createdAt.toISOString(),
     };
 
-    // Deliver to recipient if online
-    sendToUser(recipientId, {
+    // Deliver to recipient if online; fall back to push when they're offline
+    const delivered = sendToUser(recipientId, {
       type: "message.new",
       payload: messagePayload,
       timestamp: new Date().toISOString(),
     });
+
+    if (!delivered) {
+      // Recipient is offline — fire push notification (best-effort, non-blocking)
+      void (async () => {
+        const [pushRow, senderUser] = await Promise.all([
+          db.select({ token: pushTokens.token }).from(pushTokens)
+            .where(eq(pushTokens.userId, recipientId)).limit(1).then((r) => r[0]),
+          db.select({ name: users.name }).from(users)
+            .where(eq(users.id, userId)).limit(1).then((r) => r[0]),
+        ]);
+        if (pushRow?.token) {
+          await sendPushNotification(pushRow.token, {
+            title: senderUser?.name ?? userId,
+            body: text.trim(),
+            data: { type: "message", conversationId },
+            sound: "default",
+            channelId: "messages",
+          });
+        }
+      })();
+    }
 
     // Acknowledge to sender — include clientId so the client can match the
     // temp message it showed optimistically.

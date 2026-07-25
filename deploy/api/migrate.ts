@@ -72,6 +72,14 @@ CREATE TABLE IF NOT EXISTS call_logs (
   ended_at    TIMESTAMPTZ,
   duration_s  INTEGER
 );
+
+-- Push token registry: one row per user (last registered device wins).
+-- Used by the API server to reach users who are offline via Expo Push Service → FCM.
+CREATE TABLE IF NOT EXISTS push_tokens (
+  user_id    VARCHAR(64)  PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  token      TEXT         NOT NULL,
+  updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
 `;
 
 try {

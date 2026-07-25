@@ -108,3 +108,15 @@ export function getMessages(
 export function getConfig(): Promise<ApiConfig> {
   return apiFetch<ApiConfig>('/config');
 }
+
+/**
+ * Register (or refresh) the Expo push token for this device.
+ * Called on every app launch after login — the server upserts, so repeated
+ * calls are safe and handle FCM token rotation automatically.
+ */
+export function registerPushToken(token: string): Promise<void> {
+  return apiFetch<void>('/devices/push-token', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  });
+}

@@ -12,12 +12,13 @@ import {
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
-
-const APP_VERSION: string = Constants.expoConfig?.version ?? '1.0.1';
 import { getConversations } from '@/api/client';
 import colors from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
+import { registerForPushNotifications } from '@/services/notificationService';
 import type { Conversation, User } from '@/types';
+
+const APP_VERSION: string = Constants.expoConfig?.version ?? '1.0.1';
 
 interface ContactRow {
   user: User;
@@ -59,6 +60,9 @@ export default function ChatListScreen() {
   // Load on mount and on every focus
   useEffect(() => {
     void loadData();
+    // Register push token once per login session (user is authenticated here).
+    // Gracefully no-ops if permission denied or FCM not available.
+    void registerForPushNotifications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

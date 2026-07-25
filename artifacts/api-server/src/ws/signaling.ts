@@ -1,7 +1,9 @@
+import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { callLogs } from "@workspace/db";
+import { callLogs, users, pushTokens } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { send, sendToUser } from "./connections";
+import { sendPushNotification } from "../lib/pushService";
 import type { ExtendedWebSocket, WsEnvelope } from "./types";
 import { randomUUID } from "node:crypto";
 
@@ -69,6 +71,29 @@ export async function handleUserDisconnect(userId: string): Promise<void> {
   });
 }
 
+/**
+ * Send a push notification about an incoming call to the callee.
+ * Queries caller name and callee push token in parallel; fires and forgets.
+ */
+async function sendCallPush(calleeId: string, callerId: string): Promise<void> {
+  const [pushRow, callerUser] = await Promise.all([
+    db.select({ token: pushTokens.token }).from(pushTokens)
+      .where(eq(pushTokens.userId, calleeId)).limit(1).then((r) => r[0]),
+    db.select({ name: users.name }).from(users)
+      .where(eq(users.id, callerId)).limit(1).then((r) => r[0]),
+  ]);
+  if (pushRow?.token) {
+    await sendPushNotification(pushRow.token, {
+      title: "Входящий звонок",
+      body: callerUser?.name ?? callerId,
+      data: { type: "call", callerId, callerName: callerUser?.name ?? callerId },
+      priority: "high",
+      sound: "default",
+      channelId: "calls",
+    });
+  }
+}
+
 /** Route call/webrtc signaling envelopes. */
 export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): void {
   const { type, payload } = envelope;
@@ -98,15 +123,23 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
         payload: { callerId: userId },
         timestamp: new Date().toISOString(),
       });
+
       if (!online) {
+        // Callee is offline — push notifies them someone tried to call
+        void sendCallPush(calleeId, userId);
         send(ws, { type: "error", payload: { code: "NOT_FOUND", message: "User is not online." } });
         return;
       }
+
       const callId = randomUUID();
       const state: CallState = { callId, callerId: userId, calleeId, startedAt: null };
       activeCalls.set(callId, state);
       userToCallId.set(userId, callId);
       userToCallId.set(calleeId, callId);
+
+      // Belt-and-suspenders push: wakes the screen even though WS call.incoming was sent
+      void sendCallPush(calleeId, userId);
+
       logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite");
       break;
     }

@@ -196,7 +196,62 @@ curl -i -N \
 
 ---
 
-## Step 6 — Create users
+## Step 6 — Set up push notifications (optional but recommended)
+
+Push notifications allow family members to receive alerts about new messages and calls even when the app is in the background or the phone is locked.
+
+### Overview
+
+The app uses **Expo Push Service → Google FCM** for Android notifications. The server needs no Firebase credentials — it calls the Expo Push API (`exp.host/--/api/v2/push/send`), which proxies to FCM on your behalf.
+
+### 6a — Create a Firebase project
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com) and sign in with any Google account.
+2. Click **Add project**, name it (e.g. `family-messenger`), disable Google Analytics (not needed), and click **Create project**.
+3. In the project overview, click the **Android** icon (➕ Add app).
+4. Enter the **Android package name**: `com.ivaexpi.messengerandroid`
+5. Nickname: `Семейный мессенджер` (optional)
+6. Click **Register app**, then **Download `google-services.json`**.
+7. Skip the rest of the wizard (SDK setup is handled by `expo-notifications`).
+
+### 6b — Add google-services.json to GitHub Secrets
+
+The `google-services.json` file is automatically written during the CI build. Store its **entire contents** as a GitHub Secret:
+
+```bash
+# Copy the file contents
+cat google-services.json
+```
+
+In your GitHub repository → **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret name | Value |
+|-------------|-------|
+| `GOOGLE_SERVICES_JSON` | Paste the full contents of `google-services.json` |
+
+The build workflow already has the step to write this file before `eas build`.
+
+### 6c — Connect Firebase to your Expo project (one-time)
+
+Expo's push service needs to know your Firebase project's credentials to forward notifications. Run this once from your machine:
+
+```bash
+cd artifacts/messenger-android
+npx eas credentials
+# Select: Android → Manage FCM credentials → Upload FCM API key
+```
+
+Get the **Server key** from Firebase Console → Project Settings → Cloud Messaging → **Cloud Messaging API (Legacy)** or use the **Service Account** (v1 API). Follow the EAS prompts.
+
+### Notes
+
+- Notifications work only in **standalone APK builds** (from GitHub Actions). Expo Go shows `[Push] Registration skipped` in the console, which is expected.
+- `google-services.json` does **not** contain secrets — it's safe to commit to the repo if you prefer not to use GitHub Secrets. Add `!artifacts/messenger-android/google-services.json` to `.gitignore` exceptions.
+- If you skip this step entirely, the app works normally — push notifications just won't be delivered when offline.
+
+---
+
+## Step 7 — Create users
 
 Run the admin CLI inside the api container. The CLI takes flags — there are no interactive prompts.
 
