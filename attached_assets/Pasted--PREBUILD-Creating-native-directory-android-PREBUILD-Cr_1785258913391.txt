@@ -1,0 +1,14 @@
+[PREBUILD] - Creating native directory (./android)
+[PREBUILD] ✔ Created native directory
+[PREBUILD] - Updating package.json
+[PREBUILD] ✔ Updated package.json
+[PREBUILD] - Running prebuild
+[PREBUILD] Error: ENOENT: no such file or directory, open '/tmp/runner/eas-build-local-nodejs/66cb2721-45f4-490e-8c7c-85ec09d689b3/build/artifacts/messenger-android/google-services.json'
+[PREBUILD]     at async open (node:internal/fs/promises:637:25)
+[PREBUILD]     at async Object.readFile (node:internal/fs/promises:1249:14)
+[PREBUILD]     at async copyFilePathToPathAsync (/tmp/runner/eas-build-local-nodejs/66cb2721-45f4-490e-8c7c-85ec09d689b3/build/node_modules/.pnpm/@expo+config-plugins@54.0.5/node_modules/@expo/config-plugins/build/utils/fs.js:23:19)
+[PREBUILD]     at async setGoogleServicesFile (/tmp/runner/eas-build-local-nodejs/66cb2721-45f4-490e-8c7c-85ec09d689b3/build/node_modules/.pnpm/@expo+config-plugins@54.0.5/node_modules/@expo/config-plugins/build/android/GoogleServices.js:95:5)
+[PREBUILD] Error: [android.dangerous]: withAndroidDangerousBaseMod: Cannot copy google-services.json from /tmp/runner/eas-build-local-nodejs/66cb2721-45f4-490e-8c7c-85ec09d689b3/build/artifacts/messenger-android/google-services.json to /tmp/runner/eas-build-local-nodejs/66cb2721-45f4-490e-8c7c-85ec09d689b3/build/artifacts/messenger-android/android/app/google-services.json. Ensure the source and destination paths exist.
+[PREBUILD] Error: [android.dangerous]: withAndroidDangerousBaseMod: Cannot copy google-services.json from /tmp/runner/eas-build-local-nodejs/66cb2721-45f4-490e-8c7c-85ec09d689b3/build/artifacts/messenger-android/google-services.json to /tmp/runner/eas-build-local-nodejs/66cb2721-45f4-490e-8c7c-85ec09d689b3/build/artifacts/messenger-android/android/app/google-services.json. Ensure the source and destination paths exist.
+[PREBUILD]     at setGoogleServicesFile (/tmp/runner/eas-build-local-nodejs/66cb2721-45f4-490e-8c7c-85ec09d689b3/build/node_modules/.pnpm/@expo+config-plugins@54.0.5/node_modules/@expo/config-plugins/build/android/GoogleServices.js:98:11)
+[PREBUILD]     at async /tmp/runner/eas-build-local-nodejs/66cb2721-45f4-490e-8c7c-85ec09d689b3/build/node_modules/.pnpm/@expo+config-plugins@54.0.5/node_modules/@expo/config-plugins/build/android/GoogleServices.js:79:5
