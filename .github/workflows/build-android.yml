@@ -83,32 +83,19 @@ jobs:
           }
           EOF
 
-      # ── Firebase google-services.json ──────────────────────────────────────
-      # Required for FCM push notifications. Store the full JSON content in the
-      # GitHub secret GOOGLE_SERVICES_JSON. If the secret is absent the build
-      # still succeeds but push notifications will not work in the resulting APK.
-      - name: Write google-services.json
-        working-directory: artifacts/messenger-android
-        env:
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: |
-          echo "$GOOGLE_SERVICES_JSON" > google-services.json
-          # EAS local build archives the project with `git archive HEAD`, which only
-          # includes committed files — staged-only (git add -f) is not enough.
-          # We create a temporary local commit so the file lands in HEAD.
-          # This commit exists only in the CI runner and is never pushed.
-          git config user.email "ci@github.com"
-          git config user.name "GitHub Actions"
-          git add -f google-services.json
-          git commit --no-verify -m "ci: inject google-services.json for EAS build [skip ci]"
-
       # ── Build ──────────────────────────────────────────────────────────────
+      # GOOGLE_SERVICES_JSON is read by app.config.js at Expo config-eval time,
+      # which runs inside the EAS sandbox after the project archive is extracted.
+      # Writing the file there (not via git) is the only reliable approach for
+      # EAS local builds — git archive only captures committed files, and the
+      # secret cannot be committed to the repo.
       - name: Build APK (EAS local)
         working-directory: artifacts/messenger-android
         env:
           NODE_ENV: production
           ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
           ANDROID_NDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.1.12297006
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           eas build \
             --platform android \
