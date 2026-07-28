@@ -20,6 +20,18 @@ const activeCalls = new Map<string, CallState>();
 /** userId → callId (for quick lookup) */
 const userToCallId = new Map<string, string>();
 
+/**
+ * Calls that are waiting for an offline callee to reconnect.
+ * calleeId → { callId, timer }
+ *
+ * When the callee comes online (handleUserConnect), we deliver call.incoming.
+ * If they never connect within PENDING_CALL_TTL_MS, the call is expired.
+ */
+const pendingCallDeliveries = new Map<string, { callId: string; timer: ReturnType<typeof setTimeout> }>();
+
+/** How long to wait for an offline callee to reconnect before expiring the call. */
+const PENDING_CALL_TTL_MS = 60_000;
+
 function getCallForUser(userId: string): CallState | null {
   const callId = userToCallId.get(userId);
   if (!callId) return null;
@@ -48,10 +60,20 @@ async function writeCallLog(call: CallState): Promise<void> {
   }
 }
 
+function removePendingDelivery(calleeId: string, callId: string): void {
+  const pending = pendingCallDeliveries.get(calleeId);
+  if (pending && pending.callId === callId) {
+    clearTimeout(pending.timer);
+    pendingCallDeliveries.delete(calleeId);
+  }
+}
+
 function removeCall(call: CallState): void {
   activeCalls.delete(call.callId);
   userToCallId.delete(call.callerId);
   userToCallId.delete(call.calleeId);
+  // Also clean up any pending delivery for this call
+  removePendingDelivery(call.calleeId, call.callId);
 }
 
 /** Called when a user disconnects — ends any active call they were in. */
@@ -69,6 +91,37 @@ export async function handleUserDisconnect(userId: string): Promise<void> {
     payload: {},
     timestamp: new Date().toISOString(),
   });
+}
+
+/**
+ * Called by server.ts right after a new WebSocket connection is authenticated
+ * and registered in onlineUsers. Delivers any pending call.incoming that was
+ * buffered while this user was offline.
+ */
+export function handleUserConnect(userId: string): void {
+  const pending = pendingCallDeliveries.get(userId);
+  if (!pending) return;
+
+  const call = activeCalls.get(pending.callId);
+  if (!call) {
+    // Call was already cancelled/expired
+    clearTimeout(pending.timer);
+    pendingCallDeliveries.delete(userId);
+    return;
+  }
+
+  // Check caller is still online (may have hung up while waiting)
+  const delivered = sendToUser(userId, {
+    type: "call.incoming",
+    payload: { callerId: call.callerId },
+    timestamp: new Date().toISOString(),
+  });
+
+  if (delivered) {
+    clearTimeout(pending.timer);
+    pendingCallDeliveries.delete(userId);
+    logger.info({ callId: call.callId, calleeId: userId }, "WS: delivered pending call.incoming to reconnected callee");
+  }
 }
 
 /**
@@ -118,18 +171,6 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
         send(ws, { type: "error", payload: { code: "INVALID_MESSAGE", message: "Callee is busy." } });
         return;
       }
-      const online = sendToUser(calleeId, {
-        type: "call.incoming",
-        payload: { callerId: userId },
-        timestamp: new Date().toISOString(),
-      });
-
-      if (!online) {
-        // Callee is offline — push notifies them someone tried to call
-        void sendCallPush(calleeId, userId);
-        send(ws, { type: "error", payload: { code: "NOT_FOUND", message: "User is not online." } });
-        return;
-      }
 
       const callId = randomUUID();
       const state: CallState = { callId, callerId: userId, calleeId, startedAt: null };
@@ -137,10 +178,40 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
       userToCallId.set(userId, callId);
       userToCallId.set(calleeId, callId);
 
-      // Belt-and-suspenders push: wakes the screen even though WS call.incoming was sent
-      void sendCallPush(calleeId, userId);
+      const online = sendToUser(calleeId, {
+        type: "call.incoming",
+        payload: { callerId: userId },
+        timestamp: new Date().toISOString(),
+      });
 
-      logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite");
+      if (!online) {
+        // Callee is offline — send push to wake them up, then keep the call state
+        // alive so that when they reconnect, handleUserConnect delivers call.incoming.
+        // The caller stays in "calling" state (no error sent — client already shows
+        // the "Вызов..." overlay). Call expires after PENDING_CALL_TTL_MS.
+        void sendCallPush(calleeId, userId);
+
+        const timer = setTimeout(() => {
+          // Callee never reconnected — expire the call
+          pendingCallDeliveries.delete(calleeId);
+          if (activeCalls.get(callId) === state) {
+            removeCall(state);
+            sendToUser(userId, {
+              type: "call.end",
+              payload: {},
+              timestamp: new Date().toISOString(),
+            });
+            logger.info({ callId, callerId: userId, calleeId }, "WS: pending call expired (callee never reconnected)");
+          }
+        }, PENDING_CALL_TTL_MS);
+
+        pendingCallDeliveries.set(calleeId, { callId, timer });
+        logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite (callee offline — push sent, call state kept)");
+      } else {
+        // Callee is online — belt-and-suspenders push to wake the screen
+        void sendCallPush(calleeId, userId);
+        logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite");
+      }
       break;
     }
 
