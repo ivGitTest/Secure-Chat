@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "342483977174",
+    "project_id": "family-messenger-e95bc",
+    "storage_bucket": "family-messenger-e95bc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:342483977174:android:fd2fb2922d39c2d5f69a77",
+        "android_client_info": {
+          "package_name": "com.ivaexpi.messengerandroid"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRP_ZOcLaHkhonm9rO_mEEnOTtH2aZKBk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
