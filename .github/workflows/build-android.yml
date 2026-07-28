@@ -93,10 +93,14 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           echo "$GOOGLE_SERVICES_JSON" > google-services.json
-          # EAS local build archives the project via git and respects .gitignore,
-          # so the file would be silently excluded without this force-add.
-          # git add -f stages the file without committing it — it never enters history.
+          # EAS local build archives the project with `git archive HEAD`, which only
+          # includes committed files — staged-only (git add -f) is not enough.
+          # We create a temporary local commit so the file lands in HEAD.
+          # This commit exists only in the CI runner and is never pushed.
+          git config user.email "ci@github.com"
+          git config user.name "GitHub Actions"
           git add -f google-services.json
+          git commit --no-verify -m "ci: inject google-services.json for EAS build [skip ci]"
 
       # ── Build ──────────────────────────────────────────────────────────────
       - name: Build APK (EAS local)
