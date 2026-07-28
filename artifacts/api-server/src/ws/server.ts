@@ -8,7 +8,7 @@ import { eq, and, gt } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { onlineUsers, send } from "./connections";
 import { handleMessage } from "./handlers";
-import { handleUserDisconnect } from "./signaling";
+import { handleUserDisconnect, handleUserConnect } from "./signaling";
 import type { ExtendedWebSocket } from "./types";
 
 /** Inactivity timeout: close connections with no traffic for 60 seconds. */
@@ -118,6 +118,9 @@ export function setupWebSocketServer(httpServer: http.Server): WebSocketServer {
         ws.isAlive = true;
         onlineUsers.set(userId, ws);
         logger.info({ userId }, "WS: connected");
+
+        // Deliver any pending call.incoming that was buffered while user was offline
+        handleUserConnect(userId);
 
         // 6. Auth complete — flush buffered messages, then start heartbeat
         authComplete = true;

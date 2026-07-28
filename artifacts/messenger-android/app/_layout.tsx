@@ -15,6 +15,7 @@ import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/context/AuthContext';
 import { CallProvider } from '@/context/CallContext';
+import { setupNotificationChannels } from '@/services/notificationService';
 
 // ---------------------------------------------------------------------------
 // Foreground notification handler — runs before the notification is displayed.
@@ -105,6 +106,13 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+
+  // Create notification channels at app startup — not just after login.
+  // The 'calls' channel must exist before the first push arrives (e.g. when
+  // the app is in the background and the user hasn't visited chat-list yet).
+  useEffect(() => {
+    void setupNotificationChannels();
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

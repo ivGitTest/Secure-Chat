@@ -33,6 +33,8 @@ export async function setupNotificationChannels(): Promise<void> {
     sound: 'default',
     enableVibrate: true,
     showBadge: false,
+    bypassDnd: true,        // ring even in Do-Not-Disturb (important on Xiaomi MIUI)
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
   await Notifications.setNotificationChannelAsync('messages', {
     name: 'Сообщения',

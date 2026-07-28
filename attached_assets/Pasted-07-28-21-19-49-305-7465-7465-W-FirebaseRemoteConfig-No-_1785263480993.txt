@@ -1,0 +1,104 @@
+07-28 21:19:49.305  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:19:50.003  3524  3524 D FirebaseSessions: Dependency to CRASHLYTICS added.
+07-28 21:19:50.003  3524  3524 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+07-28 21:19:50.010  3524  3524 D FirebaseSessions: Initializing Firebase Sessions 3.0.6.
+07-28 21:19:50.011  3524  3524 I FirebaseCrashlytics: Initializing Firebase Crashlytics 20.0.6 for com.x8bit.bitwarden
+07-28 21:19:50.026  3524  3524 D FirebaseSessions: Subscriber CRASHLYTICS registered.
+07-28 21:19:50.026  3524  3552 D FirebaseSessions: Notified CRASHLYTICS of new session ba6c775776ce46fa8e72a92fa0758cd5
+07-28 21:19:50.031  3524  3524 I FirebaseInitProvider: FirebaseApp initialization successful
+07-28 21:19:50.060  3524  3564 I FirebaseCrashlytics: Saved version control info
+07-28 21:19:52.300  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:19:52.316  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:19:55.296  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:19:55.306  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:19:55.435  2663  4379 I com.xiaomi.dm: update fcm token
+07-28 21:19:55.436  2663  4379 I com.xiaomi.dm: update fcm token failed, code:-3, reason:
+07-28 21:19:55.436  2663  4379 I com.xiaomi.dm: delay sending fcm token to server
+07-28 21:19:58.296  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:19:58.307  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:20:01.301  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:20:01.313  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:20:03.347  3680  3680 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+07-28 21:20:03.348  3680  3680 I FirebaseInitProvider: FirebaseApp initialization successful
+07-28 21:20:04.308  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:20:04.320  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:20:04.903  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+...
+07-28 21:21:28.364  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:21:28.377  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:21:29.269  4653  4653 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+07-28 21:21:29.271  4653  4653 I FirebaseInitProvider: FirebaseApp initialization successful
+07-28 21:21:29.554  4673  4752 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+07-28 21:21:29.555  4673  4752 I FirebaseCrashlytics: Initializing Firebase Crashlytics 19.0.0 for com.xiaomi.discover
+07-28 21:21:29.681  4673  4752 D FirebaseSessions: Initializing Firebase Sessions SDK.
+07-28 21:21:29.686  4673  4834 D FirebaseSessions: No Sessions subscribers. Not listening to lifecycle events.
+07-28 21:21:29.715  4673  4673 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'abKeyList'.
+07-28 21:21:29.715  4673  4673 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'sid'.
+07-28 21:21:29.729  4673  4752 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'isAutoUpdateWorkEnable'.
+07-28 21:21:29.837  4673  4842 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'hitUpdateTrack'.
+07-28 21:21:29.851  4673  4789 I FirebaseCrashlytics: Saved version control info
+07-28 21:21:30.039  4673  4892 I FA      :   adb shell setprop debug.firebase.analytics.app com.xiaomi.discover
+07-28 21:21:30.676  4673  4792 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'isAutoUpdateJobEnable'.
+07-28 21:21:30.680  4673  4792 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'isAutoUpdateJobEnable'.
+07-28 21:21:30.684  4673  4792 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'isAutoUpdateJobEnable'.
+07-28 21:21:31.268  4653  4794 I ReactNativeJS: '[Push] Token registered:', 'ExponentPushToken[LlEPdRONXBe7OgтАж'
+07-28 21:21:31.368  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:21:31.388  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+...
+07-28 21:21:55.389  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:21:57.205  5139  5139 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+07-28 21:21:57.212  5139  5139 I FirebaseCrashlytics: Initializing Firebase Crashlytics 19.2.0 for com.android.thememanager
+07-28 21:21:57.243  5139  5139 D FirebaseSessions: Initializing Firebase Sessions SDK.
+07-28 21:21:57.246  5139  5139 W FirebaseRemoteConfig: An entry in the defaults XML has an invalid key and/or value tag.
+07-28 21:21:57.246  5139  5139 W FirebaseRemoteConfig: An entry in the defaults XML has an invalid key and/or value tag.
+07-28 21:21:57.246  5139  5139 W FirebaseRemoteConfig: An entry in the defaults XML has an invalid key and/or value tag.
+07-28 21:21:57.246  5139  5139 W FirebaseRemoteConfig: Encountered an unexpected tag while parsing the defaults XML.
+07-28 21:21:57.253  5139  5211 D FirebaseSessions: No Sessions subscribers. Not listening to lifecycle events.
+07-28 21:21:57.255  5139  5139 W FirebaseRemoteConfig: No value of type 'Boolean' exists for parameter key 'wallpaper_header'.
+07-28 21:21:57.255  5139  5139 W FirebaseRemoteConfig: No value of type 'String' exists for parameter key 'icon_explds'.
+07-28 21:21:57.255  5139  5139 W FirebaseRemoteConfig: No value of type 'String' exists for parameter key 'native_self_rendering_explds'.
+07-28 21:21:57.294  5139  5252 I FCM_Push_Logger: initDebugMode: false
+07-28 21:21:57.297  5139  5211 I FirebaseCrashlytics: Saved version control info
+07-28 21:21:57.306  5139  5139 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'pet_superdownload_track_sample_rate'.
+07-28 21:21:57.306  5139  5139 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'pet_superdownload_enable_quic'.
+07-28 21:21:57.357  5139  5248 I FA      :   adb shell setprop debug.firebase.analytics.app com.android.thememanager
+07-28 21:21:57.374  5139  5139 W FirebaseRemoteConfig: No value of type 'Boolean' exists for parameter key 'wallpaper_header'.
+07-28 21:21:57.374  5139  5139 W FirebaseRemoteConfig: No value of type 'String' exists for parameter key 'icon_explds'.
+07-28 21:21:57.374  5139  5139 W FirebaseRemoteConfig: No value of type 'String' exists for parameter key 'native_self_rendering_explds'.
+07-28 21:21:58.235  5139  5191 E FirebaseMessaging: Topic operation failed: SERVICE_NOT_AVAILABLE. Will retry Topic operation.
+07-28 21:21:58.325  5139  5139 W FirebaseRemoteConfig: No value of type 'Boolean' exists for parameter key 'wallpaper_header'.
+07-28 21:21:58.326  5139  5139 W FirebaseRemoteConfig: No value of type 'String' exists for parameter key 'icon_explds'.
+07-28 21:21:58.326  5139  5139 W FirebaseRemoteConfig: No value of type 'String' exists for parameter key 'native_self_rendering_explds'.
+07-28 21:21:58.397  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:21:58.406  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:21:58.889 26048 26188 W AD-PLUGIN-FirebaseReportHelper: user_experienceFlag == false
+07-28 21:22:01.406  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:01.414  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+...
+07-28 21:22:40.454  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:41.614  5635  5635 I FirebaseApp: Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+07-28 21:22:41.615  5635  5635 I FirebaseInitProvider: FirebaseApp initialization successful
+07-28 21:22:43.466  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:43.478  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:44.015  5635  5688 I ReactNativeJS: '[Push] Token registered:', 'ExponentPushToken[LlEPdRONXBe7OgтАж'
+07-28 21:22:46.437  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:46.452  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:49.443  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:49.453  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:52.442  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:52.456  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:55.447  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:55.464  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:55.517  2663  3686 I com.xiaomi.dm: update fcm token
+07-28 21:22:55.535  2663  3686 I com.xiaomi.dm: update fcm token failed, code:-3, reason:
+07-28 21:22:55.535  2663  3686 I com.xiaomi.dm: delay sending fcm token to server
+07-28 21:22:58.446  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:22:58.459  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:23:00.541  2663  4379 I com.xiaomi.dm: update fcm token
+07-28 21:23:00.541  2663  4379 I com.xiaomi.dm: update fcm token failed, code:-3, reason:
+07-28 21:23:00.541  2663  4379 I com.xiaomi.dm: delay sending fcm token to server
+07-28 21:23:01.452  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:23:01.463  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:23:04.455  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+07-28 21:23:04.462  7465  7465 W FirebaseRemoteConfig: No value of type 'FirebaseRemoteConfigValue' exists for parameter key 'enable_push_monitor_broadcast'.
+PS D:\Soft\adb2>
