@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './_group.css';
 
 export default function Login() {
-  const [name, setName] = useState('Ваня');
+  const [name, setName] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -44,7 +44,7 @@ export default function Login() {
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="Введите имя"
+              placeholder="user id"
               className="c1-input"
               autoCapitalize="words"
             />
