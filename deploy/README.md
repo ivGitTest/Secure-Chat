@@ -332,6 +332,81 @@ Internal Docker network (messenger):
 
 ---
 
+## Certificate expiry alerts
+
+The script `deploy/scripts/check-cert-expiry.sh` checks how many days remain on the TLS certificate and sends an alert when fewer than **14 days** are left.  Run it daily from cron so you always have plenty of lead time to fix a failed renewal before the messenger goes dark.
+
+### How it works
+
+1. Reads the local certificate file (`deploy/certs/fullchain.pem`) if it exists; otherwise connects to the live domain with `openssl s_client`.
+2. Calculates the number of days until expiry.
+3. If the count is **below the threshold** it sends one or more alerts and exits with code 1 (so cron can also mail root).
+4. If the cert is still healthy it logs an OK line and exits with code 0.
+
+### Set up the daily cron job
+
+```bash
+sudo crontab -e
+```
+
+Add (adjust the path to match where you cloned the repo):
+
+```cron
+# Check cert expiry every morning at 08:00
+0 8 * * * DOMAIN=chat.naviry.xyz /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+```
+
+### Configure a notification channel
+
+Set the variables in your shell, in `/etc/environment`, or prepend them on the cron line.
+
+#### Option A — Telegram (recommended, no SMTP needed)
+
+1. Create a bot: message [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token.
+2. Start a chat with your bot (or add it to a group), then get the chat ID:
+   ```bash
+   curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates" | python3 -m json.tool | grep '"id"'
+   ```
+3. Set the variables in your crontab line:
+   ```cron
+   0 8 * * * DOMAIN=chat.naviry.xyz TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+   ```
+
+#### Option B — Email
+
+Requires `mailutils` (or a compatible `mail` command) and a configured MTA on the host (e.g. Postfix with a relay, or `msmtp`):
+
+```bash
+sudo apt-get install -y mailutils
+```
+
+Then add `ALERT_EMAIL` to the cron line:
+
+```cron
+0 8 * * * DOMAIN=chat.naviry.xyz ALERT_EMAIL=you@example.com /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+```
+
+Both channels can be active at the same time — just set all four variables.
+
+### Tune the warning threshold
+
+The default threshold is 14 days.  Override it with `WARN_DAYS`:
+
+```cron
+0 8 * * * DOMAIN=chat.naviry.xyz WARN_DAYS=21 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+```
+
+### Test without waiting
+
+Force a warning by temporarily setting `WARN_DAYS` higher than the actual days remaining:
+
+```bash
+DOMAIN=chat.naviry.xyz WARN_DAYS=999 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> \
+  deploy/scripts/check-cert-expiry.sh
+```
+
+---
+
 ## Troubleshooting
 
 | Symptom | Fix |
