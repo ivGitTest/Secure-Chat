@@ -7,6 +7,8 @@ export const modules: ModuleMap = {
   "./components/mockups/msgr-botanica/Login.tsx": () => import("../components/mockups/msgr-botanica/Login.tsx"),
   "./components/mockups/msgr-botanica/Server.tsx": () => import("../components/mockups/msgr-botanica/Server.tsx"),
   "./components/mockups/msgr-botanica/Version.tsx": () => import("../components/mockups/msgr-botanica/Version.tsx"),
+  "./components/mockups/msgr-combo1/Login.tsx": () => import("../components/mockups/msgr-combo1/Login.tsx"),
+  "./components/mockups/msgr-combo1/Server.tsx": () => import("../components/mockups/msgr-combo1/Server.tsx"),
   "./components/mockups/msgr-glass/Call.tsx": () => import("../components/mockups/msgr-glass/Call.tsx"),
   "./components/mockups/msgr-glass/Chat.tsx": () => import("../components/mockups/msgr-glass/Chat.tsx"),
   "./components/mockups/msgr-glass/Contacts.tsx": () => import("../components/mockups/msgr-glass/Contacts.tsx"),
@@ -18,5 +20,7 @@ export const modules: ModuleMap = {
   "./components/mockups/msgr-minimal/Contacts.tsx": () => import("../components/mockups/msgr-minimal/Contacts.tsx"),
   "./components/mockups/msgr-minimal/Login.tsx": () => import("../components/mockups/msgr-minimal/Login.tsx"),
   "./components/mockups/msgr-minimal/Server.tsx": () => import("../components/mockups/msgr-minimal/Server.tsx"),
-  "./components/mockups/msgr-minimal/Version.tsx": () => import("../components/mockups/msgr-minimal/Version.tsx")
+  "./components/mockups/msgr-minimal/Version.tsx": () => import("../components/mockups/msgr-minimal/Version.tsx"),
+  "./components/mockups/msgr-combo2/Login.tsx": () => import("../components/mockups/msgr-combo2/Login.tsx"),
+  "./components/mockups/msgr-combo2/Server.tsx": () => import("../components/mockups/msgr-combo2/Server.tsx")
 };
