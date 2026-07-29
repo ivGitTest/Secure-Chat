@@ -81,11 +81,11 @@ function RootLayoutNav() {
       <NotificationTapHandler />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: '#F0F4FF' },
+          headerStyle: { backgroundColor: '#FFFFFF' },
           headerTintColor: '#0044FF',
           headerTitleStyle: { fontFamily: 'Inter_700Bold', color: '#09090b', fontSize: 17 },
-          headerShadowVisible: false,
-          contentStyle: { backgroundColor: '#F0F4FF' },
+          headerShadowVisible: true,
+          contentStyle: { backgroundColor: '#FFFFFF' },
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />

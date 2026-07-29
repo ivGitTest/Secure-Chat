@@ -41,49 +41,49 @@ export default function SplashScreen() {
     }
   }
 
+  const C = colors.light;
+
   return (
     <View style={styles.container}>
-      <View style={styles.logoWrap}>
-        <View style={styles.logo}>
-          <Text style={styles.logoGlyph}>💬</Text>
-        </View>
+      {/* Wordmark — Minimal style: large bold text + blue dot accent */}
+      <View style={styles.brand}>
+        <Text style={styles.wordmark}>Мессенджер</Text>
+        <View style={styles.dot} />
       </View>
-      <Text style={styles.title}>Мессенджер</Text>
       <ActivityIndicator
         size="large"
-        color={colors.light.primary}
-        style={{ marginTop: 40 }}
+        color={C.primary}
+        style={styles.spinner}
       />
     </View>
   );
 }
 
+const C = colors.light;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.light.background,
+    backgroundColor: C.background,
   },
-  logoWrap: { marginBottom: 24 },
-  logo: {
-    width: 88,
-    height: 88,
-    borderRadius: 26,
-    backgroundColor: colors.light.primary,
+  brand: {
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.light.primary,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 10,
+    gap: 16,
+    marginBottom: 64,
   },
-  logoGlyph: { fontSize: 40 },
-  title: {
-    fontSize: 28,
+  wordmark: {
+    fontSize: 36,
     fontWeight: '700',
-    color: colors.light.text,
+    color: C.text,
+    letterSpacing: -1,
     fontFamily: 'Inter_700Bold',
   },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: C.primary,
+  },
+  spinner: { marginTop: 0 },
 });
