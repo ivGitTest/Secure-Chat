@@ -301,57 +301,114 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   const insets = useSafeAreaInsets();
 
+  /** Deterministic avatar color from first char */
+  function avatarColor(name: string): string {
+    const palette = ['#0044FF', '#7C3AED', '#0891B2', '#059669', '#D97706', '#DC2626'];
+    return palette[name.charCodeAt(0) % palette.length];
+  }
+
+  function AvatarTile({ name, size = 160 }: { name: string; size?: number }) {
+    const br = Math.round(size * 0.244); // ~radius 44 at 180px
+    return (
+      <View style={{
+        width: size, height: size, borderRadius: br,
+        backgroundColor: avatarColor(name),
+        alignItems: 'center', justifyContent: 'center',
+        shadowColor: '#0044FF', shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.35, shadowRadius: 24, elevation: 10,
+      }}>
+        <Text style={{ color: '#fff', fontSize: size * 0.44, fontWeight: '700', fontFamily: 'Inter_700Bold' }}>
+          {name.charAt(0).toUpperCase()}
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <CallContext.Provider value={{ callState, callPeer, incomingCall, makeCall, endCall }}>
       {children}
 
-      {/* Incoming call overlay */}
+      {/* ── Incoming call overlay ── */}
       <Modal visible={incomingCall !== null} animationType="slide" transparent={false}>
-        <View style={[callStyles.overlay, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 }]}>
-          <Text style={callStyles.callLabel}>Входящий звонок</Text>
-          <Ionicons name="person-circle" size={96} color="#fff" style={{ marginVertical: 24 }} />
-          <Text style={callStyles.peerName}>{incomingCall?.callerName ?? ''}</Text>
-          <View style={callStyles.btnRow}>
-            <TouchableOpacity style={callStyles.rejectBtn} onPress={rejectCall}>
-              <Ionicons name="call" size={32} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
-              <Text style={callStyles.btnLabel}>Отклонить</Text>
+        <View style={[callStyles.overlay, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+
+          {/* Top label */}
+          <View style={callStyles.topArea}>
+            <Text style={callStyles.callLabel}>ВХОДЯЩИЙ ЗВОНОК</Text>
+          </View>
+
+          {/* Center avatar */}
+          <View style={callStyles.centerArea}>
+            <AvatarTile name={incomingCall?.callerName ?? '?'} size={160} />
+            <Text style={callStyles.peerName}>{incomingCall?.callerName ?? ''}</Text>
+            <Text style={callStyles.statusText}>Звонит…</Text>
+          </View>
+
+          {/* Bottom buttons — thumb zone */}
+          <View style={callStyles.bottomArea}>
+            <TouchableOpacity style={callStyles.rejectWideBtn} onPress={rejectCall} activeOpacity={0.85}>
+              <Ionicons name="call" size={26} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
+              <Text style={callStyles.wideBtnText}>Отклонить</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={callStyles.acceptBtn} onPress={() => void acceptCall()}>
-              <Ionicons name="call" size={32} color="#fff" />
-              <Text style={callStyles.btnLabel}>Принять</Text>
+            <TouchableOpacity style={callStyles.acceptWideBtn} onPress={() => void acceptCall()} activeOpacity={0.85}>
+              <Ionicons name="call" size={26} color="#fff" />
+              <Text style={callStyles.wideBtnText}>Принять</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Active call overlay */}
+      {/* ── Active / outgoing call overlay ── */}
       <Modal
         visible={callState === 'calling' || callState === 'in-call'}
         animationType="slide"
         transparent={false}
       >
-        <View style={[callStyles.overlay, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 20 }]}>
-          <Text style={callStyles.callLabel}>
-            {callState === 'calling' ? 'Вызов…' : 'Звонок'}
-          </Text>
-          <Ionicons name="person-circle" size={96} color="#fff" style={{ marginVertical: 24 }} />
-          <Text style={callStyles.peerName}>{callPeer?.name ?? ''}</Text>
-          {callState === 'in-call' && callStartTime ? (
-            <CallTimer startTime={callStartTime} />
-          ) : (
-            <Text style={callStyles.timer}>Ожидание ответа…</Text>
-          )}
-          <View style={callStyles.btnRow}>
-            <TouchableOpacity
-              style={[callStyles.muteBtn, isMuted && callStyles.muteBtnActive]}
-              onPress={toggleMute}
-            >
-              <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={28} color="#fff" />
-              <Text style={callStyles.btnLabel}>{isMuted ? 'Снять' : 'Без звука'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={callStyles.rejectBtn} onPress={endCall}>
-              <Ionicons name="call" size={32} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
-              <Text style={callStyles.btnLabel}>Завершить</Text>
+        <View style={[callStyles.overlay, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+
+          {/* Top: label + timer */}
+          <View style={callStyles.topArea}>
+            <Text style={callStyles.callLabel}>ГОЛОСОВОЙ ЗВОНОК</Text>
+            {callState === 'in-call' && callStartTime ? (
+              <CallTimer startTime={callStartTime} />
+            ) : (
+              <Text style={callStyles.waitingText}>Ожидание ответа…</Text>
+            )}
+          </View>
+
+          {/* Center avatar */}
+          <View style={callStyles.centerArea}>
+            <AvatarTile name={callPeer?.name ?? '?'} size={160} />
+            <Text style={callStyles.peerName}>{callPeer?.name ?? ''}</Text>
+            <Text style={[callStyles.statusText, callState === 'in-call' && callStyles.statusConnected]}>
+              {callState === 'in-call' ? 'На связи' : 'Вызов…'}
+            </Text>
+          </View>
+
+          {/* Bottom controls — thumb zone */}
+          <View style={callStyles.bottomArea}>
+            {/* Secondary: mute + speaker */}
+            <View style={callStyles.secondaryRow}>
+              <TouchableOpacity
+                style={[callStyles.iconCard, isMuted && callStyles.iconCardMuted]}
+                onPress={toggleMute}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={isMuted ? 'mic-off' : 'mic-outline'}
+                  size={28}
+                  color={isMuted ? C.destructive : C.text}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity style={callStyles.iconCard} activeOpacity={0.8}>
+                <Ionicons name="volume-high-outline" size={28} color={C.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* End call — wide red button */}
+            <TouchableOpacity style={callStyles.endWideBtn} onPress={endCall} activeOpacity={0.85}>
+              <Ionicons name="call" size={26} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
+              <Text style={callStyles.wideBtnText}>Завершить</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -366,53 +423,127 @@ export function useCall(): CallContextValue {
   return ctx;
 }
 
+import colors from '@/constants/colors';
+const C = colors.light;
+
 const callStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: '#1C1C2E',
+    backgroundColor: C.background,
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
   },
-  callLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 16 },
-  peerName: { color: '#fff', fontSize: 28, fontWeight: '700', textAlign: 'center' },
-  timer: { color: 'rgba(255,255,255,0.7)', fontSize: 20, marginTop: 8 },
-  btnRow: {
+
+  // ── Zones ──
+  topArea: { alignItems: 'center', width: '100%', gap: 6 },
+  centerArea: { alignItems: 'center', gap: 16 },
+  bottomArea: { width: '100%', gap: 16 },
+  secondaryRow: { flexDirection: 'row', justifyContent: 'center', gap: 24 },
+
+  // ── Typography ──
+  callLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 2,
+    color: C.mutedForeground,
+    fontFamily: 'Inter_700Bold',
+    textTransform: 'uppercase',
+  },
+  peerName: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: C.text,
+    textAlign: 'center',
+    fontFamily: 'Inter_700Bold',
+  },
+  statusText: {
+    fontSize: 17,
+    color: C.mutedForeground,
+    fontFamily: 'Inter_400Regular',
+  },
+  statusConnected: { color: '#22c55e', fontFamily: 'Inter_700Bold' },
+  waitingText: {
+    fontSize: 17,
+    color: C.mutedForeground,
+    fontFamily: 'Inter_400Regular',
+  },
+  timer: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: C.text,
+    fontVariant: ['tabular-nums'],
+    fontFamily: 'Inter_700Bold',
+  },
+
+  // ── Icon cards (mute / speaker) ──
+  iconCard: {
+    width: 76,
+    height: 76,
+    borderRadius: 24,
+    backgroundColor: C.card,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  iconCardMuted: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+  },
+
+  // ── Wide action buttons ──
+  acceptWideBtn: {
     flexDirection: 'row',
-    gap: 32,
-    marginTop: 48,
-    justifyContent: 'center',
-    width: '100%',
-  },
-  acceptBtn: {
-    backgroundColor: '#34C759',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 10,
+    minHeight: 64,
+    borderRadius: 20,
+    backgroundColor: '#22c55e',
+    shadowColor: '#22c55e',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  rejectBtn: {
-    backgroundColor: '#FF3B30',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  rejectWideBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 10,
+    minHeight: 64,
+    borderRadius: 20,
+    backgroundColor: C.destructive,
+    shadowColor: C.destructive,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  muteBtn: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  endWideBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 10,
+    minHeight: 68,
+    borderRadius: 24,
+    backgroundColor: C.destructive,
+    shadowColor: C.destructive,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 6,
   },
-  muteBtnActive: {
-    backgroundColor: 'rgba(255,255,255,0.4)',
+  wideBtnText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
-  btnLabel: { color: '#fff', fontSize: 11, textAlign: 'center' },
 });
