@@ -55,6 +55,8 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
+    "expo-file-system": "~19.0.23",
+    "expo-intent-launcher": "~13.0.8",
     "expo-notifications": "~0.32.17",
     "expo-secure-store": "^15.0.8",
     "react-native-webrtc": "^124.0.8"

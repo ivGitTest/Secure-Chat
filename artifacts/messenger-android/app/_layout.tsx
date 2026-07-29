@@ -94,6 +94,10 @@ function RootLayoutNav() {
           name="chat/[id]"
           options={{ title: '', headerBackTitle: 'Назад' }}
         />
+        <Stack.Screen
+          name="version"
+          options={{ title: 'О приложении', headerBackTitle: 'Назад' }}
+        />
       </Stack>
     </>
   );

@@ -20,6 +20,12 @@ const hasGoogleServices = fs.existsSync(path.join(__dirname, 'google-services.js
 module.exports = ({ config }) => {
   return {
     ...config,
+    extra: {
+      ...config.extra,
+      // Дата сборки — показывается на экране «О приложении».
+      // Фиксируется в момент evaluate конфига (т.е. при сборке APK).
+      buildDate: process.env.BUILD_DATE || new Date().toISOString(),
+    },
     android: {
       ...config.android,
       // Only tell prebuild about the file when it actually exists.

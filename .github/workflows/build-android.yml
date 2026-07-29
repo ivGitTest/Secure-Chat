@@ -89,6 +89,9 @@ jobs:
       # Writing the file there (not via git) is the only reliable approach for
       # EAS local builds — git archive only captures committed files, and the
       # secret cannot be committed to the repo.
+      - name: Set build date
+        run: echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
       - name: Build APK (EAS local)
         working-directory: artifacts/messenger-android
         env:
@@ -96,6 +99,7 @@ jobs:
           ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
           ANDROID_NDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.1.12297006
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          BUILD_DATE: ${{ env.BUILD_DATE }}
         run: |
           eas build \
             --platform android \
@@ -104,10 +108,31 @@ jobs:
             --non-interactive \
             --output "${{ github.workspace }}/messenger-family.apk"
 
+      # ── version.json for the In-App Updater ───────────────────────────────
+      # После сборки выложить оба файла на VPS:
+      #   scp messenger-family.apk version.json vps:/opt/messenger/updates/
+      #   (переименовав APK в messenger.apk)
+      - name: Generate version.json
+        run: |
+          node -e "
+            const app = require('./artifacts/messenger-android/app.json');
+            const info = {
+              versionCode: app.expo.android.versionCode,
+              versionName: app.expo.version,
+              releasedAt: process.env.BUILD_DATE,
+              changelog: '',
+              apkUrl: 'messenger.apk',
+            };
+            require('fs').writeFileSync('version.json', JSON.stringify(info, null, 2));
+            console.log(JSON.stringify(info, null, 2));
+          "
+
       # ── Artifact ───────────────────────────────────────────────────────────
-      - name: Upload APK
+      - name: Upload APK + version.json
         uses: actions/upload-artifact@v4
         with:
           name: messenger-android-v${{ github.run_number }}
-          path: messenger-family.apk
+          path: |
+            messenger-family.apk
+            version.json
           retention-days: 30
