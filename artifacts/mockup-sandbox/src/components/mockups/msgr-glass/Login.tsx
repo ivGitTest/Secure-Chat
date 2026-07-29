@@ -19,11 +19,9 @@ export default function Login() {
     <div className="msgr-glass-root w-[402px] h-[874px] overflow-hidden relative">
       {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#0a0e1a] via-[#0f1629] to-[#050812]" />
-      
       {/* Decorative glow orbs */}
       <div className="absolute top-32 right-0 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl" />
       <div className="absolute bottom-32 left-0 w-56 h-56 bg-indigo-500/10 rounded-full blur-3xl" />
-      
       <div className="relative h-full flex flex-col justify-center px-6">
         {/* App branding */}
         <div className="text-center mb-12">
@@ -34,9 +32,7 @@ export default function Login() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
                 </svg>
               </div>
-              <h1 className="text-[32px] font-bold" style={{ color: 'var(--text-primary)' }}>
-                Семья
-              </h1>
+              <h1 className="text-[32px] font-bold" style={{ color: 'var(--text-primary)' }}>Авторизация</h1>
             </div>
           </div>
           <p className="text-[16px]" style={{ color: 'var(--text-secondary)' }}>
@@ -53,7 +49,7 @@ export default function Login() {
               type="text"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
-              placeholder="ваня"
+              placeholder="login"
               className="msgr-glass-input w-full"
               autoCapitalize="none"
               autoCorrect="off"
