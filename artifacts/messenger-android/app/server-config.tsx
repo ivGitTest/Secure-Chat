@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import colors from '@/constants/colors';
 import { getServerUrl, setServerUrl } from '@/services/serverConfig';
@@ -77,9 +78,17 @@ export default function ServerConfigScreen() {
       style={styles.root}
     >
       <View style={styles.inner}>
-        <Text style={styles.title}>Сервер</Text>
+        {/* Icon tile + glow */}
+        <View style={styles.iconArea}>
+          <View style={styles.iconGlow} />
+          <View style={styles.iconTile}>
+            <Ionicons name="server-outline" size={32} color="#fff" />
+          </View>
+        </View>
+
+        <Text style={styles.title}>Настройка сервера</Text>
         <Text style={styles.subtitle}>
-          Укажите адрес семейного сервера для подключения.
+          Введите адрес семейного сервера
         </Text>
 
         <Text style={styles.label}>АДРЕС СЕРВЕРА</Text>
@@ -121,56 +130,96 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingTop: 80,
+    paddingTop: 60,
     paddingBottom: 48,
   },
+
+  // ── Icon tile ──
+  iconArea: { alignItems: 'center', marginBottom: 28 },
+  iconGlow: {
+    position: 'absolute',
+    top: -8,
+    width: 92,
+    height: 92,
+    borderRadius: 30,
+    backgroundColor: 'rgba(0,68,255,0.22)',
+    opacity: 0.7,
+    transform: [{ scale: 1.3 }],
+  },
+  iconTile: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    backgroundColor: C.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+
   title: {
-    fontSize: 44,
+    fontSize: 30,
     fontWeight: '700',
     color: C.text,
-    letterSpacing: -1,
-    marginBottom: 12,
+    letterSpacing: -0.5,
+    marginBottom: 8,
+    textAlign: 'center',
     fontFamily: 'Inter_700Bold',
   },
   subtitle: {
-    fontSize: 20,
+    fontSize: 16,
     color: C.mutedForeground,
-    fontWeight: '500',
-    lineHeight: 28,
-    marginBottom: 48,
-    fontFamily: 'Inter_500Medium',
+    lineHeight: 22,
+    marginBottom: 40,
+    textAlign: 'center',
+    fontFamily: 'Inter_400Regular',
   },
   label: {
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.5,
     color: '#A1A1AA',
-    marginBottom: 12,
+    marginBottom: 8,
     fontFamily: 'Inter_700Bold',
   },
+  // Glass card input — full border, rounded
   input: {
-    backgroundColor: C.input,
-    borderBottomWidth: 4,
-    borderBottomColor: C.border,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    fontSize: 22,
+    backgroundColor: C.card,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    fontSize: 17,
     fontWeight: '500',
     color: C.text,
     fontFamily: 'Inter_500Medium',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
   },
   btnWrap: { marginTop: 'auto', paddingTop: 32 },
   btn: {
     backgroundColor: C.primary,
-    borderRadius: 20,
-    minHeight: 64,
+    borderRadius: 14,
+    minHeight: 56,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.24,
+    shadowRadius: 12,
+    elevation: 4,
   },
   btnDisabled: { opacity: 0.5 },
   btnText: {
     color: C.primaryForeground,
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },

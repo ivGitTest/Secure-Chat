@@ -249,8 +249,8 @@ export default function ChatScreen() {
 
 const C = colors.light;
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.backgroundAlt },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.backgroundAlt },
+  root: { flex: 1, backgroundColor: C.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.background },
   msgList: {
     paddingHorizontal: 16,
     paddingVertical: 16,
@@ -324,9 +324,9 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   sendBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 14, // rounded square like mockup, not full circle
     backgroundColor: C.primary,
     alignItems: 'center',
     justifyContent: 'center',

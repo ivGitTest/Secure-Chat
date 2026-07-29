@@ -73,14 +73,15 @@ export default function VersionScreen() {
         <Text style={styles.headerTitle}>О приложении</Text>
       </View>
 
-      {/* Version info — large numbers */}
-      <View style={styles.infoSection}>
+      {/* Version info — card with internal separator */}
+      <View style={styles.infoCard}>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Версия</Text>
           <Text style={styles.infoValue}>
             {getCurrentVersionName()} ({getCurrentVersionCode()})
           </Text>
         </View>
+        <View style={styles.infoSep} />
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Дата сборки</Text>
           <Text style={styles.infoValue}>{formatDate(getBuildDate())}</Text>
@@ -166,25 +167,37 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
   },
 
-  infoSection: {
-    paddingHorizontal: 32,
-    paddingTop: 40,
-    paddingBottom: 40,
-    gap: 24,
+  // Info card — white glass card with internal separator
+  infoCard: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 8,
+    backgroundColor: C.card,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
+  infoSep: { height: 1.5, backgroundColor: C.border, marginHorizontal: 0 },
   infoLabel: {
-    fontSize: 20,
+    fontSize: 15,
     color: C.mutedForeground,
-    fontWeight: '500',
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'Inter_400Regular',
   },
   infoValue: {
-    fontSize: 22,
+    fontSize: 15,
     fontWeight: '700',
     color: C.text,
     fontFamily: 'Inter_700Bold',
@@ -269,19 +282,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
   },
 
+  // Primary solid blue button — matches mockup c2-btn
   checkBtn: {
-    marginHorizontal: 32,
+    marginHorizontal: 20,
     marginTop: 8,
-    borderWidth: 3,
-    borderColor: C.border,
-    borderRadius: 20,
-    minHeight: 64,
+    backgroundColor: C.primary,
+    borderRadius: 14,
+    minHeight: 56,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.24,
+    shadowRadius: 12,
+    elevation: 4,
   },
   checkBtnText: {
-    color: C.text,
-    fontSize: 18,
+    color: '#fff',
+    fontSize: 17,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },

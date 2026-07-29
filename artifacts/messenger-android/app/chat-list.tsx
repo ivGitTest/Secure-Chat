@@ -251,24 +251,31 @@ const styles = StyleSheet.create({
     color: C.primary,
     fontFamily: 'Inter_700Bold',
   },
-  // Plain divider between rows — no card borders
+  // Card-style rows — white glass card with border, gap between items
   separator: {
-    height: 1,
-    backgroundColor: C.border,
-    marginHorizontal: 20,
+    height: 12, // gap between cards instead of thin line
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    backgroundColor: C.background,
-    gap: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: C.card,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 16,
+    marginHorizontal: 16,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28, // full circle
+    width: 60,
+    height: 60,
+    borderRadius: 20, // rounded square, not full circle
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
