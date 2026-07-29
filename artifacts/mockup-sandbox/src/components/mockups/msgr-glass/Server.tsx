@@ -23,11 +23,9 @@ export default function Server() {
     <div className="msgr-glass-root w-[402px] h-[874px] overflow-hidden relative">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#0a0e1a] via-[#0f1629] to-[#050812]" />
-      
       {/* Subtle animated orbs */}
       <div className="absolute top-20 left-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl animate-pulse" />
       <div className="absolute bottom-20 right-10 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
-      
       <div className="relative h-full flex flex-col items-center justify-center px-6">
         {/* Logo/Icon area */}
         <div className="mb-8 msgr-glass-card px-6 py-6 msgr-glass-glow">
@@ -41,9 +39,7 @@ export default function Server() {
         <h1 className="text-[28px] font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
           Настройка сервера
         </h1>
-        <p className="text-[15px] mb-10 text-center max-w-[280px]" style={{ color: 'var(--text-secondary)' }}>
-          Введите адрес вашего семейного сервера
-        </p>
+        <p className="text-[15px] mb-10 text-center max-w-[280px]" style={{ color: 'var(--text-secondary)' }}>Введите адрес сервера</p>
 
         <form onSubmit={handleSubmit} className="w-full max-w-[340px] space-y-6">
           <div>
