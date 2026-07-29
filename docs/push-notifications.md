@@ -188,17 +188,27 @@ MIUI агрессивно блокирует фоновые процессы. Б
 
 ## Обновление сервера на VPS
 
-После изменений в коде `api-server`:
+После изменений в коде `api-server` обычно достаточно обновить только контейнер
+API — останавливать PostgreSQL, nginx и coturn не нужно:
 
 ```bash
-cd /path/to/project
+cd /path/to/project/deploy
 git pull
 docker compose up -d --build api
+docker compose ps
+curl https://chat.naviry.xyz/api/v1/health
 ```
 
 Проверить, что новая версия запустилась:
 
 ```bash
-docker logs deploy-api-1 --tail=20
+docker compose logs --tail=20 api
 # Должна быть строка: "Server listening at http://0.0.0.0:3000"
 ```
+
+Для остальных случаев используйте таблицу и безопасный полный сценарий в
+[`deploy/README.md`](../deploy/README.md#универсальная-инструкция-после-изменений):
+`nginx` — только nginx, `coturn` — только coturn, изменения Compose/Dockerfile —
+`docker compose up -d --build`. Полный `docker compose down` нужен только при
+изменениях сети/монтирований или если обычный `up` не применяет конфигурацию.
+`docker compose down -v` для обновлений не используйте.

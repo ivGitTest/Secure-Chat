@@ -34,7 +34,11 @@ _Describe the high-level user-facing capabilities of this app once they exist._
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- После каждого изменения, затрагивающего сервер или деплой, в итоговом ответе
+  давать команды обновления VPS: какой контейнер обновлять, нужен ли полный
+  `docker compose down`, и команды проверки health/logs. По умолчанию
+  рекомендовать частичное обновление без простоя; полный перезапуск показывать
+  только когда он действительно нужен.
 
 ## Gotchas
 

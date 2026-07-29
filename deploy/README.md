@@ -281,13 +281,77 @@ Available commands:
 
 ## Updating the application
 
+### Универсальная инструкция после изменений
+
+В большинстве обновлений меняется только серверный код (`api`). В этом случае
+останавливать весь стек и PostgreSQL не нужно:
+
 ```bash
+cd /opt/messenger/deploy
 git pull
-cd deploy
 docker compose up -d --build api
+docker compose ps
+curl https://chat.naviry.xyz/api/v1/health
 ```
 
-This rebuilds and restarts only the api container; postgres data is preserved in the named volume.
+Команда пересобирает и перезапускает только `api`. Данные PostgreSQL не
+затрагиваются, а `nginx` и `coturn` продолжают работать без перерыва.
+
+#### Какой контейнер обновлять
+
+| Что изменилось | Команда |
+|---|---|
+| `artifacts/api-server`, API, WebSocket, миграции | `docker compose up -d --build api` |
+| `deploy/nginx.conf` или файлы, которые nginx раздаёт | `docker compose up -d --force-recreate nginx` |
+| `deploy/coturn.conf` или настройки TURN | `docker compose up -d --force-recreate coturn` |
+| `deploy/docker-compose.yml`, Dockerfile или общие переменные окружения | `docker compose up -d --build` |
+| Несколько сервисов или сомневаетесь, что именно изменилось | `docker compose up -d --build` |
+
+После обновления nginx можно проверить локальный healthcheck:
+
+```bash
+curl http://127.0.0.1:7080/healthz
+```
+
+После обновления `coturn` проверьте:
+
+```bash
+docker compose logs --tail=50 coturn
+docker compose ps coturn
+```
+
+#### Полный перезапуск
+
+`docker compose down` нужен только если требуется полностью остановить стек,
+изменились сети/монтирования или обычный `up -d --build` не применяет конфигурацию.
+Без удаления томов безопасный полный сценарий такой:
+
+```bash
+cd /opt/messenger/deploy
+git pull
+docker compose down
+docker compose up -d --build
+docker compose ps
+curl https://chat.naviry.xyz/api/v1/health
+```
+
+`docker compose down` не удаляет данные PostgreSQL, если не добавлять флаг
+`-v`. **Никогда не используйте `docker compose down -v` для обычного обновления**:
+эта команда удаляет Docker volumes и может уничтожить данные, если они хранятся
+в volume. В текущей конфигурации резервные копии находятся отдельно на хосте,
+но это не заменяет проверку базы и бэкапов.
+
+#### Если обновились только файлы APK
+
+Для выкладки APK контейнеры перезапускать не нужно. Достаточно скопировать
+`version.json` и APK в `/opt/messenger/updates/`; nginx увидит файлы через
+смонтированный каталог:
+
+```bash
+scp version.json vps:/opt/messenger/updates/
+scp messenger-family.apk vps:/opt/messenger/updates/messenger.apk
+curl https://chat.naviry.xyz/updates/version.json
+```
 
 ---
 
