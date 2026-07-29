@@ -16,6 +16,7 @@
  */
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Application from 'expo-application';
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -31,14 +32,25 @@ export interface UpdateInfo {
   apkUrl: string;       // абсолютный URL или имя файла относительно /updates/
 }
 
-/** Текущий versionCode, вшитый в сборку (app.json → android.versionCode). */
+/**
+ * Текущий versionCode — читается из Android Package Manager через expo-application.
+ * Application.nativeBuildVersion возвращает реальный versionCode установленного APK
+ * (строка на Android), а не значение, зашитое в JS-бандл при сборке.
+ * Фоллбэк на Constants.expoConfig нужен только для dev/Expo Go окружения.
+ */
 export function getCurrentVersionCode(): number {
+  // nativeBuildVersion = versionCode (Android) или buildNumber (iOS), строка
+  const fromNative = Application.nativeBuildVersion;
+  if (fromNative) {
+    const parsed = parseInt(fromNative, 10);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
   return Constants.expoConfig?.android?.versionCode ?? 1;
 }
 
-/** Текущая версия приложения, например "1.0.1". */
+/** Текущая версия приложения, например "1.1.0". */
 export function getCurrentVersionName(): string {
-  return Constants.expoConfig?.version ?? '?';
+  return Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? '?';
 }
 
 /** Дата сборки, вшитая в app.config.js (extra.buildDate), или null в dev. */
