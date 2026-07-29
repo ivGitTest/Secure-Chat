@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.msgr-glass-root {
+  --bg-dark: #0a0e1a;
+  --bg-darker: #050812;
+  --glass-bg: rgba(20, 28, 45, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-glow: rgba(100, 150, 255, 0.15);
+  
+  --text-primary: #f0f2f8;
+  --text-secondary: #9ca3b8;
+  --text-muted: #6b7280;
+  
+  --accent-blue: #4a90ff;
+  --accent-blue-dim: #3a70cc;
+  --accent-green: #34d399;
+  --accent-red: #ef4444;
+  
+  --bubble-me: rgba(74, 144, 255, 0.9);
+  --bubble-them: rgba(30, 40, 60, 0.8);
+  
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.msgr-glass-blur {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.msgr-glass-glow {
+  box-shadow: 
+    0 0 20px var(--glass-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.msgr-glass-input {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  font-size: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.msgr-glass-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(74, 144, 255, 0.1);
+}
+
+.msgr-glass-input::placeholder {
+  color: var(--text-muted);
+}
+
+.msgr-glass-btn {
+  min-height: 52px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+
+.msgr-glass-btn-primary {
+  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-blue-dim) 100%);
+  color: white;
+  border: none;
+  box-shadow: 
+    0 4px 12px rgba(74, 144, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.msgr-glass-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.msgr-glass-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { 
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
