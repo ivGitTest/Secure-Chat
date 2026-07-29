@@ -407,6 +407,143 @@ DOMAIN=chat.naviry.xyz WARN_DAYS=999 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID
 
 ---
 
+## Automated database backups
+
+The script `deploy/scripts/backup-postgres.sh` runs `pg_dump` inside the running postgres container and writes a compressed dump to a host directory.  No extra tooling is required — it uses the `docker compose exec` command already available on the host.
+
+### Backup rotation
+
+| Type | Filename pattern | Retained |
+|------|-----------------|----------|
+| Daily | `daily-YYYY-MM-DD.sql.gz` | Last **7** dumps |
+| Weekly | `weekly-YYYY-MM-DD.sql.gz` | Last **4** dumps (taken on Sundays) |
+
+Backups are written to `/opt/messenger/backups` by default (configurable via `BACKUP_DIR`).  The directory is on the **host filesystem**, outside every Docker volume, so `docker compose down -v` or `docker volume prune` cannot touch it.
+
+### Set up the daily cron job
+
+```bash
+sudo crontab -e
+```
+
+Add (adjust the path to match where you cloned the repo):
+
+```cron
+# Backup Postgres every night at 02:00
+0 2 * * * COMPOSE_DIR=/path/to/messenger/deploy /path/to/messenger/deploy/scripts/backup-postgres.sh >> /var/log/messenger-backup.log 2>&1
+```
+
+### Optional: Telegram alert on failure
+
+If you also use Telegram for cert-expiry alerts, reuse the same bot token and chat ID.  Add both variables to the cron line:
+
+```cron
+0 2 * * * COMPOSE_DIR=/path/to/messenger/deploy \
+          TELEGRAM_BOT_TOKEN=<token> \
+          TELEGRAM_CHAT_ID=<chat_id> \
+          /path/to/messenger/deploy/scripts/backup-postgres.sh >> /var/log/messenger-backup.log 2>&1
+```
+
+A Telegram message is sent **only on failure**; a successful run is silent (logged to the log file only).
+
+### Configuration variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `COMPOSE_DIR` | Script's parent directory | Directory containing `docker-compose.yml` |
+| `BACKUP_DIR` | `/opt/messenger/backups` | Host directory for dump files |
+| `KEEP_DAILY` | `7` | Number of daily dumps to keep |
+| `KEEP_WEEKLY` | `4` | Number of weekly dumps to keep |
+| `TELEGRAM_BOT_TOKEN` | *(empty)* | Bot token for failure alerts |
+| `TELEGRAM_CHAT_ID` | *(empty)* | Chat/user ID for failure alerts |
+
+### Run a manual backup immediately
+
+```bash
+COMPOSE_DIR=/path/to/messenger/deploy \
+  /path/to/messenger/deploy/scripts/backup-postgres.sh
+```
+
+### Verify backups are being created
+
+```bash
+ls -lh /opt/messenger/backups/
+# Example output:
+# -rw-r--r-- 1 root root  42K Jul 28 02:00 daily-2026-07-28.sql.gz
+# -rw-r--r-- 1 root root  41K Jul 27 02:00 daily-2026-07-27.sql.gz
+# -rw-r--r-- 1 root root  40K Jul 27 02:00 weekly-2026-07-27.sql.gz
+```
+
+### Off-VPS copies (recommended)
+
+For full protection against VPS loss, periodically sync the backup directory to another location, for example using `rsync`:
+
+```bash
+# Run daily or weekly from a separate machine / cron job
+rsync -avz user@your-vps:/opt/messenger/backups/ ~/messenger-backups/
+```
+
+Or use any cloud storage tool (`rclone`, `s3cmd`, `restic`, etc.) that can read the host directory.
+
+---
+
+## Restore procedure
+
+Follow these steps to restore the database from a backup file.
+
+### 1 — Choose a backup file
+
+```bash
+ls -lht /opt/messenger/backups/
+# Pick the file you want to restore, e.g. daily-2026-07-28.sql.gz
+```
+
+### 2 — Stop the API so no new writes arrive
+
+```bash
+cd /path/to/messenger/deploy
+docker compose stop api
+```
+
+### 3 — Drop and recreate the database
+
+```bash
+# Open a psql shell inside the postgres container
+docker compose exec postgres psql -U messenger -d postgres
+
+-- Inside psql:
+DROP DATABASE messenger;
+CREATE DATABASE messenger OWNER messenger;
+\q
+```
+
+### 4 — Restore the dump
+
+```bash
+# Decompress and pipe directly into psql inside the container
+gunzip -c /opt/messenger/backups/daily-2026-07-28.sql.gz \
+  | docker compose exec -T postgres psql -U messenger -d messenger
+```
+
+### 5 — Restart the API
+
+```bash
+docker compose start api
+```
+
+### 6 — Verify
+
+```bash
+curl https://chat.naviry.xyz/api/v1/health
+# Expected: {"status":"ok"}
+
+# Spot-check a few rows
+docker compose exec postgres psql -U messenger -d messenger \
+  -c "SELECT COUNT(*) FROM messages;"
+```
+
+---
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -416,3 +553,5 @@ DOMAIN=chat.naviry.xyz WARN_DAYS=999 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID
 | WebSocket drops after 60 s | Confirm `proxy_read_timeout 3600s` is in nginx config |
 | TURN not working | Confirm `EXTERNAL_IP` is correct and UDP 3478 / 49152-65535 are open |
 | Certificate error on Android | Ensure you used a real Certbot cert, not a self-signed one |
+| Backup script exits with error | Check `/var/log/messenger-backup.log`; ensure the postgres container is running (`docker compose ps`) |
+| Restore: `DROP DATABASE` fails | Stop all services first (`docker compose stop api nginx`) so no connections remain |
