@@ -29,12 +29,10 @@ export default function SplashScreen() {
         return;
       }
 
-      // Validate the token by calling the API
       try {
         await getMe();
         router.replace('/chat-list');
       } catch {
-        // Token expired or invalid — clear and go to login
         await clearAuth();
         router.replace('/login');
       }
@@ -45,11 +43,16 @@ export default function SplashScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.logoWrap}>
+        <View style={styles.logo}>
+          <Text style={styles.logoGlyph}>💬</Text>
+        </View>
+      </View>
       <Text style={styles.title}>Мессенджер</Text>
       <ActivityIndicator
         size="large"
         color={colors.light.primary}
-        style={{ marginTop: 32 }}
+        style={{ marginTop: 40 }}
       />
     </View>
   );
@@ -62,10 +65,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.light.background,
   },
+  logoWrap: { marginBottom: 24 },
+  logo: {
+    width: 88,
+    height: 88,
+    borderRadius: 26,
+    backgroundColor: colors.light.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.light.primary,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  logoGlyph: { fontSize: 40 },
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.light.primary,
+    color: colors.light.text,
     fontFamily: 'Inter_700Bold',
   },
 });

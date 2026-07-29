@@ -33,6 +33,14 @@ function formatTime(iso: string | null): string {
   return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
+/** Deterministic color per initial letter */
+const AVATAR_COLORS = [
+  '#0044FF', '#7C3AED', '#0891B2', '#059669', '#D97706', '#DC2626',
+];
+function avatarColor(name: string): string {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+}
+
 export default function ChatListScreen() {
   const router = useRouter();
   const navigation = useNavigation();
@@ -55,13 +63,9 @@ export default function ChatListScreen() {
     }
   }
 
-  // Load on mount and on every focus
   useEffect(() => {
     void loadData();
-    // Register push token once per login session (user is authenticated here).
-    // Gracefully no-ops if permission denied or FCM not available.
     void registerForPushNotifications();
-    // Тихая проверка обновлений (не чаще 1 раза в 24 ч, graceful при ошибках)
     void checkForUpdate().then(setUpdate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -74,7 +78,7 @@ export default function ChatListScreen() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: userName ?? 'Чаты',
+      title: 'Семья',
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 8 }}>
           <TouchableOpacity
@@ -118,7 +122,6 @@ export default function ChatListScreen() {
     }
   }
 
-  // Merge users (excluding self) with their conversations
   const rows: ContactRow[] = users
     .filter((u) => u.id !== userId)
     .map((user) => ({
@@ -139,10 +142,7 @@ export default function ChatListScreen() {
       <View style={styles.center}>
         <Ionicons name="people-outline" size={56} color={C.mutedForeground} />
         <Text style={styles.emptyText}>Нет других пользователей</Text>
-        <TouchableOpacity
-          style={styles.retryBtn}
-          onPress={() => void loadData()}
-        >
+        <TouchableOpacity style={styles.retryBtn} onPress={() => void loadData()}>
           <Text style={styles.retryText}>Обновить</Text>
         </TouchableOpacity>
       </View>
@@ -164,44 +164,59 @@ export default function ChatListScreen() {
         </TouchableOpacity>
       )}
       <FlatList<ContactRow>
-      data={rows}
-      keyExtractor={(item) => item.user.id}
-      contentContainerStyle={styles.list}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => {
-            setRefreshing(true);
-            void loadData(true);
-          }}
-          tintColor={C.primary}
-        />
-      }
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          style={styles.row}
-          onPress={() => handleUserPress(item)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {item.user.name.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <View style={styles.rowContent}>
-            <Text style={styles.userName}>{item.user.name}</Text>
-            <Text style={styles.lastMsg} numberOfLines={1}>
-              {item.conversation?.lastMessage ?? 'Нет сообщений'}
-            </Text>
-          </View>
-          {item.conversation?.lastMessageTime && (
-            <Text style={styles.time}>
-              {formatTime(item.conversation.lastMessageTime)}
-            </Text>
-          )}
-        </TouchableOpacity>
-      )}
+        data={rows}
+        keyExtractor={(item) => item.user.id}
+        contentContainerStyle={styles.list}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void loadData(true);
+            }}
+            tintColor={C.primary}
+          />
+        }
+        renderItem={({ item }) => {
+          const unread = 0; // unreadCount not yet in API
+          return (
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => handleUserPress(item)}
+              activeOpacity={0.7}
+            >
+              {/* Avatar */}
+              <View style={[styles.avatar, { backgroundColor: avatarColor(item.user.name) }]}>
+                <Text style={styles.avatarText}>
+                  {item.user.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+
+              {/* Content */}
+              <View style={styles.rowContent}>
+                <View style={styles.rowTop}>
+                  <Text style={styles.userName}>{item.user.name}</Text>
+                  {item.conversation?.lastMessageTime && (
+                    <Text style={[styles.time, unread > 0 && styles.timeUnread]}>
+                      {formatTime(item.conversation.lastMessageTime)}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.rowBottom}>
+                  <Text style={[styles.lastMsg, unread > 0 && styles.lastMsgUnread]} numberOfLines={1}>
+                    {item.conversation?.lastMessage ?? 'Нет сообщений'}
+                  </Text>
+                  {unread > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{unread}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
       />
     </View>
   );
@@ -216,27 +231,17 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: C.background,
   },
-  emptyText: {
-    fontSize: 16,
-    color: C.mutedForeground,
-    fontFamily: 'Inter_400Regular',
-  },
+  emptyText: { fontSize: 16, color: C.mutedForeground, fontFamily: 'Inter_400Regular' },
   retryBtn: { marginTop: 8 },
-  retryText: {
-    color: C.primary,
-    fontSize: 15,
-    fontFamily: 'Inter_500Medium',
-  },
-  list: {
-    backgroundColor: C.background,
-  },
+  retryText: { color: C.primary, fontSize: 15, fontFamily: 'Inter_500Medium' },
+  list: { paddingHorizontal: 12, paddingVertical: 8 },
   updateBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#EAF3FF',
+    backgroundColor: '#EAF0FF',
     borderBottomWidth: 1,
     borderBottomColor: C.border,
   },
@@ -246,46 +251,86 @@ const styles = StyleSheet.create({
     color: C.primary,
     fontFamily: 'Inter_500Medium',
   },
-  separator: { height: 1, backgroundColor: C.border, marginLeft: 72 },
+  separator: { height: 8 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 14,
-    backgroundColor: C.background,
+    backgroundColor: C.card,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: C.primary,
+    width: 54,
+    height: 54,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    flexShrink: 0,
   },
   avatarText: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },
-  rowContent: { flex: 1 },
+  rowContent: { flex: 1, minWidth: 0 },
+  rowTop: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 3,
+  },
+  rowBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   userName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
     color: C.text,
     fontFamily: 'Inter_600SemiBold',
-    marginBottom: 3,
-  },
-  lastMsg: {
-    fontSize: 14,
-    color: C.mutedForeground,
-    fontFamily: 'Inter_400Regular',
   },
   time: {
-    fontSize: 12,
+    fontSize: 13,
     color: C.mutedForeground,
     fontFamily: 'Inter_400Regular',
-    marginLeft: 8,
+    marginLeft: 4,
+  },
+  timeUnread: { color: C.primary, fontFamily: 'Inter_700Bold' },
+  lastMsg: {
+    flex: 1,
+    fontSize: 15,
+    color: C.mutedForeground,
+    fontFamily: 'Inter_400Regular',
+  },
+  lastMsgUnread: {
+    color: C.text,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  badge: {
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: C.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
 });

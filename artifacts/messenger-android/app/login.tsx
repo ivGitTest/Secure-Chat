@@ -64,53 +64,67 @@ export default function LoginScreen() {
       style={styles.root}
     >
       <View style={styles.inner}>
-        <Text style={styles.title}>Мессенджер</Text>
-        <Text style={styles.subtitle}>Войдите в аккаунт</Text>
+        {/* Icon */}
+        <View style={styles.iconWrap}>
+          <View style={styles.icon}>
+            <Text style={styles.iconGlyph}>👤</Text>
+          </View>
+        </View>
 
-        <Text style={styles.label}>Имя пользователя</Text>
-        <TextInput
-          style={styles.input}
-          value={userId}
-          onChangeText={setUserId}
-          placeholder="ivan"
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="next"
-          onSubmitEditing={() => pinRef.current?.focus()}
-        />
+        <Text style={styles.title}>Авторизация</Text>
+        <Text style={styles.subtitle}>Войдите в семейный мессенджер</Text>
 
-        <Text style={styles.label}>PIN-код (6 цифр)</Text>
-        <TextInput
-          ref={pinRef}
-          style={styles.input}
-          value={pin}
-          onChangeText={(v) => setPin(v.replace(/\D/g, '').slice(0, 6))}
-          placeholder="••••••"
-          secureTextEntry
-          keyboardType="number-pad"
-          maxLength={6}
-          returnKeyType="done"
-          onSubmitEditing={() => void handleLogin()}
-        />
+        <View style={styles.fields}>
+          <Text style={styles.label}>ИМЯ ПОЛЬЗОВАТЕЛЯ</Text>
+          <TextInput
+            style={styles.input}
+            value={userId}
+            onChangeText={setUserId}
+            placeholder="user id"
+            placeholderTextColor={C.mutedForeground}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="next"
+            onSubmitEditing={() => pinRef.current?.focus()}
+          />
 
-        <TouchableOpacity
-          style={[styles.btn, loading && styles.btnDisabled]}
-          onPress={() => void handleLogin()}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.btnText}>Войти</Text>
-          )}
-        </TouchableOpacity>
+          <Text style={[styles.label, { marginTop: 20 }]}>PIN-КОД (6 ЦИФР)</Text>
+          <TextInput
+            ref={pinRef}
+            style={[styles.input, styles.pinInput]}
+            value={pin}
+            onChangeText={(v) => setPin(v.replace(/\D/g, '').slice(0, 6))}
+            placeholder="••••••"
+            placeholderTextColor={C.mutedForeground}
+            secureTextEntry
+            keyboardType="number-pad"
+            maxLength={6}
+            returnKeyType="done"
+            onSubmitEditing={() => void handleLogin()}
+          />
+        </View>
 
-        <TouchableOpacity
-          style={styles.serverBtn}
-          onPress={() => router.push('/server-config')}
-        >
-          <Text style={styles.serverBtnText}>Сменить сервер</Text>
-        </TouchableOpacity>
+        <View style={styles.btnWrap}>
+          <TouchableOpacity
+            style={[styles.btn, (loading || !userId.trim() || pin.length !== 6) && styles.btnDisabled]}
+            onPress={() => void handleLogin()}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Войти</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.serverBtn}
+            onPress={() => router.push('/server-config')}
+          >
+            <Text style={styles.serverBtnText}>← Сменить сервер</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -121,61 +135,93 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   inner: {
     flex: 1,
-    padding: 24,
-    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 72,
+    paddingBottom: 40,
   },
+  iconWrap: { alignItems: 'center', marginBottom: 28 },
+  icon: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    backgroundColor: C.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  iconGlyph: { fontSize: 30 },
   title: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: '700',
-    color: C.primary,
+    color: C.text,
     fontFamily: 'Inter_700Bold',
-    marginBottom: 8,
     textAlign: 'center',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
     color: C.mutedForeground,
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 36,
     fontFamily: 'Inter_400Regular',
   },
+  fields: { gap: 0 },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
     color: C.mutedForeground,
     marginBottom: 8,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'Inter_700Bold',
   },
   input: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: C.border,
-    borderRadius: colors.radius,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    fontSize: 17,
     color: C.text,
     backgroundColor: C.card,
-    marginBottom: 20,
     fontFamily: 'Inter_400Regular',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
+  pinInput: {
+    fontSize: 22,
+    letterSpacing: 6,
+  },
+  btnWrap: { marginTop: 'auto', paddingTop: 32, gap: 12 },
   btn: {
     backgroundColor: C.primary,
-    borderRadius: colors.radius,
-    paddingVertical: 16,
+    borderRadius: 14,
+    minHeight: 56,
     alignItems: 'center',
-    marginTop: 4,
+    justifyContent: 'center',
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 6,
   },
-  btnDisabled: { opacity: 0.6 },
+  btnDisabled: { opacity: 0.5 },
   btnText: {
     color: C.primaryForeground,
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
+    fontSize: 17,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
-  serverBtn: { marginTop: 20, alignItems: 'center' },
+  serverBtn: { alignItems: 'center', paddingVertical: 8 },
   serverBtnText: {
     color: C.mutedForeground,
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Inter_400Regular',
   },
 });

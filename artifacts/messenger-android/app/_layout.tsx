@@ -79,16 +79,24 @@ function RootLayoutNav() {
     <>
       {/* Handles notification taps — needs to be inside router tree for useRouter */}
       <NotificationTapHandler />
-      <Stack>
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: '#F0F4FF' },
+          headerTintColor: '#0044FF',
+          headerTitleStyle: { fontFamily: 'Inter_700Bold', color: '#09090b', fontSize: 17 },
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: '#F0F4FF' },
+        }}
+      >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen
           name="server-config"
-          options={{ title: 'Настройки сервера', headerBackTitle: 'Назад' }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen
           name="chat-list"
-          options={{ title: 'Чаты', headerBackVisible: false }}
+          options={{ title: 'Семья', headerBackVisible: false }}
         />
         <Stack.Screen
           name="chat/[id]"

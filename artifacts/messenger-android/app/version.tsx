@@ -36,9 +36,9 @@ export default function VersionScreen() {
   async function handleCheck() {
     setChecking(true);
     try {
-      const info = await checkForUpdate(true); // ручная проверка — без суточного лимита
+      const info = await checkForUpdate(true);
       setUpdate(info);
-      setChecked(true); // «У вас последняя версия» — только при успешном ответе сервера
+      setChecked(true);
     } catch (err) {
       setChecked(false);
       Alert.alert(
@@ -67,20 +67,23 @@ export default function VersionScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+    >
+      {/* Version info card */}
       <View style={styles.card}>
-        <Row label="Версия" value={`${getCurrentVersionName()} (${getCurrentVersionCode()})`} />
+        <InfoRow label="Версия" value={`${getCurrentVersionName()} (${getCurrentVersionCode()})`} />
         <View style={styles.divider} />
-        <Row label="Дата сборки" value={formatDate(getBuildDate())} />
+        <InfoRow label="Дата сборки" value={formatDate(getBuildDate())} />
       </View>
 
+      {/* Update available card */}
       {update ? (
         <View style={styles.updateCard}>
           <View style={styles.updateHeader}>
             <Ionicons name="arrow-up-circle" size={22} color={C.primary} />
-            <Text style={styles.updateTitle}>
-              Доступна версия {update.versionName}
-            </Text>
+            <Text style={styles.updateTitle}>Доступна версия {update.versionName}</Text>
           </View>
           {update.releasedAt ? (
             <Text style={styles.updateMeta}>от {formatDate(update.releasedAt)}</Text>
@@ -91,13 +94,13 @@ export default function VersionScreen() {
 
           {downloading ? (
             <View style={styles.progressWrap}>
-              <View style={styles.progressBar}>
+              <View style={styles.progressTrack}>
                 <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
               </View>
               <Text style={styles.progressText}>{Math.round(progress * 100)}%</Text>
             </View>
           ) : (
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => void handleInstall()}>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => void handleInstall()} activeOpacity={0.85}>
               <Text style={styles.primaryBtnText}>Обновить</Text>
             </TouchableOpacity>
           )}
@@ -109,26 +112,28 @@ export default function VersionScreen() {
         </View>
       ) : null}
 
+      {/* Check button */}
       <TouchableOpacity
-        style={styles.secondaryBtn}
+        style={styles.checkBtn}
         onPress={() => void handleCheck()}
         disabled={checking || downloading}
+        activeOpacity={0.85}
       >
         {checking ? (
-          <ActivityIndicator size="small" color={C.primary} />
+          <ActivityIndicator size="small" color={C.primaryForeground} />
         ) : (
-          <Text style={styles.secondaryBtnText}>Проверить обновления</Text>
+          <Text style={styles.checkBtnText}>Проверить обновления</Text>
         )}
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={styles.infoValue}>{value}</Text>
     </View>
   );
 }
@@ -136,30 +141,40 @@ function Row({ label, value }: { label: string; value: string }) {
 const C = colors.light;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
-  content: { padding: 16, gap: 16 },
+  content: { padding: 16, gap: 12, paddingBottom: 40 },
   card: {
-    backgroundColor: C.card ?? '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
+    backgroundColor: C.card,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: C.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  row: {
+  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
   },
-  divider: { height: 1, backgroundColor: C.border, marginLeft: 16 },
-  rowLabel: { fontSize: 15, color: C.mutedForeground, fontFamily: 'Inter_400Regular' },
-  rowValue: { fontSize: 15, color: C.text, fontFamily: 'Inter_600SemiBold' },
+  divider: { height: 1, backgroundColor: C.border, marginHorizontal: 16 },
+  infoLabel: { fontSize: 15, color: C.mutedForeground, fontFamily: 'Inter_400Regular' },
+  infoValue: { fontSize: 15, color: C.text, fontFamily: 'Inter_600SemiBold' },
   updateCard: {
-    backgroundColor: C.card ?? '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
+    backgroundColor: C.card,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: C.primary,
     padding: 16,
     gap: 8,
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
   },
   updateHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   updateTitle: { fontSize: 16, color: C.text, fontFamily: 'Inter_600SemiBold' },
@@ -168,15 +183,19 @@ const styles = StyleSheet.create({
   primaryBtn: {
     marginTop: 8,
     backgroundColor: C.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
+    borderRadius: 14,
+    minHeight: 52,
     alignItems: 'center',
-    minHeight: 48,
     justifyContent: 'center',
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_600SemiBold' },
+  primaryBtnText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
   progressWrap: { marginTop: 8, gap: 6 },
-  progressBar: {
+  progressTrack: {
     height: 8,
     borderRadius: 4,
     backgroundColor: C.border,
@@ -197,15 +216,18 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   upToDateText: { fontSize: 15, color: C.text, fontFamily: 'Inter_500Medium' },
-  secondaryBtn: {
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 10,
-    paddingVertical: 14,
+  checkBtn: {
+    marginTop: 4,
+    backgroundColor: C.primary,
+    borderRadius: 14,
+    minHeight: 56,
     alignItems: 'center',
-    minHeight: 48,
     justifyContent: 'center',
-    backgroundColor: C.card ?? '#fff',
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 6,
   },
-  secondaryBtnText: { color: C.primary, fontSize: 16, fontFamily: 'Inter_500Medium' },
+  checkBtnText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
 });

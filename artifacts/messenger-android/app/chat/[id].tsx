@@ -76,24 +76,20 @@ export default function ChatScreen() {
   const { makeCall, callState } = useCall();
   const insets = useSafeAreaInsets();
 
-  // Keyboard spacer: height animates from 0 → keyboardHeight as keyboard appears.
-  // Works in Expo Go (adjustNothing) and standalone builds (adjustResize — spacer = 0).
   const { height: kbdHeight } = useReanimatedKeyboardAnimation();
   const keyboardSpacerStyle = useAnimatedStyle(() => ({
     height: Math.max(0, -kbdHeight.value),
   }));
 
-  const [messages, setMessages] = useState<Message[]>([]); // newest-first (for inverted FlatList)
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(!isNew);
   const [currentConvId, setCurrentConvId] = useState<string | undefined>(
     isNew ? undefined : id,
   );
 
-  // Maps clientId → tempId so message.delivered can replace the optimistic bubble
   const pendingRef = useRef<Map<string, string>>(new Map());
 
-  // Set header title + call button
   useLayoutEffect(() => {
     navigation.setOptions({
       title: recipientName ?? recipientId,
@@ -115,13 +111,11 @@ export default function ChatScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation, recipientName, recipientId, callState]);
 
-  // Load message history
   useEffect(() => {
     if (isNew) return;
     void (async () => {
       try {
         const msgs = await getMessages(id);
-        // API returns oldest-first; reverse for inverted FlatList (newest-first)
         setMessages([...msgs].reverse());
       } catch {
         // ignore
@@ -131,40 +125,28 @@ export default function ChatScreen() {
     })();
   }, [id, isNew]);
 
-  // Subscribe to message.delivered — replace optimistic temp bubble with real message
   useEffect(() => {
     const unsub = wsService.on('message.delivered', (payload) => {
       const messageId = payload['messageId'] as string | undefined;
       const clientId = payload['clientId'] as string | undefined;
       if (!messageId || !clientId) return;
-
       const tempId = pendingRef.current.get(clientId);
       if (!tempId) return;
       pendingRef.current.delete(clientId);
-
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === tempId
-            ? { ...m, id: messageId } // swap temp id → real server id
-            : m,
-        ),
+        prev.map((m) => m.id === tempId ? { ...m, id: messageId } : m),
       );
     });
     return unsub;
   }, []);
 
-  // Subscribe to incoming WS messages
   useEffect(() => {
     const unsub = wsService.on('message.new', (payload) => {
       const convId = payload['conversationId'] as string | undefined;
       const senderId = payload['senderId'] as string | undefined;
-
-      // Accept if it's our conversation or from our recipient
       const isOurConv = convId && (convId === currentConvId || (isNew && senderId === recipientId));
       if (!isOurConv) return;
-
       if (!currentConvId && convId) setCurrentConvId(convId);
-
       const msgId = payload['id'] as string;
       const newMsg: Message = {
         id: msgId,
@@ -172,10 +154,7 @@ export default function ChatScreen() {
         text: payload['text'] as string,
         createdAt: payload['createdAt'] as string,
       };
-
       setMessages((prev) => {
-        // Deduplicate: skip if this message id already exists (e.g. server
-        // sent message.new twice, or the temp bubble was already replaced)
         if (prev.some((m) => m.id === msgId)) return prev;
         return [newMsg, ...prev];
       });
@@ -190,14 +169,9 @@ export default function ChatScreen() {
       Alert.alert('Ошибка', 'Нет соединения с сервером');
       return;
     }
-
-    // Unique key for this send intent — used for idempotency on the server
-    // and to match the optimistic bubble with message.delivered.
     const clientId = uuid4();
     const tempId = `temp-${clientId}`;
     pendingRef.current.set(clientId, tempId);
-
-    // Optimistic update
     const tempMsg: Message = {
       id: tempId,
       senderId: userId ?? '',
@@ -206,7 +180,6 @@ export default function ChatScreen() {
     };
     setMessages((prev) => [tempMsg, ...prev]);
     setInputText('');
-
     const payload: Record<string, unknown> = { text, clientId };
     if (currentConvId) {
       payload['conversationId'] = currentConvId;
@@ -263,12 +236,12 @@ export default function ChatScreen() {
           style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
           onPress={sendMessage}
           disabled={!inputText.trim()}
+          activeOpacity={0.85}
         >
-          <Ionicons name="send" size={20} color="#fff" />
+          <Ionicons name="send" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
 
-      {/* Spacer that grows with the keyboard so the input bar is never hidden */}
       <Animated.View style={keyboardSpacerStyle} />
     </View>
   );
@@ -277,7 +250,7 @@ export default function ChatScreen() {
 const C = colors.light;
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.background },
   msgList: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -291,67 +264,86 @@ const styles = StyleSheet.create({
     paddingVertical: 80,
     transform: [{ scaleY: -1 }],
   },
-  emptyText: {
-    fontSize: 15,
-    color: C.mutedForeground,
-    fontFamily: 'Inter_400Regular',
-  },
-  bubbleWrap: {
-    flexDirection: 'row',
-    marginVertical: 3,
-  },
+  emptyText: { fontSize: 15, color: C.mutedForeground, fontFamily: 'Inter_400Regular' },
+  bubbleWrap: { flexDirection: 'row', marginVertical: 3 },
   bubbleWrapMe: { justifyContent: 'flex-end' },
   bubbleWrapThem: { justifyContent: 'flex-start' },
   bubble: {
     maxWidth: '75%',
-    borderRadius: 18,
+    borderRadius: 20,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 10,
   },
   bubbleMe: {
     backgroundColor: C.bubbleMe,
     borderBottomRightRadius: 4,
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
   },
   bubbleThem: {
     backgroundColor: C.bubbleThem,
     borderBottomLeftRadius: 4,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   bubbleText: { fontSize: 16, fontFamily: 'Inter_400Regular' },
   bubbleTextMe: { color: C.bubbleMeText },
   bubbleTextThem: { color: C.bubbleThemText },
   bubbleTime: { fontSize: 11, marginTop: 3 },
-  bubbleTimeMe: { color: 'rgba(255,255,255,0.7)', textAlign: 'right' },
+  bubbleTimeMe: { color: 'rgba(255,255,255,0.65)', textAlign: 'right' },
   bubbleTimeThem: { color: C.mutedForeground },
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 12,
     paddingTop: 8,
-    borderTopWidth: 1,
+    borderTopWidth: 1.5,
     borderTopColor: C.border,
-    backgroundColor: C.background,
+    backgroundColor: C.card,
     gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 3,
   },
   input: {
     flex: 1,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: C.border,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 16,
     color: C.text,
-    backgroundColor: C.card,
+    backgroundColor: C.background,
     maxHeight: 120,
     fontFamily: 'Inter_400Regular',
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: C.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: C.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  sendBtnDisabled: { backgroundColor: C.accent },
+  sendBtnDisabled: {
+    backgroundColor: C.border,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
 });

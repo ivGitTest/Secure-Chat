@@ -1,40 +1,40 @@
 const colors = {
   light: {
-    text: '#1C1C1E',
-    tint: '#007AFF',
+    text: '#09090b',
+    tint: '#0044FF',
 
-    background: '#FFFFFF',
-    foreground: '#1C1C1E',
+    background: '#F0F4FF',
+    foreground: '#09090b',
 
-    card: '#F2F2F7',
-    cardForeground: '#1C1C1E',
+    card: '#FFFFFF',
+    cardForeground: '#09090b',
 
-    primary: '#007AFF',
+    primary: '#0044FF',
     primaryForeground: '#FFFFFF',
 
-    secondary: '#F2F2F7',
-    secondaryForeground: '#1C1C1E',
+    secondary: '#F0F4FF',
+    secondaryForeground: '#09090b',
 
-    muted: '#F2F2F7',
-    mutedForeground: '#8E8E93',
+    muted: '#F0F4FF',
+    mutedForeground: '#71717a',
 
-    accent: '#E5E5EA',
-    accentForeground: '#1C1C1E',
+    accent: '#DBE3FF',
+    accentForeground: '#09090b',
 
-    destructive: '#FF3B30',
+    destructive: '#ef4444',
     destructiveForeground: '#FFFFFF',
 
-    border: '#E5E5EA',
-    input: '#E5E5EA',
+    border: '#C7D2FE',
+    input: '#FFFFFF',
 
     // Messenger-specific
-    bubbleMe: '#007AFF',
+    bubbleMe: '#0044FF',
     bubbleMeText: '#FFFFFF',
-    bubbleThem: '#E9E9EB',
-    bubbleThemText: '#1C1C1E',
+    bubbleThem: '#FFFFFF',
+    bubbleThemText: '#09090b',
 
-    accept: '#34C759',
-    reject: '#FF3B30',
+    accept: '#22c55e',
+    reject: '#ef4444',
   },
 
   radius: 12,
