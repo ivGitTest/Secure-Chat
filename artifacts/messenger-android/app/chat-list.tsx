@@ -1,7 +1,6 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -9,16 +8,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
 import { getConversations } from '@/api/client';
 import colors from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { registerForPushNotifications } from '@/services/notificationService';
+import { checkForUpdate, type UpdateInfo } from '@/services/updateService';
 import type { Conversation, User } from '@/types';
-
-const APP_VERSION: string = Constants.expoConfig?.version ?? '1.0.1';
 
 interface ContactRow {
   user: User;
@@ -43,6 +40,7 @@ export default function ChatListScreen() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
 
   async function loadData(silent = false) {
     if (!silent) setLoading(true);
@@ -63,6 +61,8 @@ export default function ChatListScreen() {
     // Register push token once per login session (user is authenticated here).
     // Gracefully no-ops if permission denied or FCM not available.
     void registerForPushNotifications();
+    // Тихая проверка обновлений (не чаще 1 раза в 24 ч, graceful при ошибках)
+    void checkForUpdate().then(setUpdate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -103,11 +103,7 @@ export default function ChatListScreen() {
   }
 
   function handleInfo() {
-    Alert.alert(
-      'Семейный мессенджер',
-      `Версия ${APP_VERSION}\n\nЗакрытый семейный мессенджер с поддержкой голосовых звонков.`,
-      [{ text: 'OK' }],
-    );
+    router.push('/version');
   }
 
   function handleUserPress(row: ContactRow) {
@@ -154,7 +150,20 @@ export default function ChatListScreen() {
   }
 
   return (
-    <FlatList<ContactRow>
+    <View style={{ flex: 1, backgroundColor: C.background }}>
+      {update && (
+        <TouchableOpacity
+          style={styles.updateBanner}
+          onPress={() => router.push('/version')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="arrow-up-circle" size={20} color={C.primary} />
+          <Text style={styles.updateBannerText}>
+            Доступна версия {update.versionName} — нажмите, чтобы обновить
+          </Text>
+        </TouchableOpacity>
+      )}
+      <FlatList<ContactRow>
       data={rows}
       keyExtractor={(item) => item.user.id}
       contentContainerStyle={styles.list}
@@ -193,7 +202,8 @@ export default function ChatListScreen() {
           )}
         </TouchableOpacity>
       )}
-    />
+      />
+    </View>
   );
 }
 
@@ -219,6 +229,22 @@ const styles = StyleSheet.create({
   },
   list: {
     backgroundColor: C.background,
+  },
+  updateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#EAF3FF',
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  updateBannerText: {
+    flex: 1,
+    fontSize: 14,
+    color: C.primary,
+    fontFamily: 'Inter_500Medium',
   },
   separator: { height: 1, backgroundColor: C.border, marginLeft: 72 },
   row: {
