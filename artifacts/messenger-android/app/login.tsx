@@ -64,17 +64,11 @@ export default function LoginScreen() {
       style={styles.root}
     >
       <View style={styles.inner}>
-        {/* Icon */}
-        <View style={styles.iconWrap}>
-          <View style={styles.icon}>
-            <Text style={styles.iconGlyph}>👤</Text>
-          </View>
-        </View>
-
-        <Text style={styles.title}>Авторизация</Text>
-        <Text style={styles.subtitle}>Войдите в семейный мессенджер</Text>
+        <Text style={styles.title}>Вход</Text>
+        <Text style={styles.subtitle}>Как вас зовут и какой у вас код?</Text>
 
         <View style={styles.fields}>
+          {/* Username */}
           <Text style={styles.label}>ИМЯ ПОЛЬЗОВАТЕЛЯ</Text>
           <TextInput
             style={styles.input}
@@ -88,7 +82,8 @@ export default function LoginScreen() {
             onSubmitEditing={() => pinRef.current?.focus()}
           />
 
-          <Text style={[styles.label, { marginTop: 20 }]}>PIN-КОД (6 ЦИФР)</Text>
+          {/* PIN */}
+          <Text style={[styles.label, { marginTop: 32 }]}>PIN-КОД</Text>
           <TextInput
             ref={pinRef}
             style={[styles.input, styles.pinInput]}
@@ -104,9 +99,13 @@ export default function LoginScreen() {
           />
         </View>
 
+        {/* CTA pinned to bottom third */}
         <View style={styles.btnWrap}>
           <TouchableOpacity
-            style={[styles.btn, (loading || !userId.trim() || pin.length !== 6) && styles.btnDisabled]}
+            style={[
+              styles.btn,
+              (loading || !userId.trim() || pin.length !== 6) && styles.btnDisabled,
+            ]}
             onPress={() => void handleLogin()}
             disabled={loading}
             activeOpacity={0.85}
@@ -121,8 +120,9 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={styles.serverBtn}
             onPress={() => router.push('/server-config')}
+            activeOpacity={0.7}
           >
-            <Text style={styles.serverBtnText}>← Сменить сервер</Text>
+            <Text style={styles.serverBtnText}>Изменить сервер</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -136,92 +136,74 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     paddingHorizontal: 32,
-    paddingTop: 72,
-    paddingBottom: 40,
+    paddingTop: 80,
+    paddingBottom: 48,
   },
-  iconWrap: { alignItems: 'center', marginBottom: 28 },
-  icon: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    backgroundColor: C.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  iconGlyph: { fontSize: 30 },
   title: {
-    fontSize: 30,
+    fontSize: 44,
     fontWeight: '700',
     color: C.text,
+    letterSpacing: -1,
+    marginBottom: 12,
     fontFamily: 'Inter_700Bold',
-    textAlign: 'center',
-    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 20,
     color: C.mutedForeground,
-    textAlign: 'center',
-    marginBottom: 36,
-    fontFamily: 'Inter_400Regular',
+    fontWeight: '500',
+    lineHeight: 28,
+    marginBottom: 48,
+    fontFamily: 'Inter_500Medium',
   },
-  fields: { gap: 0 },
+  fields: { flex: 1 },
   label: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 1.2,
-    color: C.mutedForeground,
-    marginBottom: 8,
+    letterSpacing: 1.5,
+    color: '#A1A1AA', // zinc-400
+    marginBottom: 12,
     fontFamily: 'Inter_700Bold',
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    fontSize: 17,
+    backgroundColor: C.input,
+    borderBottomWidth: 4,
+    borderBottomColor: C.border,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    fontSize: 22,
+    fontWeight: '500',
     color: C.text,
-    backgroundColor: C.card,
-    fontFamily: 'Inter_400Regular',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    fontFamily: 'Inter_500Medium',
   },
   pinInput: {
-    fontSize: 22,
-    letterSpacing: 6,
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: 10,
+    fontFamily: 'Inter_700Bold',
   },
-  btnWrap: { marginTop: 'auto', paddingTop: 32, gap: 12 },
+  btnWrap: {
+    marginTop: 'auto',
+    paddingTop: 32,
+    gap: 16,
+  },
   btn: {
     backgroundColor: C.primary,
-    borderRadius: 14,
-    minHeight: 56,
+    borderRadius: 20,
+    minHeight: 64,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 6,
   },
-  btnDisabled: { opacity: 0.5 },
+  btnDisabled: { opacity: 0.4 },
   btnText: {
     color: C.primaryForeground,
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },
-  serverBtn: { alignItems: 'center', paddingVertical: 8 },
+  serverBtn: { alignItems: 'center', paddingVertical: 8, minHeight: 48 },
   serverBtnText: {
     color: C.mutedForeground,
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Inter_400Regular',
   },
 });

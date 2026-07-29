@@ -397,11 +397,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
                 <Ionicons
                   name={isMuted ? 'mic-off' : 'mic-outline'}
                   size={28}
-                  color={isMuted ? C.destructive : C.text}
+                  color={isMuted ? '#fca5a5' : '#FFFFFF'}
                 />
               </TouchableOpacity>
               <TouchableOpacity style={callStyles.iconCard} activeOpacity={0.8}>
-                <Ionicons name="volume-high-outline" size={28} color={C.text} />
+                <Ionicons name="volume-high-outline" size={28} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
 
@@ -427,74 +427,68 @@ import colors from '@/constants/colors';
 const C = colors.light;
 
 const callStyles = StyleSheet.create({
+  // Dark full-screen overlay — zinc-950 background per Minimal call mockup
   overlay: {
     flex: 1,
-    backgroundColor: C.background,
+    backgroundColor: C.callBg,
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
   },
 
   // ── Zones ──
-  topArea: { alignItems: 'center', width: '100%', gap: 6 },
-  centerArea: { alignItems: 'center', gap: 16 },
-  bottomArea: { width: '100%', gap: 16 },
-  secondaryRow: { flexDirection: 'row', justifyContent: 'center', gap: 24 },
+  topArea: { alignItems: 'center', width: '100%', gap: 8 },
+  centerArea: { alignItems: 'center', gap: 20 },
+  bottomArea: { width: '100%', gap: 20 },
+  secondaryRow: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
 
-  // ── Typography ──
+  // ── Typography (inverted — white on dark) ──
   callLabel: {
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 2,
-    color: C.mutedForeground,
+    color: '#71717a',       // zinc-500 on dark
     fontFamily: 'Inter_700Bold',
     textTransform: 'uppercase',
   },
   peerName: {
-    fontSize: 32,
+    fontSize: 48,
     fontWeight: '700',
-    color: C.text,
+    color: '#FFFFFF',
     textAlign: 'center',
+    letterSpacing: -1,
     fontFamily: 'Inter_700Bold',
   },
   statusText: {
     fontSize: 17,
-    color: C.mutedForeground,
+    color: '#71717a',
     fontFamily: 'Inter_400Regular',
   },
-  statusConnected: { color: '#22c55e', fontFamily: 'Inter_700Bold' },
+  statusConnected: { color: C.accept, fontFamily: 'Inter_700Bold' },
   waitingText: {
     fontSize: 17,
-    color: C.mutedForeground,
+    color: '#71717a',
     fontFamily: 'Inter_400Regular',
   },
   timer: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
-    color: C.text,
+    color: '#FFFFFF',
     fontVariant: ['tabular-nums'],
     fontFamily: 'Inter_700Bold',
   },
 
-  // ── Icon cards (mute / speaker) ──
+  // ── Icon cards (mute / speaker) — zinc-800 surface ──
   iconCard: {
-    width: 76,
-    height: 76,
-    borderRadius: 24,
-    backgroundColor: C.card,
-    borderWidth: 1.5,
-    borderColor: C.border,
+    width: 80,
+    height: 80,
+    borderRadius: 28,
+    backgroundColor: C.callSubtle,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
   },
   iconCardMuted: {
-    backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
+    backgroundColor: `${C.reject}33`, // reject at 20% opacity
   },
 
   // ── Wide action buttons ──
@@ -503,46 +497,46 @@ const callStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    minHeight: 64,
-    borderRadius: 20,
-    backgroundColor: '#22c55e',
-    shadowColor: '#22c55e',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 5,
+    minHeight: 72,
+    borderRadius: 24,
+    backgroundColor: C.accept,
+    shadowColor: C.acceptGlow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 8,
   },
   rejectWideBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    minHeight: 64,
-    borderRadius: 20,
-    backgroundColor: C.destructive,
-    shadowColor: C.destructive,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 5,
+    minHeight: 72,
+    borderRadius: 24,
+    backgroundColor: C.reject,
+    shadowColor: C.rejectGlow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 8,
   },
   endWideBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    minHeight: 68,
+    minHeight: 72,
     borderRadius: 24,
-    backgroundColor: C.destructive,
-    shadowColor: C.destructive,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 6,
+    backgroundColor: C.reject,
+    shadowColor: C.rejectGlow,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 8,
   },
   wideBtnText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },

@@ -67,23 +67,34 @@ export default function VersionScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-    >
-      {/* Version info card */}
-      <View style={styles.card}>
-        <InfoRow label="Версия" value={`${getCurrentVersionName()} (${getCurrentVersionCode()})`} />
-        <View style={styles.divider} />
-        <InfoRow label="Дата сборки" value={formatDate(getBuildDate())} />
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Header with border */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>О приложении</Text>
       </View>
 
-      {/* Update available card */}
+      {/* Version info — large numbers */}
+      <View style={styles.infoSection}>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Версия</Text>
+          <Text style={styles.infoValue}>
+            {getCurrentVersionName()} ({getCurrentVersionCode()})
+          </Text>
+        </View>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Дата сборки</Text>
+          <Text style={styles.infoValue}>{formatDate(getBuildDate())}</Text>
+        </View>
+      </View>
+
+      {/* Update available */}
       {update ? (
         <View style={styles.updateCard}>
           <View style={styles.updateHeader}>
-            <Ionicons name="arrow-up-circle" size={22} color={C.primary} />
-            <Text style={styles.updateTitle}>Доступна версия {update.versionName}</Text>
+            <Ionicons name="arrow-up-circle" size={32} color={C.primary} />
+            <Text style={styles.updateTitle}>
+              Версия {update.versionName}
+            </Text>
           </View>
           {update.releasedAt ? (
             <Text style={styles.updateMeta}>от {formatDate(update.releasedAt)}</Text>
@@ -95,19 +106,25 @@ export default function VersionScreen() {
           {downloading ? (
             <View style={styles.progressWrap}>
               <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
+                <View
+                  style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]}
+                />
               </View>
               <Text style={styles.progressText}>{Math.round(progress * 100)}%</Text>
             </View>
           ) : (
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => void handleInstall()} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={() => void handleInstall()}
+              activeOpacity={0.85}
+            >
               <Text style={styles.primaryBtnText}>Обновить</Text>
             </TouchableOpacity>
           )}
         </View>
       ) : checked ? (
         <View style={styles.upToDate}>
-          <Ionicons name="checkmark-circle" size={20} color={C.primary} />
+          <Ionicons name="checkmark-circle" size={24} color={C.primary} />
           <Text style={styles.upToDateText}>У вас последняя версия</Text>
         </View>
       ) : null}
@@ -120,7 +137,7 @@ export default function VersionScreen() {
         activeOpacity={0.85}
       >
         {checking ? (
-          <ActivityIndicator size="small" color={C.primaryForeground} />
+          <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.checkBtnText}>Проверить обновления</Text>
         )}
@@ -129,105 +146,143 @@ export default function VersionScreen() {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
-  );
-}
-
 const C = colors.light;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
-  content: { padding: 16, gap: 12, paddingBottom: 40 },
-  card: {
-    backgroundColor: C.card,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+  content: { paddingBottom: 48 },
+
+  header: {
+    paddingHorizontal: 32,
+    paddingTop: 32,
+    paddingBottom: 24,
+    borderBottomWidth: 2,
+    borderBottomColor: C.border,
+  },
+  headerTitle: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: C.text,
+    letterSpacing: -0.5,
+    fontFamily: 'Inter_700Bold',
+  },
+
+  infoSection: {
+    paddingHorizontal: 32,
+    paddingTop: 40,
+    paddingBottom: 40,
+    gap: 24,
   },
   infoRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
   },
-  divider: { height: 1, backgroundColor: C.border, marginHorizontal: 16 },
-  infoLabel: { fontSize: 15, color: C.mutedForeground, fontFamily: 'Inter_400Regular' },
-  infoValue: { fontSize: 15, color: C.text, fontFamily: 'Inter_600SemiBold' },
+  infoLabel: {
+    fontSize: 20,
+    color: C.mutedForeground,
+    fontWeight: '500',
+    fontFamily: 'Inter_500Medium',
+  },
+  infoValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: C.text,
+    fontFamily: 'Inter_700Bold',
+  },
+
   updateCard: {
-    backgroundColor: C.card,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: C.primary,
-    padding: 16,
-    gap: 8,
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
+    marginHorizontal: 32,
+    marginBottom: 24,
+    backgroundColor: C.accent,
+    borderWidth: 2,
+    borderColor: `${C.primary}33`,
+    borderRadius: 28,
+    padding: 28,
   },
-  updateHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  updateTitle: { fontSize: 16, color: C.text, fontFamily: 'Inter_600SemiBold' },
-  updateMeta: { fontSize: 13, color: C.mutedForeground, fontFamily: 'Inter_400Regular' },
-  changelog: { fontSize: 14, color: C.text, fontFamily: 'Inter_400Regular', lineHeight: 20 },
-  primaryBtn: {
-    marginTop: 8,
-    backgroundColor: C.primary,
-    borderRadius: 14,
-    minHeight: 52,
+  updateHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
+    gap: 12,
+    marginBottom: 4,
   },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
-  progressWrap: { marginTop: 8, gap: 6 },
+  updateTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: C.primary,
+    fontFamily: 'Inter_700Bold',
+  },
+  updateMeta: {
+    fontSize: 16,
+    color: C.mutedForeground,
+    fontFamily: 'Inter_400Regular',
+    marginBottom: 8,
+  },
+  changelog: {
+    fontSize: 16,
+    color: '#3F3F46', // zinc-700
+    lineHeight: 24,
+    fontFamily: 'Inter_400Regular',
+    marginBottom: 20,
+  },
+  progressWrap: { gap: 8 },
   progressTrack: {
     height: 8,
     borderRadius: 4,
     backgroundColor: C.border,
     overflow: 'hidden',
   },
-  progressFill: { height: '100%', backgroundColor: C.primary },
+  progressFill: { height: '100%', backgroundColor: C.primary, borderRadius: 4 },
   progressText: {
     fontSize: 13,
     color: C.mutedForeground,
-    fontFamily: 'Inter_400Regular',
-    textAlign: 'center',
+    fontFamily: 'Inter_700Bold',
+    textAlign: 'right',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
+  primaryBtn: {
+    marginTop: 8,
+    backgroundColor: C.primary,
+    borderRadius: 20,
+    minHeight: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+  },
+
   upToDate: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 4,
+    paddingVertical: 16,
+    marginHorizontal: 32,
   },
-  upToDateText: { fontSize: 15, color: C.text, fontFamily: 'Inter_500Medium' },
+  upToDateText: {
+    fontSize: 17,
+    color: C.text,
+    fontFamily: 'Inter_500Medium',
+  },
+
   checkBtn: {
-    marginTop: 4,
-    backgroundColor: C.primary,
-    borderRadius: 14,
-    minHeight: 56,
+    marginHorizontal: 32,
+    marginTop: 8,
+    borderWidth: 3,
+    borderColor: C.border,
+    borderRadius: 20,
+    minHeight: 64,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 6,
   },
-  checkBtnText: { color: '#fff', fontSize: 16, fontFamily: 'Inter_700Bold' },
+  checkBtnText: {
+    color: C.text,
+    fontSize: 18,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+  },
 });

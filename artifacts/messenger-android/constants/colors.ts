@@ -1,9 +1,18 @@
+/**
+ * Design tokens — Minimal variant
+ *
+ * Palette: clean white + zinc greys + #0044FF accent
+ * Typography: Inter, large sizing, bold labels with uppercase tracking
+ * Radius: pill avatars/send, 2xl buttons/bubbles, square inputs (border-b only)
+ */
 const colors = {
   light: {
-    text: '#09090b',
+    text: '#09090b',        // zinc-950
     tint: '#0044FF',
 
-    background: '#F0F4FF',
+    background: '#FFFFFF',  // pure white
+    backgroundAlt: '#FAFAFA', // zinc-50 — chat message list
+
     foreground: '#09090b',
 
     card: '#FFFFFF',
@@ -12,20 +21,21 @@ const colors = {
     primary: '#0044FF',
     primaryForeground: '#FFFFFF',
 
-    secondary: '#F0F4FF',
+    secondary: '#F4F4F5',   // zinc-100
     secondaryForeground: '#09090b',
 
-    muted: '#F0F4FF',
-    mutedForeground: '#71717a',
+    muted: '#F4F4F5',       // zinc-100
+    mutedForeground: '#71717a', // zinc-500
 
-    accent: '#DBE3FF',
-    accentForeground: '#09090b',
+    accent: '#0044FF1A',    // #0044FF at 10% opacity
+    accentForeground: '#0044FF',
 
-    destructive: '#ef4444',
+    destructive: '#DC2626', // red-600
     destructiveForeground: '#FFFFFF',
 
-    border: '#C7D2FE',
-    input: '#FFFFFF',
+    border: '#E4E4E7',      // zinc-200
+    borderStrong: '#D4D4D8', // zinc-300
+    input: '#F4F4F5',       // zinc-100 — flat input background
 
     // Messenger-specific
     bubbleMe: '#0044FF',
@@ -33,11 +43,18 @@ const colors = {
     bubbleThem: '#FFFFFF',
     bubbleThemText: '#09090b',
 
-    accept: '#22c55e',
-    reject: '#ef4444',
+    // Call screen (dark)
+    callBg: '#09090b',      // zinc-950
+    callSurface: '#18181b', // zinc-900
+    callSubtle: '#27272a',  // zinc-800
+
+    accept: '#10B981',      // emerald-500
+    acceptGlow: 'rgba(16,185,129,0.4)',
+    reject: '#DC2626',      // red-600
+    rejectGlow: 'rgba(220,38,38,0.4)',
   },
 
-  radius: 12,
+  radius: 16,
 };
 
 export default colors;

@@ -1,44 +1,59 @@
 import { Link, Stack } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
-import { useColors } from '@/hooks/useColors';
+import colors from '@/constants/colors';
 
 export default function NotFoundScreen() {
-  const colors = useColors();
-
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          This screen doesn&apos;t exist.
-        </Text>
-
+      <Stack.Screen options={{ title: 'Страница не найдена' }} />
+      <View style={styles.container}>
+        <Text style={styles.code}>404</Text>
+        <Text style={styles.title}>Страница не найдена</Text>
         <Link href="/" style={styles.link}>
-          <Text style={[styles.linkText, { color: colors.primary }]}>
-            Go to home screen!
-          </Text>
+          <Text style={styles.linkText}>На главную</Text>
         </Link>
       </View>
     </>
   );
 }
 
+const C = colors.light;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    backgroundColor: C.background,
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  code: {
+    fontSize: 80,
+    fontWeight: '700',
+    color: C.border,
+    letterSpacing: -4,
+    fontFamily: 'Inter_700Bold',
+    lineHeight: 88,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '700',
+    color: C.text,
+    fontFamily: 'Inter_700Bold',
+    textAlign: 'center',
   },
   link: {
-    marginTop: 15,
-    paddingVertical: 15,
+    marginTop: 24,
+    minHeight: 56,
+    paddingHorizontal: 32,
+    justifyContent: 'center',
+    backgroundColor: C.primary,
+    borderRadius: 20,
   },
   linkText: {
-    fontSize: 14,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    fontFamily: 'Inter_700Bold',
   },
 });

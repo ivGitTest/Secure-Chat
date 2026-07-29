@@ -77,16 +77,10 @@ export default function ServerConfigScreen() {
       style={styles.root}
     >
       <View style={styles.inner}>
-        {/* Icon */}
-        <View style={styles.iconWrap}>
-          <View style={styles.icon}>
-            {/* server SVG-like using View shapes */}
-            <Text style={styles.iconGlyph}>⚙</Text>
-          </View>
-        </View>
-
-        <Text style={styles.title}>Настройка сервера</Text>
-        <Text style={styles.subtitle}>Введите адрес семейного сервера</Text>
+        <Text style={styles.title}>Сервер</Text>
+        <Text style={styles.subtitle}>
+          Укажите адрес семейного сервера для подключения.
+        </Text>
 
         <Text style={styles.label}>АДРЕС СЕРВЕРА</Text>
         <TextInput
@@ -128,79 +122,55 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 32,
     paddingTop: 80,
-    paddingBottom: 40,
+    paddingBottom: 48,
   },
-  iconWrap: { alignItems: 'center', marginBottom: 28 },
-  icon: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    backgroundColor: C.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  iconGlyph: { fontSize: 32, color: '#fff' },
   title: {
-    fontSize: 30,
+    fontSize: 44,
     fontWeight: '700',
     color: C.text,
+    letterSpacing: -1,
+    marginBottom: 12,
     fontFamily: 'Inter_700Bold',
-    textAlign: 'center',
-    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 20,
     color: C.mutedForeground,
-    textAlign: 'center',
-    marginBottom: 36,
-    fontFamily: 'Inter_400Regular',
+    fontWeight: '500',
+    lineHeight: 28,
+    marginBottom: 48,
+    fontFamily: 'Inter_500Medium',
   },
   label: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 1.2,
-    color: C.mutedForeground,
-    marginBottom: 8,
+    letterSpacing: 1.5,
+    color: '#A1A1AA',
+    marginBottom: 12,
     fontFamily: 'Inter_700Bold',
   },
   input: {
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    fontSize: 17,
+    backgroundColor: C.input,
+    borderBottomWidth: 4,
+    borderBottomColor: C.border,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    fontSize: 22,
+    fontWeight: '500',
     color: C.text,
-    backgroundColor: C.card,
-    fontFamily: 'Inter_400Regular',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
+    fontFamily: 'Inter_500Medium',
   },
   btnWrap: { marginTop: 'auto', paddingTop: 32 },
   btn: {
     backgroundColor: C.primary,
-    borderRadius: 14,
-    minHeight: 56,
+    borderRadius: 20,
+    minHeight: 64,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: C.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 6,
   },
   btnDisabled: { opacity: 0.5 },
   btnText: {
     color: C.primaryForeground,
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },
