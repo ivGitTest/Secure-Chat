@@ -22,6 +22,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as IntentLauncher from 'expo-intent-launcher';
 
 const LAST_CHECK_KEY = 'update_last_check';
+/** Сохраняет versionCode последнего успешно запущенного установщика APK. */
+const INSTALLED_VERSION_KEY = 'update_installed_versioncode';
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 часа
 
 export interface UpdateInfo {
@@ -120,7 +122,15 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo | null> 
       return null;
     }
 
-    if (info.versionCode <= getCurrentVersionCode()) return null;
+    // Эффективная текущая версия = max(нативный versionCode, последний установленный через updater).
+    // Это защищает от ситуации, когда Application.nativeBuildVersion не успел обновиться
+    // после установки APK или когда versionCode в APK не совпадает с тем, что ожидал updater.
+    const nativeCode = getCurrentVersionCode();
+    const storedInstalled = await AsyncStorage.getItem(INSTALLED_VERSION_KEY).catch(() => null);
+    const installedCode = storedInstalled ? (parseInt(storedInstalled, 10) || 0) : 0;
+    const effectiveCode = Math.max(nativeCode, installedCode);
+
+    if (info.versionCode <= effectiveCode) return null;
 
     return {
       versionCode: info.versionCode,
@@ -177,4 +187,14 @@ export async function downloadAndInstall(
     data: contentUri,
     flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
   });
+
+  // Запоминаем versionCode, который был передан установщику.
+  // После перезапуска приложения checkForUpdate() использует это значение
+  // как «эффективную текущую версию» — даже если Application.nativeBuildVersion
+  // ещё не успел обновиться.
+  await AsyncStorage.setItem(INSTALLED_VERSION_KEY, String(info.versionCode)).catch(() => {});
+
+  // Сбрасываем throttle: следующий холодный старт должен сразу перепроверить,
+  // чтобы убедиться, что установленная версия актуальна.
+  await AsyncStorage.removeItem(LAST_CHECK_KEY).catch(() => {});
 }
