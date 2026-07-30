@@ -344,7 +344,8 @@ curl https://chat.naviry.xyz/api/v1/health
 #### Если обновились только файлы APK
 
 Для выкладки APK контейнеры перезапускать не нужно. Достаточно скопировать
-`version.json` и APK в `/opt/messenger/updates/`; nginx увидит файлы через
+сгенерированные GitHub Actions `version.json` и APK в
+`/opt/messenger/updates/`; nginx увидит файлы через
 смонтированный каталог:
 
 ```bash
