@@ -13,6 +13,12 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      release_notes:
+        description: 'Что нового в этой версии (необязательно)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   build:
@@ -113,6 +119,8 @@ jobs:
       #   scp messenger-family.apk version.json vps:/opt/messenger/updates/
       #   (переименовав APK в messenger.apk)
       - name: Generate version.json
+        env:
+          RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
           node -e "
             const app = require('./artifacts/messenger-android/app.json');
@@ -120,7 +128,7 @@ jobs:
               versionCode: app.expo.android.versionCode,
               versionName: app.expo.version,
               releasedAt: process.env.BUILD_DATE,
-              changelog: '',
+              changelog: process.env.RELEASE_NOTES || '',
               apkUrl: 'messenger.apk',
             };
             require('fs').writeFileSync('version.json', JSON.stringify(info, null, 2));

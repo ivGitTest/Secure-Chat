@@ -32,18 +32,33 @@ nginx контейнер монтирует `/opt/messenger/updates` → `/var/w
 и раздаёт его по `location /updates/`.
 
 ## Выкладка каждого обновления
-1. В GitHub Actions собрался артефакт `messenger-android-v<N>` — внутри
-   `messenger-family.apk` и готовый `version.json`.
-2. Скопировать на VPS:
+1. В `artifacts/messenger-android/app.json` меняются только значения версии:
+   ```json
+   {
+     "expo": {
+       "version": "1.2.0",
+       "android": {
+         "versionCode": 3
+       }
+     }
+   }
+   ```
+   `version` и `android.versionCode` — единственный источник версии. Отдельно
+   редактировать эти значения в `version.json` не нужно.
+2. Запустить GitHub Actions → **Build Android APK** → **Run workflow**.
+   В поле **Что нового в этой версии** можно отдельно указать release notes.
+3. В артефакте `messenger-android-v<N>` будут автоматически собраны
+   `messenger-family.apk` и готовый `version.json`. Workflow сам переносит
+   `version` и `android.versionCode` из `app.json` в `version.json`.
+4. Скопировать на VPS:
    ```bash
    scp version.json vps:/opt/messenger/updates/
    scp messenger-family.apk vps:/opt/messenger/updates/messenger.apk
    ```
-3. Проверить: `curl https://chat.naviry.xyz/updates/version.json`
+5. Проверить: `curl https://chat.naviry.xyz/updates/version.json`
 
 Клиенты увидят обновление при следующей проверке (≤24 ч) или сразу — по кнопке
 «Проверить обновления» на экране «О приложении».
 
-> Перед сборкой релиза не забудьте поднять `versionCode` и `version` в
-> `artifacts/messenger-android/app.json` — обновление предлагается только если
-> `versionCode` на сервере больше установленного.
+> `versionCode` должен увеличиваться на каждом APK-релизе. Если он не изменился,
+> Android не сможет корректно отличить новый APK от уже установленного.
