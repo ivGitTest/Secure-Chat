@@ -124,8 +124,10 @@ public class CallFirebaseMessagingService extends FirebaseMessagingService {
 
     // Exact string values from io.wazo.callkeep.Constants — copied here to avoid
     // a compile-time dependency on internal callkeep constants.
-    private static final String EXTRA_CALL_UUID   = "EXTRA_CALL_UUID";
-    private static final String EXTRA_CALLER_NAME = "EXTRA_CALLER_NAME";
+    private static final String EXTRA_CALL_UUID    = "EXTRA_CALL_UUID";
+    private static final String EXTRA_CALLER_NAME  = "EXTRA_CALLER_NAME";
+    private static final String ACTION_ANSWER_CALL = "ACTION_ANSWER_CALL";
+    private static final String ACTION_END_CALL    = "ACTION_END_CALL";
 
     /** Filename inside getFilesDir() for pending-call persistence. */
     static final String PENDING_CALL_FILE = "callkeep_pending.json";
