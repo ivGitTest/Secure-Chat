@@ -59,7 +59,7 @@
  * Both resolve to the same location on Android.
  */
 
-const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins');
+const { withAndroidManifest, withDangerousMod } = require('expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 

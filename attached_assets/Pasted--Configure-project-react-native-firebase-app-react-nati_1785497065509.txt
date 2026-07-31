@@ -1,0 +1,105 @@
+> Configure project :react-native-firebase_app
+:react-native-firebase_app package.json found at /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@react-native-firebase+app@21.14.0_@react-native-async-storage+async-storage@2.2.0_reac_4e8059365466137204dd556c3d39bdb9/node_modules/@react-native-firebase/app/package.json
+:react-native-firebase_app:firebase.bom using default value: 33.12.0
+:react-native-firebase_app:play.play-services-auth using default value: 21.3.0
+:react-native-firebase_app package.json found at /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@react-native-firebase+app@21.14.0_@react-native-async-storage+async-storage@2.2.0_reac_4e8059365466137204dd556c3d39bdb9/node_modules/@react-native-firebase/app/package.json
+:react-native-firebase_app:version set from package.json: 21.14.0 (21,14,0 - 21014000)
+:react-native-firebase_app:android.compileSdk using custom value: 36
+:react-native-firebase_app:android.targetSdk using custom value: 36
+:react-native-firebase_app:android.minSdk using custom value: 24
+:react-native-firebase_app:reactNativeAndroidDir /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0/node_modules/react-native
+
+> Configure project :react-native-firebase_messaging
+:react-native-firebase_messaging package.json found at /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@react-native-firebase+messaging@21.14.0_@react-native-firebase+app@21.14.0_@react-nati_2aebdbb6a7174d78ce132435f5372ec6/node_modules/@react-native-firebase/messaging/package.json
+:react-native-firebase_app package.json found at /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@react-native-firebase+app@21.14.0_@react-native-async-storage+async-storage@2.2.0_reac_4e8059365466137204dd556c3d39bdb9/node_modules/@react-native-firebase/app/package.json
+:react-native-firebase_messaging:firebase.bom using default value: 33.12.0
+:react-native-firebase_messaging package.json found at /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@react-native-firebase+messaging@21.14.0_@react-native-firebase+app@21.14.0_@react-nati_2aebdbb6a7174d78ce132435f5372ec6/node_modules/@react-native-firebase/messaging/package.json
+:react-native-firebase_messaging:version set from package.json: 21.14.0 (21,14,0 - 21014000)
+:react-native-firebase_messaging:android.compileSdk using custom value: 36
+:react-native-firebase_messaging:android.targetSdk using custom value: 36
+:react-native-firebase_messaging:android.minSdk using custom value: 24
+:react-native-firebase_messaging:reactNativeAndroidDir /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0/node_modules/react-native
+
+> Configure project :react-native-reanimated
+Android gradle plugin: 8.11.0
+Gradle: 8.14.3
+
+> Task :app:generateAutolinkingPackageList
+> Task :app:generateCodegenSchemaFromJavaScript SKIPPED
+> Task :app:generateCodegenArtifactsFromSchema SKIPPED
+> Task :app:generateReactNativeEntryPoint
+> Task :expo:generatePackagesList
+> Task :expo:preBuild
+> Task :expo-modules-core:preBuild UP-TO-DATE
+> Task :react-native-async-storage_async-storage:preBuild UP-TO-DATE
+> Task :react-native-callkeep:preBuild UP-TO-DATE
+> Task :react-native-firebase_app:preBuild UP-TO-DATE
+> Task :react-native-firebase_messaging:preBuild UP-TO-DATE
+> Task :react-native-gesture-handler:preBuild UP-TO-DATE
+> Task :react-native-keyboard-controller:preBuild UP-TO-DATE
+> Task :react-native-reanimated:assertMinimalReactNativeVersionTask SKIPPED
+> Task :react-native-reanimated:prepareReanimatedHeadersForPrefabs
+
+> Task :expo-constants:createExpoConfig FAILED
+The NODE_ENV environment variable is required but was not specified. Ensure the project is bundled with Expo CLI or NODE_ENV is set. Using only .env.local and .env
+
+/home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@expo+config-plugins@54.0.5/node_modules/@expo/config-plugins/build/plugins/withStaticPlugin.js:124
+> Task :react-native-reanimated:prepareWorkletsHeadersForPrefabs
+> Task :react-native-reanimated:preBuild
+        throw error;
+        ^
+> Task :react-native-safe-area-context:preBuild UP-TO-DATE
+
+> Task :react-native-screens:preBuild UP-TO-DATE
+Error: Cannot find module '@expo/config-plugins'
+Require stack:
+- /home/runner/work/Secure-Chat/Secure-Chat/artifacts/messenger-android/plugins/withCallKeep.js
+- /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@expo+config-plugins@54.0.5/node_modules/@expo/config-plugins/build/utils/plugin-resolver.js
+- /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@expo+config-plugins@54.0.5/node_modules/@expo/config-plugins/build/plugins/withStaticPlugin.js
+- /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@expo+config-plugins@54.0.5/node_modules/@expo/config-plugins/build/index.js
+- /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@expo+config@12.0.14/node_modules/@expo/config/build/plugins/withConfigPlugins.js
+- /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@expo+config@12.0.14/node_modules/@expo/config/build/Config.js
+- /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/@expo+config@12.0.14/node_modules/@expo/config/build/index.js
+- /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/expo-constants@18.0.13_expo@54.0.36_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0_/node_modules/expo-constants/scripts/build/getAppConfig.js
+- /home/runner/work/Secure-Chat/Secure-Chat/node_modules/.pnpm/expo-constants@18.0.13_expo@54.0.36_react-native@0.81.5_@babel+core@7.29.7_@types+react@19.1.17_react@19.1.0_/node_modules/expo-constants/scripts/getAppConfig.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+    at require (node:internal/modules/helpers:182:18)
+    at Object.<anonymous> (/home/runner/work/Secure-Chat/Secure-Chat/artifacts/messenger-android/plugins/withCallKeep.js:26:33)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.require (node:internal/modules/cjs/loader:1289:19) ***
+  name: 'PluginError',
+  isPluginError: true,
+  code: 'INVALID_PLUGIN_IMPORT',
+  cause: undefined
+***
+
+Node.js v20.20.2
+
+
+[Incubating] Problems report is available at: file:///home/runner/work/Secure-Chat/Secure-Chat/artifacts/messenger-android/android/build/reports/problems/problems-report.html
+FAILURE: Build failed with an exception.
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+
+* What went wrong:
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+Execution failed for task ':expo-constants:createExpoConfig'.
+
+> Process 'command 'node'' finished with non-zero exit value 1
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+30 actionable tasks: 30 executed
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 4m 20s
+Error: Process completed with exit code 1.
