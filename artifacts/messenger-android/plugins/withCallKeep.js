@@ -23,7 +23,7 @@
  *
  * This does NOT touch iOS — the app is Android-only.
  */
-const { withAndroidManifest } = require('@expo/config-plugins');
+const { withAndroidManifest } = require('expo/config-plugins');
 
 /**
  * @param {import('@expo/config-plugins').ExpoConfig} config

@@ -48,7 +48,7 @@ const {
   withAndroidManifest,
   withDangerousMod,
   withMainApplication,
-} = require('@expo/config-plugins');
+} = require('expo/config-plugins');
 const path = require('path');
 const fs   = require('fs');
 
