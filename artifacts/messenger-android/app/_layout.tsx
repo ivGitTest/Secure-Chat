@@ -16,16 +16,17 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider } from '@/context/AuthContext';
 import { CallProvider } from '@/context/CallContext';
 import { setupNotificationChannels } from '@/services/notificationService';
+import { setupCallKeep } from '@/services/callkeepService';
 
 // ---------------------------------------------------------------------------
 // Foreground notification handler — runs before the notification is displayed.
 // Messages are suppressed (WebSocket delivers them live in the UI).
-// Calls are shown (belt-and-suspenders alongside the WebSocket path).
+// Call notifications via Expo Push are shown as a fallback (when FCM token is
+// unavailable). The primary call notification path is FCM data-only → CallKeep.
 // ---------------------------------------------------------------------------
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
     const data = notification.request.content.data as { type?: string };
-    // Suppress message notifications in foreground — WebSocket delivers them live in the UI
     if (data?.type === 'message') {
       return {
         shouldShowAlert: false,
@@ -35,7 +36,8 @@ Notifications.setNotificationHandler({
         shouldShowList: false,
       };
     }
-    // Show call notifications (belt-and-suspenders alongside the WebSocket path)
+    // Show Expo call notifications only as a fallback (no FCM token).
+    // Primary path: FCM data-only → background handler → CallKeep.
     return {
       shouldShowAlert: true,
       shouldPlaySound: true,
@@ -47,8 +49,7 @@ Notifications.setNotificationHandler({
 });
 
 // ---------------------------------------------------------------------------
-// NotificationTapHandler — must live inside the expo-router tree so useRouter works.
-// Handles what happens when the user taps a push notification.
+// NotificationTapHandler — handles Expo push notification taps.
 // ---------------------------------------------------------------------------
 function NotificationTapHandler() {
   const router = useRouter();
@@ -60,11 +61,10 @@ function NotificationTapHandler() {
         conversationId?: string;
       };
       if (data?.type === 'message' && data?.conversationId) {
-        // Navigate to the relevant chat
         router.push(`/chat/${data.conversationId}`);
       }
-      // For call type: the app opens and the WebSocket delivers call.incoming;
-      // CallContext handles it from there. No extra navigation needed.
+      // For call type: app opens and WS delivers call.incoming;
+      // CallContext handles it via CallKeep from there.
     });
     return () => sub.remove();
   }, [router]);
@@ -77,7 +77,6 @@ SplashScreen.preventAutoHideAsync();
 function RootLayoutNav() {
   return (
     <>
-      {/* Handles notification taps — needs to be inside router tree for useRouter */}
       <NotificationTapHandler />
       <Stack
         screenOptions={{
@@ -89,10 +88,7 @@ function RootLayoutNav() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="server-config"
-          options={{ headerShown: false }}
-        />
+        <Stack.Screen name="server-config" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen
           name="chat-list"
@@ -119,11 +115,17 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  // Create notification channels at app startup — not just after login.
-  // The 'calls' channel must exist before the first push arrives (e.g. when
-  // the app is in the background and the user hasn't visited chat-list yet).
+  // Create notification channels at app startup so the 'calls' channel
+  // exists before the first push arrives.
   useEffect(() => {
     void setupNotificationChannels();
+  }, []);
+
+  // Initialize CallKeep (Android ConnectionService) as early as possible.
+  // This ensures event listeners are registered before any incoming call
+  // can arrive, preventing lost answerCall / endCall events.
+  useEffect(() => {
+    void setupCallKeep();
   }, []);
 
   useEffect(() => {

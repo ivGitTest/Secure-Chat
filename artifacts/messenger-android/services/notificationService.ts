@@ -1,19 +1,19 @@
 /**
  * Push notification registration for the family messenger app.
  *
- * Call `registerForPushNotifications()` after the user has logged in
- * (i.e. from chat-list.tsx on mount). The function:
- *  1. Requests notification permission from the OS (shows the dialog once).
- *  2. Gets the Expo push token tied to this device.
- *  3. Sends the token to the server so it can reach this device when offline.
+ * Registers two kinds of push tokens with the server after login:
  *
- * Graceful degradation: if anything fails (Expo Go without google-services.json,
- * permission denied, network error) the error is logged silently and the app
- * continues without push. All real-time delivery still works via WebSocket
- * while the app is in the foreground.
+ * 1. Expo push token  — for message push notifications (via Expo Push Service → FCM).
+ * 2. FCM token        — for VoIP call notifications (direct FCM data-only push).
+ *    The FCM token allows the server to wake the app even when killed and trigger
+ *    the Android ConnectionService (CallKeep) incoming-call screen.
+ *
+ * Graceful degradation: any error is logged silently; the app continues without
+ * push. Real-time delivery still works via WebSocket while the app is active.
  */
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import messaging from '@react-native-firebase/messaging';
 import { registerPushToken } from '@/api/client';
 
 /** EAS project ID — must match app.json extra.eas.projectId */
@@ -47,31 +47,56 @@ export async function setupNotificationChannels(): Promise<void> {
 
 /**
  * Request permission, get Expo push token, and register it with the server.
+ * Also registers the FCM token for VoIP call notifications.
  * Must be called after the user is authenticated (needs a valid JWT on the server).
  */
 export async function registerForPushNotifications(): Promise<void> {
   if (Platform.OS === 'web') return;
 
   try {
-    // Set up channels first so they exist before any notification arrives
     await setupNotificationChannels();
 
     // Request notification permission — Android 13+ shows the dialog once.
-    // On older Android it's always granted. We don't check the return value because
-    // the NotificationPermissionsStatus type doesn't resolve cleanly through the
-    // pnpm workspace; instead we let getExpoPushTokenAsync throw if denied.
     await Notifications.requestPermissionsAsync();
 
-    // Throws if permission was denied, if google-services.json is missing (Expo Go),
-    // or if the device has no Google Play Services. All caught below.
-    const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
-    const token = tokenResult.data;
+    // ── Expo push token (for message notifications) ──────────────────────────
+    let expoToken: string | undefined;
+    try {
+      const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId: PROJECT_ID });
+      expoToken = tokenResult.data;
+    } catch (err) {
+      console.warn('[Push] Expo token unavailable (graceful):', err instanceof Error ? err.message : err);
+    }
 
-    await registerPushToken(token);
-    console.log('[Push] Token registered:', token.slice(0, 32) + '…');
+    // ── FCM token (for VoIP call push) ───────────────────────────────────────
+    let fcmToken: string | undefined;
+    try {
+      // Request FCM permission (on Android 13+ this is the same as POST_NOTIFICATIONS)
+      const authStatus = await messaging().requestPermission();
+      const authorized =
+        authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
+        authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+
+      if (authorized) {
+        fcmToken = await messaging().getToken();
+        console.log('[Push] FCM token acquired:', fcmToken.slice(0, 20) + '…');
+      }
+    } catch (err) {
+      console.warn('[Push] FCM token unavailable (graceful):', err instanceof Error ? err.message : err);
+    }
+
+    // ── Register tokens with the server ─────────────────────────────────────
+    if (expoToken) {
+      await registerPushToken(expoToken, fcmToken);
+      console.log('[Push] Tokens registered (Expo + FCM)');
+    } else if (fcmToken) {
+      // FCM only — will be updated when Expo token becomes available
+      await registerPushToken('pending', fcmToken);
+      console.log('[Push] FCM token registered (Expo token pending)');
+    } else {
+      console.warn('[Push] No tokens available — push notifications disabled');
+    }
   } catch (err) {
-    // Graceful degradation: e.g. Expo Go without google-services.json returns an error
-    // "Notifications functionality is not available in the Expo Go app" or similar.
     console.warn('[Push] Registration skipped (graceful):', err instanceof Error ? err.message : err);
   }
 }

@@ -37,6 +37,7 @@ export interface WsEnvelope {
 }
 
 export interface IncomingCallState {
+  callId: string;    // server-generated UUID — doubles as CallKeep call UUID
   callerId: string;
   callerName: string;
 }
