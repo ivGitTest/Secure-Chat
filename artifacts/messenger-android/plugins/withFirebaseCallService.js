@@ -69,6 +69,10 @@ const PACKAGE_NAME = 'com.ivaexpi.messengerandroid';
 const JAVA_SOURCE = `\
 package ${PACKAGE_NAME};
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -84,6 +88,8 @@ import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.util.Log;
+
+import androidx.core.app.NotificationCompat;
 
 import androidx.annotation.NonNull;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
@@ -128,6 +134,10 @@ public class CallFirebaseMessagingService extends FirebaseMessagingService {
     private static final String EXTRA_CALLER_NAME  = "EXTRA_CALLER_NAME";
     private static final String ACTION_ANSWER_CALL = "ACTION_ANSWER_CALL";
     private static final String ACTION_END_CALL    = "ACTION_END_CALL";
+
+    /** Full-screen "incoming call" notification shown on lock screen / killed-app. */
+    private static final int    CALL_NOTIFICATION_ID = 8888;
+    private static final String CALL_CHANNEL_ID      = "incoming_calls";
 
     /** Filename inside getFilesDir() for pending-call persistence. */
     static final String PENDING_CALL_FILE = "callkeep_pending.json";
@@ -238,6 +248,15 @@ public class CallFirebaseMessagingService extends FirebaseMessagingService {
             // If addNewIncomingCall throws, the catch block below deletes the file.
             writePendingCallFile(callId, callerId, callerName);
 
+            // Post a full-screen intent notification.
+            // This is the guaranteed wake-screen path that works on ALL Android
+            // devices regardless of whether TelecomManager.addNewIncomingCall()
+            // succeeds (it silently fails when the calling account is not yet
+            // enabled in Settings → Phone → Calling accounts on some devices).
+            // The notification wakes the screen; when tapped it opens MainActivity,
+            // which reads callkeep_pending.json and shows the in-app call screen.
+            showFullScreenCallNotification(callId, callerName);
+
             // ── Race-free pre-answer receiver ─────────────────────────────────
             // Registered synchronously (LocalBroadcastManager.registerReceiver is
             // thread-safe) BEFORE addNewIncomingCall() so it is guaranteed to exist
@@ -301,6 +320,9 @@ public class CallFirebaseMessagingService extends FirebaseMessagingService {
                         // immediately after ANSWER_CALL on some Telecom implementations.
                         if (answeredOnce.compareAndSet(false, true)) {
                             release();
+                            // Dismiss the full-screen call notification — the user
+                            // has already accepted via the system call screen.
+                            cancelCallNotification();
                             // Mark the pending file answered so CallContext auto-accepts.
                             try {
                                 File f = new File(appCtx.getFilesDir(), PENDING_CALL_FILE);
@@ -518,6 +540,88 @@ public class CallFirebaseMessagingService extends FirebaseMessagingService {
             }
         } catch (Exception e) {
             Log.e(TAG, "handleCallCancelled file deletion failed: " + e.getMessage(), e);
+        }
+
+        // Dismiss the full-screen call notification (cancels both on Android < API 26
+        // where TelecomManager may not have shown anything, and on all newer versions).
+        cancelCallNotification();
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Full-screen incoming-call notification
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Posts a high-priority full-screen intent notification that wakes the device
+     * screen and overlays the lock screen with an incoming-call alert.
+     *
+     * This is the primary delivery path for ALL Android devices. It complements
+     * TelecomManager.addNewIncomingCall() (which may silently fail if the calling
+     * account is not yet enabled by the user or is blocked by the manufacturer).
+     *
+     * On Android 10+ the OS honours setFullScreenIntent for CATEGORY_CALL
+     * notifications and wakes the screen. On Android 14+ USE_FULL_SCREEN_INTENT
+     * must be declared in the manifest (done via withCallKeep plugin).
+     */
+    private void showFullScreenCallNotification(String callId, String callerName) {
+        try {
+            NotificationManager nm =
+                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
+            // Create / update the channel once; IMPORTANCE_HIGH ensures heads-up display.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel ch = new NotificationChannel(
+                        CALL_CHANNEL_ID, "Входящие звонки",
+                        NotificationManager.IMPORTANCE_HIGH);
+                ch.setDescription("Уведомления о входящих звонках");
+                ch.enableVibration(true);
+                ch.setShowBadge(true);
+                nm.createNotificationChannel(ch);
+            }
+
+            // Open MainActivity when the user taps the notification.
+            Intent launchIntent = getPackageManager()
+                    .getLaunchIntentForPackage(getPackageName());
+            if (launchIntent == null) {
+                Log.w(TAG, "showFullScreenCallNotification: no launch intent");
+                return;
+            }
+            launchIntent.addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
+            int piFlags = PendingIntent.FLAG_UPDATE_CURRENT
+                    | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                            ? PendingIntent.FLAG_IMMUTABLE : 0);
+            PendingIntent contentPI =
+                    PendingIntent.getActivity(this, 0, launchIntent, piFlags);
+
+            Notification notification = new NotificationCompat.Builder(this, CALL_CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.ic_menu_call)
+                    .setContentTitle("Входящий звонок")
+                    .setContentText(callerName)
+                    .setFullScreenIntent(contentPI, true)   // wakes screen / overlays lock screen
+                    .setCategory(NotificationCompat.CATEGORY_CALL)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setOngoing(true)       // cannot be swiped away during ringing
+                    .setAutoCancel(false)
+                    .build();
+
+            nm.notify(CALL_NOTIFICATION_ID, notification);
+            Log.d(TAG, "Full-screen call notification posted callId=" + callId);
+        } catch (Exception e) {
+            Log.e(TAG, "showFullScreenCallNotification failed: " + e.getMessage(), e);
+        }
+    }
+
+    /** Cancels the full-screen call notification (call ended / cancelled / answered). */
+    private void cancelCallNotification() {
+        try {
+            NotificationManager nm =
+                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) nm.cancel(CALL_NOTIFICATION_ID);
+        } catch (Exception e) {
+            Log.w(TAG, "cancelCallNotification failed: " + e.getMessage());
         }
     }
 
