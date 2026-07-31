@@ -166,6 +166,24 @@ jobs:
           else:
               print("WARNING: release signingConfig assignment not found", file=sys.stderr)
 
+          # 3. Add firebase-messaging as a direct app-module dependency so our
+          #    custom CallFirebaseMessagingService.java can resolve
+          #    FirebaseMessagingService and RemoteMessage at compile time.
+          #    @react-native-firebase/messaging declares it as 'implementation'
+          #    (not 'api'), so it is NOT transitively visible to the app module.
+          #    Gradle resolves the version via the firebase BOM already in the graph.
+          dep = "    implementation 'com.google.firebase:firebase-messaging'"
+          if dep not in txt:
+              # Inject right after the opening of the dependencies { block.
+              txt = txt.replace(
+                  'dependencies {',
+                  'dependencies {\n' + dep,
+                  1,
+              )
+              print("Added com.google.firebase:firebase-messaging dependency")
+          else:
+              print("firebase-messaging dependency already present")
+
           open(path, 'w').write(txt)
           print("build.gradle patched for release signing")
           PYEOF
