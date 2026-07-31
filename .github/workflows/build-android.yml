@@ -116,8 +116,8 @@ jobs:
 
       # ── version.json for the In-App Updater ───────────────────────────────
       # После сборки выложить оба файла на VPS:
-      #   scp messenger-family.apk version.json vps:/opt/messenger/updates/
-      #   (переименовав APK в messenger.apk)
+      #   scp messenger-family.apk vps:~/docker_containers/messenger/updates/messenger.apk
+      #   scp version.json vps:~/docker_containers/messenger/updates/
       - name: Generate version.json
         env:
           RELEASE_NOTES: ${{ inputs.release_notes }}
