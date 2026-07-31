@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Alert, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -17,6 +18,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { CallProvider } from '@/context/CallContext';
 import { setupNotificationChannels } from '@/services/notificationService';
 import { setupCallKeep } from '@/services/callkeepService';
+import RNCallKeep from 'react-native-callkeep';
 
 // ---------------------------------------------------------------------------
 // Foreground notification handler — runs before the notification is displayed.
@@ -122,10 +124,32 @@ export default function RootLayout() {
   }, []);
 
   // Initialize CallKeep (Android ConnectionService) as early as possible.
-  // This ensures event listeners are registered before any incoming call
-  // can arrive, preventing lost answerCall / endCall events.
+  // After setup, check that the calling account is enabled in Android Settings.
+  // Without it, TelecomManager.addNewIncomingCall() may not show the lock-screen
+  // call UI on some devices — the user must explicitly enable it once.
   useEffect(() => {
-    void setupCallKeep();
+    if (Platform.OS !== 'android') return;
+    void (async () => {
+      await setupCallKeep();
+      try {
+        const enabled = await RNCallKeep.checkPhoneAccountEnabled();
+        if (!enabled) {
+          Alert.alert(
+            'Включите аккаунт звонков',
+            'Чтобы видеть входящий звонок на заблокированном экране, разрешите мессенджеру управлять звонками в настройках телефона.',
+            [
+              { text: 'Позже', style: 'cancel' },
+              {
+                text: 'Открыть настройки',
+                onPress: () => RNCallKeep.openPhoneAccountSettings(),
+              },
+            ],
+          );
+        }
+      } catch {
+        // Non-critical — skip silently if the check fails
+      }
+    })();
   }, []);
 
   useEffect(() => {

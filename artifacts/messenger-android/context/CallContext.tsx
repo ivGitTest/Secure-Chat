@@ -319,10 +319,22 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       void deletePendingCallFile(callInfo.callId);
       return;
     }
+    // Start the microphone foreground service BEFORE getUserMedia().
+    // On Android 11+ a cold-start process (app woken from killed state by
+    // CallAnswerListenerService) may have its mic access revoked by the OS
+    // between getUserMedia() and startForeground() unless the foreground
+    // service is already active when getUserMedia() is called.
+    // Registered by withMicrophoneCallService.js; the optional-chain is a
+    // no-op in dev builds before native prebuild.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    NativeModules.MicrophoneCallService?.start(callInfo.callerName);
+
     const pc = await buildPeerConnection();
     if (!pc) {
       acceptingCallIdRef.current = null;
       // Mic unavailable — tear down the system call screen and discard pending file.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      NativeModules.MicrophoneCallService?.stop();
       reportCallUnanswered(callInfo.callId);
       void deletePendingCallFile(callInfo.callId);
       return;
@@ -335,13 +347,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setIncomingCall(null);
     setCallState('in-call');
     setCallStartTime(new Date());
-
-    // Start the microphone foreground service so Android 11+ keeps the
-    // microphone accessible while the user locks the screen or backgrounds
-    // the app during the call. Registered by withMicrophoneCallService.js;
-    // the optional-chain is a no-op in dev builds before native prebuild.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    NativeModules.MicrophoneCallService?.start(callInfo.callerName);
 
     // ── Gate on WS being ready ────────────────────────────────────────────────
     // On a cold-start (app woken by CallKeep from killed state), the WebSocket
@@ -401,8 +406,20 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         const callInfo: IncomingCallState = { callId, callerId, callerName };
 
         setIncomingCall(callInfo);
-        // Show system call screen via CallKeep (ConnectionService)
-        displayIncomingCall(callId, callerName);
+
+        // Only call displayIncomingCall() if the native FCM path hasn't already
+        // done it.  When the callee was offline/killed, CallFirebaseMessagingService
+        // already called TelecomManager.addNewIncomingCall() via the FCM data push;
+        // calling displayIncomingCall() again creates a SECOND system call screen
+        // (visible as two concurrent "incoming call" windows on the device).
+        void readPendingCallFile().then((pending) => {
+          if (pending?.callId === callId) {
+            // Native path already showed the system call screen — skip.
+            return;
+          }
+          // App was in foreground / WS was connected — native path did not fire.
+          displayIncomingCall(callId, callerName);
+        });
       }),
 
       // ── Caller accepted our call (we are the caller) ───────────────────────
@@ -589,16 +606,19 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         Alert.alert('Ошибка', 'Необходим доступ к микрофону для звонков');
         return;
       }
-      const pc = await buildPeerConnection();
-      if (!pc) return;
-      peerConnectionRef.current = pc;
-
-      // Start microphone foreground service immediately after the local stream is
-      // acquired. The caller may lock the screen or background the app while waiting
-      // for the callee to answer — Android 11+ will cut microphone access unless a
-      // microphone-type foreground service is active. cleanupCall() stops it.
+      // Start microphone foreground service BEFORE getUserMedia() — same reasoning
+      // as in acceptCall(): Android 11+ requires the service to be active first.
+      // cleanupCall() stops it on all termination paths.
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       NativeModules.MicrophoneCallService?.start(calleeName);
+
+      const pc = await buildPeerConnection();
+      if (!pc) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        NativeModules.MicrophoneCallService?.stop();
+        return;
+      }
+      peerConnectionRef.current = pc;
 
       setCallPeer({ id: calleeId, name: calleeName });
       setCallState('calling');
@@ -638,47 +658,17 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // In-app modal for incoming call (shown alongside/after CallKeep system UI)
-  // This lets the user see the same information inside the app.
-  const showIncomingModal = incomingCall !== null && callState === 'idle';
-
   return (
     <CallContext.Provider value={{ callState, callPeer, incomingCall, makeCall, endCall }}>
       {children}
 
-      {/* ── Incoming call overlay (in-app layer, shown while callState = idle) ── */}
-      <Modal visible={showIncomingModal} animationType="slide" transparent={false}>
-        <View style={[callStyles.overlay, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
-          <View style={callStyles.topArea}>
-            <Text style={callStyles.callLabel}>ВХОДЯЩИЙ ЗВОНОК</Text>
-          </View>
-          <View style={callStyles.centerArea}>
-            <AvatarTile name={incomingCall?.callerName ?? '?'} size={160} />
-            <Text style={callStyles.peerName}>{incomingCall?.callerName ?? ''}</Text>
-            <Text style={callStyles.statusText}>Звонит…</Text>
-          </View>
-          <View style={callStyles.bottomArea}>
-            <TouchableOpacity
-              style={callStyles.rejectWideBtn}
-              onPress={() => rejectCall(incomingCall?.callId)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="call" size={26} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
-              <Text style={callStyles.wideBtnText}>Отклонить</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={callStyles.acceptWideBtn}
-              onPress={() => incomingCall && void acceptCall(incomingCall)}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="call" size={26} color="#fff" />
-              <Text style={callStyles.wideBtnText}>Принять</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       {/* ── Active / outgoing call overlay ── */}
+      {/* NOTE: Incoming calls are handled exclusively by the system call screen
+          (Android ConnectionService / CallKeep). A second in-app Modal was
+          previously shown here, but it caused two concurrent "incoming call"
+          windows on the device (one from the system, one from the app). The
+          system call screen covers all scenarios — foreground, background, and
+          killed-app — via CallFirebaseMessagingService + TelecomManager. */}
       <Modal
         visible={callState === 'calling' || callState === 'in-call'}
         animationType="slide"
