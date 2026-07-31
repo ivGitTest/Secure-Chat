@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { callLogs, users, pushTokens } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { send, sendToUser } from "./connections";
-import { sendPushNotification } from "../lib/pushService";
+import { sendPushNotification, sendFcmCallPush } from "../lib/pushService";
 import type { ExtendedWebSocket, WsEnvelope } from "./types";
 import { randomUUID } from "node:crypto";
 
@@ -76,6 +76,23 @@ function removeCall(call: CallState): void {
   removePendingDelivery(call.calleeId, call.callId);
 }
 
+/**
+ * Remove a call and, if it was never answered (startedAt === null), send an
+ * FCM push to dismiss any CallKeep incoming-call screen still showing on the
+ * callee's device.
+ *
+ * This covers every caller-side cancellation path — caller disconnect, caller
+ * call.end before answer, and TTL expiry — so the callee's lock screen never
+ * gets stuck ringing after the caller has already given up.
+ */
+async function removeCallAndCancelIfNeeded(call: CallState): Promise<void> {
+  removeCall(call);
+  if (call.startedAt === null) {
+    // Call was never answered — callee may still have a CallKeep screen showing
+    await sendCallCancelPush(call.calleeId, call.callId);
+  }
+}
+
 /** Called when a user disconnects — ends any active call they were in. */
 export async function handleUserDisconnect(userId: string): Promise<void> {
   const call = getCallForUser(userId);
@@ -83,14 +100,19 @@ export async function handleUserDisconnect(userId: string): Promise<void> {
 
   logger.info({ userId, callId: call.callId }, "WS: call ended by disconnect");
   const other = getOtherParty(call, userId);
-  removeCall(call);
-  await writeCallLog(call);
 
+  // Send WebSocket termination FIRST — before any async DB/FCM work — so the
+  // other party receives call.end immediately on disconnect.
   sendToUser(other, {
     type: "call.end",
     payload: {},
     timestamp: new Date().toISOString(),
   });
+
+  // FCM cancel push and call log are best-effort; fire-and-forget so a slow
+  // database or FCM network call cannot delay the WS termination above.
+  void removeCallAndCancelIfNeeded(call);
+  void writeCallLog(call);
 }
 
 /**
@@ -113,7 +135,7 @@ export function handleUserConnect(userId: string): void {
   // Check caller is still online (may have hung up while waiting)
   const delivered = sendToUser(userId, {
     type: "call.incoming",
-    payload: { callerId: call.callerId },
+    payload: { callerId: call.callerId, callId: call.callId },
     timestamp: new Date().toISOString(),
   });
 
@@ -122,28 +144,62 @@ export function handleUserConnect(userId: string): void {
     pendingCallDeliveries.delete(userId);
     logger.info({ callId: call.callId, calleeId: userId }, "WS: delivered pending call.incoming to reconnected callee");
   }
+  // Note: sendCallPush was already called when the invite was sent (calleeId was offline).
+  // No second push here — the CallKeep UI is already showing on the device.
 }
 
 /**
  * Send a push notification about an incoming call to the callee.
  * Queries caller name and callee push token in parallel; fires and forgets.
  */
-async function sendCallPush(calleeId: string, callerId: string): Promise<void> {
+async function sendCallPush(calleeId: string, callerId: string, callId: string): Promise<void> {
   const [pushRow, callerUser] = await Promise.all([
-    db.select({ token: pushTokens.token }).from(pushTokens)
+    db.select({ token: pushTokens.token, fcmToken: pushTokens.fcmToken }).from(pushTokens)
       .where(eq(pushTokens.userId, calleeId)).limit(1).then((r) => r[0]),
     db.select({ name: users.name }).from(users)
       .where(eq(users.id, callerId)).limit(1).then((r) => r[0]),
   ]);
-  if (pushRow?.token) {
+
+  if (!pushRow) return;
+  const callerName = callerUser?.name ?? callerId;
+
+  if (pushRow.fcmToken) {
+    // FCM data-only push: wakes the app even when killed and triggers CallKeep
+    // (Android ConnectionService shows the full-screen incoming call UI)
+    await sendFcmCallPush(pushRow.fcmToken, {
+      type: "call",
+      callId,
+      callerId,
+      callerName,
+    });
+  } else if (pushRow.token) {
+    // Fallback: Expo push (shows a banner — works when backgrounded, not when killed)
     await sendPushNotification(pushRow.token, {
       title: "Входящий звонок",
-      body: callerUser?.name ?? callerId,
-      data: { type: "call", callerId, callerName: callerUser?.name ?? callerId },
+      body: callerName,
+      data: { type: "call", callId, callerId, callerName },
       priority: "high",
       sound: "default",
       channelId: "calls",
     });
+  }
+}
+
+/**
+ * Send an FCM data-only push to dismiss a CallKeep incoming-call screen.
+ * Called when a pending call expires (caller hung up or TTL elapsed) while the
+ * callee may still be showing the system call UI from an earlier push.
+ */
+async function sendCallCancelPush(calleeId: string, callId: string): Promise<void> {
+  const pushRow = await db
+    .select({ fcmToken: pushTokens.fcmToken })
+    .from(pushTokens)
+    .where(eq(pushTokens.userId, calleeId))
+    .limit(1)
+    .then((r) => r[0]);
+
+  if (pushRow?.fcmToken) {
+    await sendFcmCallPush(pushRow.fcmToken, { type: "call_cancelled", callId });
   }
 }
 
@@ -178,9 +234,17 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
       userToCallId.set(userId, callId);
       userToCallId.set(calleeId, callId);
 
+      // Echo callId back to the caller so the client can track the active call UUID
+      // for CallKeep end/report operations (endCallKeep requires the server UUID).
+      send(ws, {
+        type: "call.initiated",
+        payload: { callId },
+        timestamp: new Date().toISOString(),
+      });
+
       const online = sendToUser(calleeId, {
         type: "call.incoming",
-        payload: { callerId: userId },
+        payload: { callerId: userId, callId },
         timestamp: new Date().toISOString(),
       });
 
@@ -189,13 +253,15 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
         // alive so that when they reconnect, handleUserConnect delivers call.incoming.
         // The caller stays in "calling" state (no error sent — client already shows
         // the "Вызов..." overlay). Call expires after PENDING_CALL_TTL_MS.
-        void sendCallPush(calleeId, userId);
+        void sendCallPush(calleeId, userId, callId);
 
         const timer = setTimeout(() => {
-          // Callee never reconnected — expire the call
+          // Callee never reconnected — expire the call.
+          // removeCallAndCancelIfNeeded sends the FCM cancel push because
+          // state.startedAt === null (call was never answered).
           pendingCallDeliveries.delete(calleeId);
           if (activeCalls.get(callId) === state) {
-            removeCall(state);
+            void removeCallAndCancelIfNeeded(state);
             sendToUser(userId, {
               type: "call.end",
               payload: {},
@@ -209,7 +275,7 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
         logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite (callee offline — push sent, call state kept)");
       } else {
         // Callee is online — belt-and-suspenders push to wake the screen
-        void sendCallPush(calleeId, userId);
+        void sendCallPush(calleeId, userId, callId);
         logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite");
       }
       break;
@@ -220,6 +286,14 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
       if (!call || call.calleeId !== userId) {
         send(ws, { type: "error", payload: { code: "NOT_FOUND", message: "No incoming call to accept." } });
         return;
+      }
+      // Idempotency guard: if startedAt is already set the call was already accepted.
+      // A duplicate call.accept (race between CallKeep answer event and in-app button)
+      // must not re-emit to the caller — it would cause the caller to call
+      // createOffer/setLocalDescription a second time and break signaling.
+      if (call.startedAt !== null) {
+        logger.warn({ callId: call.callId }, "WS: duplicate call.accept ignored");
+        break;
       }
       call.startedAt = new Date();
       sendToUser(call.callerId, {
@@ -237,7 +311,12 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
         send(ws, { type: "error", payload: { code: "NOT_FOUND", message: "No incoming call to reject." } });
         return;
       }
-      removeCall(call);
+      // removeCallAndCancelIfNeeded is a no-op for the FCM path here because
+      // call.startedAt === null and the callee is the one rejecting — their screen
+      // is already being dismissed by reportCallUnanswered() on the client.
+      // The FCM cancel is still sent as a safety net in case the CallKeep UI
+      // persisted across a background restart.
+      void removeCallAndCancelIfNeeded(call);
       sendToUser(call.callerId, {
         type: "call.reject",
         payload: {},
@@ -255,7 +334,10 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
         return;
       }
       const other = getOtherParty(call, userId);
-      removeCall(call);
+      // If the caller ends before the callee answers (startedAt === null), send an
+      // FCM cancel push so the callee's CallKeep screen is dismissed immediately
+      // rather than waiting for the system-level call timeout.
+      void removeCallAndCancelIfNeeded(call);
       sendToUser(other, {
         type: "call.end",
         payload: {},

@@ -40,6 +40,10 @@ services:
       TURN_REALM:   ${TURN_REALM}
       STUN_SERVERS: "stun:${DOMAIN}:3478"
       TURN_SERVERS: "turn:${DOMAIN}:3478"
+      # Firebase service account JSON (single-line) for direct FCM call pushes.
+      # Required for VoIP call notifications on killed/backgrounded Android.
+      # Get from: Firebase Console → Project Settings → Service accounts → Generate new private key
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
     depends_on:
       postgres:
         condition: service_healthy

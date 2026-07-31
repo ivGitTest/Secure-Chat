@@ -74,12 +74,17 @@ CREATE TABLE IF NOT EXISTS call_logs (
 );
 
 -- Push token registry: one row per user (last registered device wins).
--- Used by the API server to reach users who are offline via Expo Push Service → FCM.
+-- token     = Expo push token  (ExponentPushToken[...]) — for message pushes via Expo Push Service
+-- fcm_token = raw FCM token                              — for VoIP call pushes (direct FCM data-only)
 CREATE TABLE IF NOT EXISTS push_tokens (
   user_id    VARCHAR(64)  PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   token      TEXT         NOT NULL,
+  fcm_token  TEXT,
   updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+
+-- Idempotent: add fcm_token to existing installations that pre-date this migration
+ALTER TABLE push_tokens ADD COLUMN IF NOT EXISTS fcm_token TEXT;
 `;
 
 try {

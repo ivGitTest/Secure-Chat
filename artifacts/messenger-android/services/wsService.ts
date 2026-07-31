@@ -7,6 +7,7 @@ type WsEventType =
   | 'message.delivered'
   | 'call.incoming'
   | 'call.accept'
+  | 'call.initiated'
   | 'call.reject'
   | 'call.end'
   | 'webrtc.offer'
@@ -151,6 +152,36 @@ class WsService {
 
   isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Returns a Promise that resolves when the WebSocket is (or becomes) open,
+   * or rejects after `timeoutMs` milliseconds.
+   *
+   * This method waits PASSIVELY — it does NOT call connect() itself.
+   * The auth layer is responsible for calling wsService.connect() after
+   * restoring the session. This avoids the cold-start race where the token
+   * is not yet available in SecureStore when the CallKeep answer event fires.
+   *
+   * Typical usage: call this after the user accepts from a CallKeep screen,
+   * rely on restoreAuth() → wsService.connect() to fire the 'connect' event.
+   */
+  waitForConnect(timeoutMs = 12_000): Promise<void> {
+    if (this.isConnected()) return Promise.resolve();
+
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        unsub();
+        reject(new Error(`WS waitForConnect timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      const unsub = this.on('connect', () => {
+        clearTimeout(timer);
+        unsub();
+        resolve();
+      });
+      // No this.connect() call here — auth restoration drives the connection.
+    });
   }
 }
 
