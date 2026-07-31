@@ -22,13 +22,13 @@
 ## Разовая настройка VPS
 ```bash
 # 1. Создать каталог для обновлений
-sudo mkdir -p /opt/messenger/updates
+sudo mkdir -p ~/docker_containers/messenger/updates
 
 # 2. Обновить конфиги и перезапустить nginx (из каталога deploy/)
 git pull
 docker compose up -d nginx
 ```
-nginx контейнер монтирует `/opt/messenger/updates` → `/var/www/updates` (read-only)
+nginx контейнер монтирует `~/docker_containers/messenger/updates` → `/var/www/updates` (read-only)
 и раздаёт его по `location /updates/`.
 
 ## Выкладка каждого обновления
@@ -52,8 +52,8 @@ nginx контейнер монтирует `/opt/messenger/updates` → `/var/w
    `version` и `android.versionCode` из `app.json` в `version.json`.
 4. Скопировать на VPS:
    ```bash
-   scp version.json vps:/opt/messenger/updates/
-   scp messenger-family.apk vps:/opt/messenger/updates/messenger.apk
+   scp version.json vps:~/docker_containers/messenger/updates/
+   scp messenger-family.apk vps:~/docker_containers/messenger/updates/messenger.apk
    ```
 5. Проверить: `curl https://chat.naviry.xyz/updates/version.json`
 

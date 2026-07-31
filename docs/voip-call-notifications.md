@@ -151,14 +151,14 @@ Foreground-сервис с `foregroundServiceType="microphone"` (Android 11+). �
 3. Добавить на VPS (содержимое `.json` в одну строку):
 
 ```bash
-nano /opt/messenger/deploy/.env
+nano ~/docker_containers/messenger/deploy/.env
 # Добавить строку:
 FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":"...","private_key":"..."}
 ```
 
 4. Перезапустить API:
 ```bash
-cd /opt/messenger/deploy
+cd ~/docker_containers/messenger/deploy
 docker compose up -d --build api
 docker logs -f --tail=50 messenger-api  # должно появиться "Firebase Admin SDK initialized"
 ```
