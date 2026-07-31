@@ -37,6 +37,14 @@ RUN pnpm --filter @workspace/api-server run bundle-admin
 #   argon2/, @phc/format, node-addon-api, node-gyp-build — all needed at runtime.
 RUN cp -rL node_modules/.pnpm/argon2@*/node_modules /tmp/argon2_deps
 
+# firebase-admin is externalized by esbuild (it pulls in @google-cloud/* which
+# can be tricky to bundle).  Install it separately in a temp dir so we can copy
+# its full node_modules tree into the runner image.
+RUN mkdir /tmp/fb_admin \
+ && cd /tmp/fb_admin \
+ && npm init -y \
+ && npm install firebase-admin@'^13.0.0' --no-package-lock --loglevel error
+
 # ============================================================
 # Stage 2: runner — minimal production image
 # ============================================================
@@ -54,6 +62,9 @@ COPY --from=builder /monorepo/artifacts/api-server/dist/ ./dist/
 
 # argon2 + its runtime deps (resolved from pnpm virtual store, no dangling symlinks)
 COPY --from=builder /tmp/argon2_deps/ ./node_modules/
+
+# firebase-admin + its deps (externalized from esbuild bundle, installed in builder)
+COPY --from=builder /tmp/fb_admin/node_modules/ ./node_modules/
 
 # Entrypoint: run migrations then exec the API server
 COPY deploy/api/entrypoint.sh /entrypoint.sh
