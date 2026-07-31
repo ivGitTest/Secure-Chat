@@ -1,0 +1,53 @@
+> Task :app:createBundleReleaseJsAndAssets
+Android artifacts/messenger-android/index.ts ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1615/1615)
+Android Bundled 79554ms artifacts/messenger-android/index.ts (1615 modules)
+Writing bundle output to: /home/runner/work/Secure-Chat/Secure-Chat/artifacts/messenger-android/android/app/build/generated/assets/createBundleReleaseJsAndAssets/index.android.bundle
+Writing sourcemap output to: /home/runner/work/Secure-Chat/Secure-Chat/artifacts/messenger-android/android/app/build/intermediates/sourcemaps/react/release/index.android.bundle.packager.map
+Copying 63 asset files
+Done writing bundle output
+Done writing sourcemap output
+
+> Task :app:generateReleaseResValues
+> Task :app:processReleaseGoogleServices
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :expo:lintVitalAnalyzeRelease
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+/home/runner/work/Secure-Chat/Secure-Chat/artifacts/messenger-android/android/app/src/main/AndroidManifest.xml:33:88-137 Error:
+
+	Attribute meta-data#com.google.firebase.messaging.default_notification_color@resource value=(@color/notification_icon_color) from AndroidManifest.xml:33:88-137
+	is also present at [:react-native-firebase_messaging] AndroidManifest.xml:46:13-44 value=(@color/white).
+> Task :app:processReleaseMainManifest FAILED
+	Suggestion: add 'tools:replace="android:resource"' to <meta-data> element at AndroidManifest.xml:33:5-139 to override.
+
+See https://developer.android.com/r/studio-ui/build/manifest-merger for more information about the manifest merger.
+
+
+> Task :app:mergeReleaseResources
+
+[Incubating] Problems report is available at: file:///home/runner/work/Secure-Chat/Secure-Chat/artifacts/messenger-android/android/build/reports/problems/problems-report.html
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:processReleaseMainManifest'.
+> Manifest merger failed : Attribute meta-data#com.google.firebase.messaging.default_notification_color@resource value=(@color/notification_icon_color) from AndroidManifest.xml:33:88-137
+  	is also present at [:react-native-firebase_messaging] AndroidManifest.xml:46:13-44 value=(@color/white).
+  	Suggestion: add 'tools:replace="android:resource"' to <meta-data> element at AndroidManifest.xml:33:5-139 to override.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+
+> Get more help at https://help.gradle.org.
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+
+BUILD FAILED in 13m 55s
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+546 actionable tasks: 546 executed
+Error: Process completed with exit code 1.
