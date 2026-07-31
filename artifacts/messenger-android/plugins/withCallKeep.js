@@ -32,6 +32,16 @@ module.exports = function withCallKeep(config) {
   return withAndroidManifest(config, (modConfig) => {
     const manifest = modConfig.modResults.manifest;
 
+    // ── 0. USE_FULL_SCREEN_INTENT permission ─────────────────────────────────
+    // Required on Android 11+ for setFullScreenIntent() to wake the screen.
+    // On Android 14+, auto-granted for CATEGORY_CALL notifications from apps
+    // that already hold MANAGE_OWN_CALLS (granted by react-native-callkeep).
+    if (!manifest['uses-permission']) manifest['uses-permission'] = [];
+    const FSI_PERM = 'android.permission.USE_FULL_SCREEN_INTENT';
+    if (!manifest['uses-permission'].some((p) => p.$?.['android:name'] === FSI_PERM)) {
+      manifest['uses-permission'].push({ $: { 'android:name': FSI_PERM } });
+    }
+
     // ── 1. <uses-feature> ────────────────────────────────────────────────────
     if (!manifest['uses-feature']) manifest['uses-feature'] = [];
 

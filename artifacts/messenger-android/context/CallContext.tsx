@@ -73,6 +73,7 @@ import {
   View,
 } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getConfig } from '@/api/client';
@@ -237,6 +238,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setIsMuted(false);
     activeCallIdRef.current = null;
     acceptingCallIdRef.current = null;
+    // Dismiss the full-screen incoming-call notification posted by
+    // CallFirebaseMessagingService so it doesn't linger in the notification drawer
+    // after the call is answered, ended, or rejected from the in-app UI.
+    void Notifications.dismissAllNotificationsAsync().catch(() => undefined);
   }, []);
 
   const endCall = useCallback(() => {
@@ -392,6 +397,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setIncomingCall(null);
     // Delete the pending call file only for this specific call.
     if (callId) void deletePendingCallFile(callId);
+    // Dismiss the full-screen incoming-call notification (posted by the Java service).
+    void Notifications.dismissAllNotificationsAsync().catch(() => undefined);
   }, []);
 
   // ── WS event subscriptions ────────────────────────────────────────────────
@@ -658,17 +665,55 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Show in-app incoming call screen when:
+  //   • app is in foreground and WS delivers call.incoming (displayIncomingCall() is NOT called)
+  //   • app opens from the full-screen notification tap (pending file unread, answered=false)
+  // NOT shown when the system call screen answered path fires (pending file answered=true →
+  // acceptCall() is called directly and setIncomingCall stays null).
+  const showIncomingModal = incomingCall !== null && callState === 'idle';
+
   return (
     <CallContext.Provider value={{ callState, callPeer, incomingCall, makeCall, endCall }}>
       {children}
 
+      {/* ── Incoming call screen ─────────────────────────────────────────────
+          Primary UI for ALL incoming calls. The system call screen (CallKeep /
+          TelecomManager) may also appear on phones where the calling account is
+          enabled, but this Modal is always the authoritative in-app view.
+          No displayIncomingCall() is called from the WS handler, so this Modal
+          is the only in-app layer — no duplicate windows.                    */}
+      <Modal visible={showIncomingModal} animationType="slide" transparent={false}>
+        <View style={[callStyles.overlay, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+          <View style={callStyles.topArea}>
+            <Text style={callStyles.callLabel}>ВХОДЯЩИЙ ЗВОНОК</Text>
+          </View>
+          <View style={callStyles.centerArea}>
+            <AvatarTile name={incomingCall?.callerName ?? '?'} size={160} />
+            <Text style={callStyles.peerName}>{incomingCall?.callerName ?? ''}</Text>
+            <Text style={callStyles.statusText}>Звонит…</Text>
+          </View>
+          <View style={callStyles.bottomArea}>
+            <TouchableOpacity
+              style={callStyles.rejectWideBtn}
+              onPress={() => rejectCall(incomingCall?.callId)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="call" size={26} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
+              <Text style={callStyles.wideBtnText}>Отклонить</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={callStyles.acceptWideBtn}
+              onPress={() => incomingCall && void acceptCall(incomingCall)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="call" size={26} color="#fff" />
+              <Text style={callStyles.wideBtnText}>Принять</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Active / outgoing call overlay ── */}
-      {/* NOTE: Incoming calls are handled exclusively by the system call screen
-          (Android ConnectionService / CallKeep). A second in-app Modal was
-          previously shown here, but it caused two concurrent "incoming call"
-          windows on the device (one from the system, one from the app). The
-          system call screen covers all scenarios — foreground, background, and
-          killed-app — via CallFirebaseMessagingService + TelecomManager. */}
       <Modal
         visible={callState === 'calling' || callState === 'in-call'}
         animationType="slide"
