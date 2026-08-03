@@ -1,0 +1,18 @@
+api-1  | {"level":30,"time":1785753098972,"pid":1,"hostname":"8b3482522775","callId":"f8ae3161-ad4e-4d5b-a421-668415dfbe0c","callerId":"ivan","calleeId":"ars","msg":"WS: call.invite"}
+api-1  | {"level":30,"time":1785753100545,"pid":1,"hostname":"8b3482522775","callId":"f8ae3161-ad4e-4d5b-a421-668415dfbe0c","msg":"WS: call.reject"}
+api-1  | {"level":30,"time":1785753105836,"pid":1,"hostname":"8b3482522775","req":{"id":221,"method":"GET","url":"/api/v1/config"},"res":{"statusCode":304},"responseTime":3,"msg":"request completed"}
+api-1  | {"level":30,"time":1785753106101,"pid":1,"hostname":"8b3482522775","callId":"26163db2-4ed9-4774-ab3e-87ca95e7b5af","callerId":"ivan","calleeId":"ars","msg":"WS: call.invite"}
+api-1  | {"level":30,"time":1785753110595,"pid":1,"hostname":"8b3482522775","userId":"ars","code":1006,"reason":"","msg":"WS: disconnected"}
+api-1  | {"level":30,"time":1785753110596,"pid":1,"hostname":"8b3482522775","userId":"ars","callId":"26163db2-4ed9-4774-ab3e-87ca95e7b5af","msg":"WS: call ended by disconnect"}
+api-1  | {"level":30,"time":1785753111473,"pid":1,"hostname":"8b3482522775","req":{"id":222,"method":"GET","url":"/api/v1/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-1  | {"level":30,"time":1785753115155,"pid":1,"hostname":"8b3482522775","req":{"id":223,"method":"GET","url":"/api/v1/config"},"res":{"statusCode":304},"responseTime":6,"msg":"request completed"}
+api-1  | {"level":30,"time":1785753115407,"pid":1,"hostname":"8b3482522775","callId":"d7b93282-295c-45a9-bc52-cf1a1f923051","callerId":"ivan","calleeId":"ars","msg":"WS: call.invite (callee offline — push sent, call state kept)"}
+api-1  | {"level":30,"time":1785753122956,"pid":1,"hostname":"8b3482522775","callId":"d7b93282-295c-45a9-bc52-cf1a1f923051","endedBy":"ivan","msg":"WS: call.end"}
+api-1  | {"level":30,"time":1785753141638,"pid":1,"hostname":"8b3482522775","req":{"id":224,"method":"GET","url":"/api/v1/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-1  | {"level":30,"time":1785753171780,"pid":1,"hostname":"8b3482522775","req":{"id":225,"method":"GET","url":"/api/v1/health"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+api-1  | {"level":30,"time":1785753182959,"pid":1,"hostname":"8b3482522775","userId":"ivan","msg":"WS: closing inactive connection (heartbeat timeout)"}
+api-1  | {"level":30,"time":1785753182963,"pid":1,"hostname":"8b3482522775","userId":"ivan","code":1006,"reason":"","msg":"WS: disconnected"}
+api-1  | {"level":30,"time":1785753201950,"pid":1,"hostname":"8b3482522775","req":{"id":226,"method":"GET","url":"/api/v1/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-1  | {"level":30,"time":1785753232106,"pid":1,"hostname":"8b3482522775","req":{"id":227,"method":"GET","url":"/api/v1/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+api-1  | {"level":30,"time":1785753262278,"pid":1,"hostname":"8b3482522775","req":{"id":228,"method":"GET","url":"/api/v1/health"},"res":{"statusCode":200},"responseTime":2,"msg":"request completed"}
+api-1  | {"level":30,"time":1785753292474,"pid":1,"hostname":"8b3482522775","req":{"id":229,"method":"GET","url":"/api/v1/health"},"res":{"statusCode":200},"responseTime":3,"msg":"request completed"}

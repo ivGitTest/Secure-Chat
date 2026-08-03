@@ -14,11 +14,18 @@ import {
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as IntentLauncher from 'expo-intent-launcher';
 import { AuthProvider } from '@/context/AuthContext';
 import { CallProvider } from '@/context/CallContext';
 import { setupNotificationChannels } from '@/services/notificationService';
 import { setupCallKeep } from '@/services/callkeepService';
 import RNCallKeep from 'react-native-callkeep';
+
+/** Package name — must match app.json android.package */
+const APP_PACKAGE = 'com.ivaexpi.messengerandroid';
+/** AsyncStorage key so we only prompt once */
+const BATTERY_OPT_ASKED_KEY = 'battery_opt_asked_v1';
 
 // ---------------------------------------------------------------------------
 // Foreground notification handler — runs before the notification is displayed.
@@ -123,13 +130,23 @@ export default function RootLayout() {
     void setupNotificationChannels();
   }, []);
 
-  // Initialize CallKeep (Android ConnectionService) as early as possible.
-  // After setup, check that the calling account is enabled in Android Settings.
-  // Without it, TelecomManager.addNewIncomingCall() may not show the lock-screen
-  // call UI on some devices — the user must explicitly enable it once.
+  // Initialize CallKeep and request the two Android permissions required for
+  // reliable incoming calls:
+  //
+  //  1. Calling account — must be enabled once by the user in Android Settings
+  //     (Settings → Phone → Calling accounts). Without it TelecomManager may
+  //     not show the system call screen on some devices.
+  //
+  //  2. Battery optimisation exemption — the most common reason calls are missed
+  //     when the app is fully killed (swiped from Recent Apps). On Xiaomi/MIUI,
+  //     Samsung One UI, OPPO ColorOS and similar skins the OS blocks FCM from
+  //     starting a killed app unless it is whitelisted. After the user grants
+  //     "Unrestricted" battery usage, FCM can wake the process even from dead.
+  //     We store a flag so the dialog only appears once per install.
   useEffect(() => {
     if (Platform.OS !== 'android') return;
     void (async () => {
+      // ── 1. CallKeep setup + calling account ─────────────────────────────────
       await setupCallKeep();
       try {
         const enabled = await RNCallKeep.checkPhoneAccountEnabled();
@@ -147,7 +164,43 @@ export default function RootLayout() {
           );
         }
       } catch {
-        // Non-critical — skip silently if the check fails
+        // Non-critical
+      }
+
+      // ── 2. Battery optimisation exemption ────────────────────────────────────
+      // Only prompt once; after the user acts (or dismisses) we never ask again.
+      try {
+        const asked = await AsyncStorage.getItem(BATTERY_OPT_ASKED_KEY);
+        if (!asked) {
+          await AsyncStorage.setItem(BATTERY_OPT_ASKED_KEY, '1');
+          Alert.alert(
+            'Разрешите работу в фоне',
+            'Чтобы звонок приходил когда приложение закрыто, отключите оптимизацию батареи для мессенджера.\n\nНайдите его в списке и выберите «Без ограничений».',
+            [
+              { text: 'Позже', style: 'cancel' },
+              {
+                text: 'Открыть',
+                onPress: () => {
+                  // Opens the system dialog specifically for this app:
+                  // "Keep <App> running in background? → Allow"
+                  // ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS is the standard
+                  // intent for VoIP / alarm apps (WhatsApp, Telegram use this).
+                  void IntentLauncher.startActivityAsync(
+                    'android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+                    { data: `package:${APP_PACKAGE}` },
+                  ).catch(() => {
+                    // Fallback: open the general battery optimisation list
+                    void IntentLauncher.startActivityAsync(
+                      'android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS',
+                    );
+                  });
+                },
+              },
+            ],
+          );
+        }
+      } catch {
+        // Non-critical
       }
     })();
   }, []);
