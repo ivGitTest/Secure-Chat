@@ -2,7 +2,7 @@
   "expo": {
     "name": "Семейный мессенджер",
     "slug": "messenger-android",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "messenger-android",
@@ -39,7 +39,7 @@
         "android.permission.FOREGROUND_SERVICE_MICROPHONE"
       ],
       "package": "com.ivaexpi.messengerandroid",
-      "versionCode": 6,
+      "versionCode": 7,
       "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
