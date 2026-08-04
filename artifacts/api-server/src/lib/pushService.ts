@@ -15,7 +15,13 @@
  *    Requires FIREBASE_SERVICE_ACCOUNT_JSON env var (single-line JSON).
  */
 import { logger } from "./logger";
-import * as adminModule from "firebase-admin";
+// firebase-admin v11+ uses a modular API. Import from the specific subpackages
+// so esbuild can resolve the CJS exports correctly. `import * as admin from
+// "firebase-admin"` causes `admin.credential` to be undefined at runtime when
+// bundled with esbuild because the barrel export does not re-export `credential`
+// as a named ESM binding.
+import { initializeApp, cert, type App } from "firebase-admin/app";
+import { getMessaging } from "firebase-admin/messaging";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -145,15 +151,14 @@ export async function sendPushNotification(
 
 // ─── 2. Firebase Admin SDK (direct FCM for VoIP calls) ───────────────────────
 
-type FirebaseAdminApp = adminModule.app.App;
-let _firebaseApp: FirebaseAdminApp | null = null;
+let _firebaseApp: App | null = null;
 let _firebaseInitAttempted = false;
 
 /**
  * Lazily initialize Firebase Admin SDK from FIREBASE_SERVICE_ACCOUNT_JSON env var.
  * Returns null if the env var is missing or the JSON is invalid.
  */
-function getFirebaseApp(): FirebaseAdminApp | null {
+function getFirebaseApp(): App | null {
   if (_firebaseInitAttempted) return _firebaseApp;
   _firebaseInitAttempted = true;
 
@@ -164,10 +169,11 @@ function getFirebaseApp(): FirebaseAdminApp | null {
   }
 
   try {
-    const serviceAccount = JSON.parse(raw) as adminModule.ServiceAccount;
-    _firebaseApp = adminModule.initializeApp({
-      credential: adminModule.credential.cert(serviceAccount),
-    });
+    // cert() and initializeApp() are imported from "firebase-admin/app" (modular
+    // API, firebase-admin v11+). Using the subpackage import avoids the esbuild
+    // CJS-interop bug where `import * as admin` leaves admin.credential undefined.
+    const serviceAccount = JSON.parse(raw) as Parameters<typeof cert>[0];
+    _firebaseApp = initializeApp({ credential: cert(serviceAccount) });
     logger.info("push/fcm: Firebase Admin SDK initialized");
     return _firebaseApp;
   } catch (err) {
@@ -192,7 +198,8 @@ export async function sendFcmCallPush(
   if (!app) return; // Firebase not configured — caller falls back to Expo push
 
   try {
-    const messageId = await adminModule.messaging(app).send({
+    // getMessaging() is imported from "firebase-admin/messaging" (modular API).
+    const messageId = await getMessaging(app).send({
       token: fcmToken,
       data, // data-only: no notification block → won't show a banner, just wakes the app
       android: {
