@@ -918,9 +918,21 @@ module.exports = function withFirebaseCallService(config) {
         // pattern and prevents other apps from spoofing call intents.
         'android:name': SERVICE_NAME,
         'android:exported': 'false',
+        // stopWithTask="false": prevents the OS from stopping this service when
+        // the user swipes the app from Recent Apps. FCM starts a new process for
+        // high-priority data pushes, but restrictive ROMs (Xiaomi MIUI, Samsung
+        // One UI) sometimes skip the new-process step if the service entry has
+        // the default stopWithTask=true behavior. Setting it to false ensures the
+        // OS always allows FCM to (re-)start the service process on call push.
+        'android:stopWithTask': 'false',
       },
       'intent-filter': [
         {
+          $: {
+            // priority="1" ensures our service wins over any stale RNFB entry
+            // that may survive a partial prebuild in edge cases.
+            'android:priority': '1',
+          },
           action: [
             { $: { 'android:name': 'com.google.firebase.MESSAGING_EVENT' } },
           ],
@@ -953,6 +965,10 @@ module.exports = function withFirebaseCallService(config) {
           'android:name': LISTENER_SERVICE_NAME,
           'android:exported': 'false',
           'android:foregroundServiceType': 'shortService',
+          // stopWithTask="false": keeps this foreground service alive after a
+          // swipe-dismiss so the user can still answer via the system call UI
+          // while the rest of the app process is cleaning up.
+          'android:stopWithTask': 'false',
         },
       });
     }

@@ -44,6 +44,10 @@ module.exports = function withCallKeep(config) {
       // WhatsApp, Telegram, Signal all declare this for the same reason.
       // The user is shown a one-time system dialog by the JS layer (_layout.tsx).
       'android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS',
+      // Required so that setFullScreenIntent() can wake the display from
+      // Doze / deep-sleep on Android 9+. Without this the screen never turns
+      // on and the incoming-call UI is never seen on a locked device.
+      'android.permission.WAKE_LOCK',
     ];
     for (const perm of EXTRA_PERMISSIONS) {
       if (!manifest['uses-permission'].some((p) => p.$?.['android:name'] === perm)) {
