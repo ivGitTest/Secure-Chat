@@ -1,0 +1,38 @@
+# шаг 1 звоню н ателефон где  приложение выгружено из памяти:
+
+```
+root@311012:~/docker_containers/messenger/deploy# docker logs deploy-api-1 --tail=50 --follow
+{"level":30,"time":1785845176338,"pid":1,"hostname":"8b3482522775","userId":"test","msg":"WS: connected"}
+{"level":30,"time":1785845176340,"pid":1,"hostname":"8b3482522775","req":{"id":3380,"method":"GET","url":"/api/v1/users/me"},"res":{"statusCode":304},"responseTime":49,"msg":"request completed"}
+{"level":30,"time":1785845176614,"pid":1,"hostname":"8b3482522775","req":{"id":3381,"method":"GET","url":"/api/v1/conversations"},"res":{"statusCode":304},"responseTime":20,"msg":"request completed"}
+{"level":30,"time":1785845176617,"pid":1,"hostname":"8b3482522775","req":{"id":3382,"method":"GET","url":"/api/v1/users"},"res":{"statusCode":304},"responseTime":9,"msg":"request completed"}
+{"level":30,"time":1785845176775,"pid":1,"hostname":"8b3482522775","req":{"id":3383,"method":"GET","url":"/api/v1/conversations"},"res":{"statusCode":304},"responseTime":17,"msg":"request completed"}
+{"level":30,"time":1785845176791,"pid":1,"hostname":"8b3482522775","req":{"id":3384,"method":"GET","url":"/api/v1/users"},"res":{"statusCode":304},"responseTime":8,"msg":"request completed"}
+{"level":30,"time":1785845177304,"pid":1,"hostname":"8b3482522775","req":{"id":3385,"method":"POST","url":"/api/v1/devices/push-token"},"res":{"statusCode":204},"responseTime":13,"msg":"request completed"}
+{"level":30,"time":1785845181500,"pid":1,"hostname":"8b3482522775","req":{"id":3386,"method":"GET","url":"/api/v1/conversations/e8cbf36f-c689-4e3a-ba36-b7b4f7ae51ca/messages"},"res":{"statusCode":304},"responseTime":8,"msg":"request completed"}
+{"level":30,"time":1785845191842,"pid":1,"hostname":"8b3482522775","req":{"id":3387,"method":"GET","url":"/api/v1/config"},"res":{"statusCode":304},"responseTime":38,"msg":"request completed"}
+{"level":30,"time":1785845192385,"pid":1,"hostname":"8b3482522775","callId":"4a9117fa-efa7-4820-9299-6e2cd9ac2f6b","callerId":"test","calleeId":"ivan","msg":"WS: call.invite (callee offline — push sent, call state kept)"}
+{"level":30,"time":1785845196994,"pid":1,"hostname":"8b3482522775","req":{"id":3388,"method":"GET","url":"/api/v1/health"},"res":{"statusCode":200},"responseTime":1,"msg":"request completed"}
+{"level":30,"time":1785845205045,"pid":1,"hostname":"8b3482522775","callId":"4a9117fa-efa7-4820-9299-6e2cd9ac2f6b","endedBy":"test","msg":"WS: call.end"}
+```
+
+# Шаг 2
+
+```
+root@311012:~/docker_containers/messenger/deploy# docker exec -it deploy-postgres-1 psql -U messenger -d messenger -c   "SELECT user_id, LEFT(fcm_token,25) AS fcm, updated_at FROM push_tokens;"
+ user_id |            fcm            |          updated_at
+---------+---------------------------+-------------------------------
+ ars     | xxx-q:AP | 2026-08-03 10:31:33.557769+00
+ ivan    | yyyr:AP | 2026-08-04 08:11:14.676329+00
+ test    | zzz6:AP | 2026-08-04 12:06:17.298669+00
+ lara    | pppD:AP | 2026-07-31 16:40:55.859631+00
+(4 rows)
+```
+
+# Шаг-3
+
+```
+C:\Soft\adb-platform-tools>adb logcat -c && adb logcat -s CallFMS:V FirebaseMessaging:V
+--------- beginning of main
+08-04 16:09:26.025 13586 13872 E FirebaseMessaging: Topic operation failed: SERVICE_NOT_AVAILABLE. Will retry Topic operation.
+```
