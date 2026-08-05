@@ -4,6 +4,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -61,10 +62,15 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
       style={styles.root}
     >
-      <View style={styles.inner}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.inner}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* Icon tile + glow */}
         <View style={styles.iconArea}>
           <View style={styles.iconGlow} />
@@ -134,7 +140,7 @@ export default function LoginScreen() {
             <Text style={styles.serverBtnText}>Изменить сервер</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -142,8 +148,9 @@ export default function LoginScreen() {
 const C = colors.light;
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
+  scroll: { flex: 1 },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 32,
     paddingTop: 60,
     paddingBottom: 48,
@@ -193,7 +200,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: 'Inter_400Regular',
   },
-  fields: { flex: 1 },
+  fields: {},
   label: {
     fontSize: 12,
     fontWeight: '700',
@@ -227,8 +234,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
   },
   btnWrap: {
-    marginTop: 'auto',
-    paddingTop: 32,
+    marginTop: 40,
     gap: 16,
   },
   btn: {
