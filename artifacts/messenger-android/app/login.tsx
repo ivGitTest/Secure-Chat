@@ -80,7 +80,7 @@ export default function LoginScreen() {
         </View>
 
         <Text style={styles.title}>Авторизация</Text>
-        <Text style={styles.subtitle}>Войдите в семейный мессенджер</Text>
+        <Text style={styles.subtitle}>Введите данные пользователя</Text>
 
         <View style={styles.fields}>
           {/* Username */}
