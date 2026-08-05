@@ -78,7 +78,7 @@ export default function ChatListScreen() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: 'Семья',
+      title: 'Контакты',
       headerRight: () => (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 8 }}>
           <TouchableOpacity
