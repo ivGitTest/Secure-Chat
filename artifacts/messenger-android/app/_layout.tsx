@@ -101,7 +101,7 @@ function RootLayoutNav() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen
           name="chat-list"
-          options={{ title: 'Семья', headerBackVisible: false }}
+          options={{ title: 'Контакты', headerBackVisible: false }}
         />
         <Stack.Screen
           name="chat/[id]"
