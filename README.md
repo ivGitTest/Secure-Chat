@@ -1,176 +1,346 @@
-# Family Messenger
+# Семейный мессенджер
 
-A self-hosted, private messaging app for families. Designed for 10–30 people who want to own their data and avoid dependence on third-party cloud services.
-
-> **Status: MVP.** This is a working baseline for a closed family circle. It covers secure login, one-to-one and group text chats, voice calls, and a Docker-based deployment you can run on a personal VPS.
-
----
-
-## What it does
-
-- **Private, self-hosted chat.** Text messaging inside the family or close group with no ads, no data mining, and no external accounts.
-- **One-to-one and group conversations.** Create conversations with any registered members and keep all history under your control.
-- **Voice calls.** WebRTC-based voice calls between users, relayed by a built-in TURN server.
-- **Simple 6-digit PIN login.** No passwords to forget. Each user gets a 6-digit PIN stored as an argon2 hash.
-- **Android app.** A React Native (Expo) client for family members to install directly.
-- **Admin CLI.** Create, block, and unblock users through a command-line tool.
-
-## What is not in MVP (planned for later)
-
-- Push notifications
-- File attachments and media
-- Message search
-- Group admin roles
-- End-to-end encryption (server sees messages in this version)
-- iOS build
-- Automatic backups
-- Expiry monitoring for TLS certificates
+Закрытый самоходный мессенджер для семьи или небольшого круга людей.
+Работает на собственном VPS, данные не уходят в чужие облака.
 
 ---
 
-## Tech stack
+## Возможности
 
-### Backend
-- **Node.js 20 + TypeScript 5**
-- **Express 5** — REST API
-- **WebSocket (`ws`)** — real-time messaging, call signaling, WebRTC offer/answer/ICE relay
-- **Drizzle ORM** — PostgreSQL schema and queries
-- **argon2** — PIN hashing
-- **JWT** — session tokens
-- **pino** — structured logging
-- **esbuild** — single-file bundle for production Docker image
-
-### Infrastructure
-- **Docker + Docker Compose**
-- **PostgreSQL 16**
-- **nginx** — TLS termination, reverse proxy, WebSocket upgrade
-- **coturn** — STUN/TURN server for WebRTC media relay
-- **Certbot** — TLS certificates (Let's Encrypt)
-
-### Android client
-- **Expo SDK 52 + React Native**
-- **react-native-webrtc** — WebRTC on Android
-- **expo-secure-store** — token storage
-- **AsyncStorage** — local settings (server URL, etc.)
+- **Текстовые чаты** — личные переписки между участниками, история хранится на своём сервере.
+- **Голосовые звонки** — WebRTC-звонки через встроенный STUN/TURN-сервер (coturn). Работают за NAT.
+- **Уведомления о входящем звонке** — FCM-пуш будит приложение даже когда оно полностью закрыто; открывается системный экран звонка Android.
+- **Вход по PIN** — 6-значный PIN вместо пароля, хранится как argon2id-хеш.
+- **Авто-обновление клиента** — приложение само проверяет новый APK и предлагает обновиться.
+- **Управление пользователями** — создание, блокировка и разблокировка через CLI-скрипт.
 
 ---
 
-## Repository layout
+## Технологии
+
+### Сервер (`artifacts/api-server`)
+
+| Компонент | Версия | Назначение |
+|-----------|--------|------------|
+| Node.js | 24 | Среда выполнения |
+| TypeScript | 5.9 | Типизация |
+| Express | 5 | REST API |
+| `ws` | 8 | WebSocket — чат и WebRTC-сигналинг |
+| Drizzle ORM | — | Схема и запросы к PostgreSQL |
+| argon2 | — | Хеширование PIN |
+| jsonwebtoken | 9 | JWT-сессии |
+| pino | 9 | Структурированный JSON-лог |
+| esbuild | 0.27 | Сборка в один бандл для Docker-образа |
+| firebase-admin | 13 | Прямые FCM-пуши для VoIP-звонков |
+| helmet | 8 | HTTP-заголовки безопасности |
+| express-rate-limit | 7 | Rate limiting |
+
+### Клиент (`artifacts/messenger-android`)
+
+| Компонент | Версия | Назначение |
+|-----------|--------|------------|
+| Expo SDK | 54 | Сборка React Native |
+| React Native | 0.81 | UI-фреймворк (Android) |
+| react-native-webrtc | 124 | WebRTC (аудио-звонки) |
+| react-native-callkeep | 4 | Системный экран звонка (TelecomManager) |
+| @react-native-firebase/messaging | 21 | FCM-токен и приём пуш-сообщений |
+| expo-notifications | 0.32 | Каналы уведомлений |
+| expo-secure-store | 15 | Хранение JWT-токена |
+| expo-router | 6 | Навигация |
+| react-native-reanimated | 3 | Анимации |
+| react-native-keyboard-controller | 1.18 | Поведение клавиатуры в чате |
+
+### Инфраструктура (`deploy/`)
+
+| Сервис | Образ | Назначение |
+|--------|-------|------------|
+| PostgreSQL | `postgres:16-alpine` | База данных |
+| API | Dockerfile на Node.js | REST + WebSocket + сигналинг |
+| nginx | `nginx:alpine` | Reverse proxy внутри Docker |
+| coturn | `coturn/coturn:latest` | STUN/TURN для WebRTC |
+
+Хостовый reverse proxy (nginx или Caddy) завершает TLS и проксирует трафик на `127.0.0.1:7080`.
+
+---
+
+## Внешние сервисы
+
+| Сервис | Зачем нужен |
+|--------|-------------|
+| **Firebase / FCM** | Пуш-уведомления о входящих звонках на убитое приложение. Требует Google-аккаунт, Firebase-проект и `google-services.json`. Сервер использует Service Account JSON для отправки прямых FCM data-push. |
+| **GitHub Actions** | CI-сборка подписанного APK (`.github/workflows/build-android.yml`). Запускается вручную или по тегу. Артефакт (APK) публикуется в GitHub Releases и подтягивается клиентом при авто-обновлении. |
+| **Let's Encrypt / Certbot** | TLS-сертификат для домена. Получается один раз и обновляется через `certbot renew`. |
+| **Expo CLI** | Сборка нативного Android-проекта через `expo prebuild`. CI не использует EAS cloud — только локальный Gradle. |
+
+---
+
+## Структура репозитория
 
 ```
-artifacts/api-server/        # Express server (REST + WebSocket + WebRTC signaling)
-artifacts/messenger-android/   # Expo React Native Android client
-lib/db/                      # Drizzle schema + db connection
-lib/api-zod/                 # Shared Zod schemas
-scripts/                     # Admin CLI and utilities
-deploy/                      # Docker Compose, nginx, coturn, Dockerfile, README
+artifacts/
+  api-server/          # Express-сервер: REST + WebSocket + WebRTC-сигналинг
+  messenger-android/   # Expo React Native Android-клиент
+    plugins/           # Expo config plugins: CallKeep, Firebase, TelecomManager
+    app/               # Экраны (Expo Router)
+    context/           # CallContext, AuthContext
+    services/          # WS, уведомления, звонки
+lib/
+  db/                  # Drizzle-схема и подключение к PostgreSQL
+  api-zod/             # Shared Zod-схемы
+scripts/               # Вспомогательные скрипты (gen-keystore, create-users)
+deploy/
+  docker-compose.yml   # Основной compose-файл
+  api/Dockerfile       # Образ API-сервера
+  nginx/               # Конфиги nginx
+  coturn/              # Конфиг TURN-сервера
+  admin-cli.sh         # Интерактивный CLI для управления пользователями
+  .env.example         # Шаблон переменных окружения
+  README.md            # Подробный гайд по деплою
+docs/
+  api.md               # HTTP и WebSocket API
+  architecture.md      # Архитектурные решения
+  containers.md        # Docker-сервисы и сетевая топология
+  database.md          # Схема базы данных
+  push-notifications.md       # Expo Push — уведомления о сообщениях
+  voip-call-notifications.md  # FCM VoIP — уведомления о звонках
+  in-app-updates.md    # Механизм авто-обновления APK
+.github/
+  workflows/
+    build-android.yml  # CI: сборка и подпись APK
 ```
 
 ---
 
-## Quick start (development)
+## Деплой на VPS
 
-### Requirements
-- Node.js 20
-- pnpm (with corepack)
-- PostgreSQL (local or cloud)
+Полный гайд: [`deploy/README.md`](deploy/README.md).
 
-### 1. Install dependencies
-```bash
-pnpm install
-```
+### Требования
 
-### 2. Set environment variables
-```bash
-cp artifacts/api-server/.env.example artifacts/api-server/.env  # or export directly
-```
+- Ubuntu 22.04 / 24.04
+- Docker Engine 24+, Docker Compose Plugin v2.20+
+- Домен с A-записью на IP сервера
+- Открытые порты: `80`, `443`, `3478/udp`, `49152–65535/udp`
 
-Required:
-- `DATABASE_URL` — PostgreSQL connection string
-- `JWT_SECRET` or `SESSION_SECRET` — used to sign JWTs
-- `PORT` — e.g. `5000`
-
-Optional:
-- `JWT_EXPIRES_IN` — e.g. `7d` (supports `s`, `m`, `h`, `d`, `w`)
-- `LOG_LEVEL` — `trace | debug | info | warn | error`
-
-### 3. Push the database schema
-```bash
-pnpm --filter @workspace/db run push
-```
-
-### 4. Create a user
-```bash
-pnpm --filter @workspace/scripts run admin -- create-user --id alice --name Alice --pin 123456
-```
-
-### 5. Start the API server
-```bash
-pnpm --filter @workspace/api-server run dev
-```
-
-The API will be available at `http://localhost:5000`.
-
-### 6. Start the Android client
-```bash
-pnpm --filter @workspace/messenger-android run dev
-```
-
-In the Expo app, enter your local server URL: `http://<your-computer-ip>:5000`.
-
----
-
-## Production deployment
-
-See [`deploy/README.md`](deploy/README.md) for the full VPS deployment guide.
-
-Short version:
-1. Copy `deploy/.env.example` to `deploy/.env` and fill in values.
-2. Obtain TLS certificates with Certbot.
-3. Run `cd deploy && docker compose up -d --build`.
-4. Create users with `docker compose exec api node /app/dist/admin.mjs create-user`.
-
----
-
-## Admin CLI
-
-The CLI is available as a workspace script in development and as a bundled script inside the Docker image in production.
+### 1. Установить Docker
 
 ```bash
-# Development
-pnpm --filter @workspace/scripts run admin -- create-user --id alice --name Alice --pin 123456
-pnpm --filter @workspace/scripts run admin -- block-user --id alice
-pnpm --filter @workspace/scripts run admin -- unblock-user --id alice
-pnpm --filter @workspace/scripts run admin -- list-users
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER && newgrp docker
+```
 
-# Production (inside the api container)
-docker compose exec api node /app/dist/admin.mjs create-user --id alice --name Alice --pin 123456
+### 2. Клонировать репозиторий
+
+```bash
+git clone <REPO_URL> /opt/messenger
+cd /opt/messenger
+```
+
+### 3. Создать `.env`
+
+```bash
+cp deploy/.env.example deploy/.env
+nano deploy/.env
+```
+
+| Переменная | Описание |
+|------------|----------|
+| `DOMAIN` | Домен сервера, например `chat.example.com` |
+| `POSTGRES_PASSWORD` | Пароль PostgreSQL (≥ 32 символа) |
+| `JWT_SECRET` | Секрет для подписи JWT (≥ 32 символа) |
+| `JWT_EXPIRES_IN` | Срок жизни токена, например `7d` |
+| `TURN_SECRET` | Секрет TURN (≥ 32 символа) |
+| `TURN_REALM` | Обычно то же, что `DOMAIN` |
+| `EXTERNAL_IP` | Публичный IP сервера: `curl -s https://ifconfig.me` |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | JSON сервисного аккаунта Firebase (однострочный) — для VoIP-пушей |
+
+Генерация случайных секретов:
+```bash
+openssl rand -hex 32
+```
+
+### 4. Настроить хостовый reverse proxy
+
+Внутри Docker nginx слушает `127.0.0.1:7080`. Хостовый nginx (или Caddy) завершает TLS и проксирует трафик.
+
+**nginx** (`/etc/nginx/sites-available/chat.example.com`):
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name chat.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/chat.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/chat.example.com/privkey.pem;
+
+    location /ws {
+        proxy_pass         http://127.0.0.1:7080/ws;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade    $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_read_timeout 3600s;
+    }
+
+    location / {
+        proxy_pass         http://127.0.0.1:7080;
+        proxy_set_header   Host             $host;
+        proxy_set_header   X-Forwarded-Proto https;
+    }
+}
+
+server {
+    listen 80;
+    server_name chat.example.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/chat.example.com /etc/nginx/sites-enabled/
+sudo nginx -t && sudo nginx -s reload
+```
+
+TLS-сертификат (если ещё нет):
+```bash
+sudo apt install certbot
+sudo certbot certonly --manual --preferred-challenges dns -d chat.example.com
+```
+
+### 5. Запустить стек
+
+```bash
+cd /opt/messenger/deploy
+docker compose up -d --build
+```
+
+Проверить статус:
+```bash
+docker compose ps
+docker compose logs -f api
+```
+
+Проверка работоспособности:
+```bash
+curl https://chat.example.com/api/v1/health
+# {"status":"ok"}
+```
+
+### Обновление сервера
+
+```bash
+cd /opt/messenger
+git pull
+cd deploy
+docker compose build api
+docker compose up -d api
 ```
 
 ---
 
-## Security notes
+## Управление пользователями
 
-- Server stores messages in plain text in PostgreSQL. **MVP is not end-to-end encrypted.** Keep the server on a machine you trust and protect the database.
-- PINs are hashed with argon2id.
-- Failed login attempts are tracked; after a small threshold the account is blocked.
-- JWTs are signed with `JWT_SECRET` (preferred) or `SESSION_SECRET` (fallback).
-- API rate limits: 5 login attempts per minute per IP, 120 authenticated requests per minute per user.
+Интерактивный CLI-скрипт:
+
+```bash
+cd /opt/messenger
+./deploy/admin-cli.sh
+```
+
+Скрипт показывает меню: создать пользователя, сменить PIN, заблокировать/разблокировать, показать список.
+
+Или напрямую:
+
+```bash
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs create-user --id vasya --name Василий --pin 123456
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs list-users
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs block-user --id vasya
+```
 
 ---
 
-## License
+## Сборка Android APK
 
-This is a personal, self-hosted project. It is provided as-is for family use.
+### Автоматически — GitHub Actions
+
+При пуше тега или ручном запуске `Build Android APK` GitHub Actions:
+
+1. Запускает `expo prebuild` на Ubuntu-раннере.
+2. Собирает подписанный APK через Gradle.
+3. Публикует APK как артефакт сборки.
+
+**Необходимые GitHub Secrets:**
+
+| Secret | Содержимое |
+|--------|------------|
+| `ANDROID_KEYSTORE_BASE64` | Keystore-файл в base64 (см. `scripts/gen-keystore.sh`) |
+| `ANDROID_KEYSTORE_PASSWORD` | Пароль keystore |
+| `ANDROID_KEY_ALIAS` | Псевдоним ключа |
+| `ANDROID_KEY_PASSWORD` | Пароль ключа |
+| `GOOGLE_SERVICES_JSON` | Содержимое `google-services.json` (без base64) |
+
+Сгенерировать keystore:
+```bash
+bash scripts/gen-keystore.sh
+```
+
+### Вручную — локальная сборка
+
+Требования: JDK 17, Android SDK, Node.js 24, pnpm.
+
+```bash
+cd artifacts/messenger-android
+
+# Предварительная сборка нативного проекта
+GOOGLE_SERVICES_JSON="$(cat google-services.json)" \
+  pnpm exec expo prebuild --platform android --clean
+
+# Собрать debug APK
+cd android && ./gradlew assembleDebug
+
+# Установить на подключённый телефон
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
 
 ---
 
-## Roadmap
+## Настройка Firebase (для звонков)
 
-Planned next steps:
-- Build and distribute the Android APK
-- Automated TLS certificate renewal
-- Message history backups
-- Certificate expiry warnings
-- Push notifications
-- End-to-end encryption research
+Push-уведомления о входящих звонках работают через Firebase Cloud Messaging (FCM).
+
+1. Создать проект в [Firebase Console](https://console.firebase.google.com).
+2. Добавить Android-приложение с package name `com.ivaexpi.messengerandroid`.
+3. Скачать `google-services.json` → положить в `artifacts/messenger-android/`.
+4. В **Project Settings → Service accounts** сгенерировать приватный ключ.
+5. Скопировать содержимое JSON-файла в `FIREBASE_SERVICE_ACCOUNT_JSON` в `deploy/.env` (всё на одной строке).
+6. Добавить `GOOGLE_SERVICES_JSON` в GitHub Secrets (для CI-сборки APK).
+
+---
+
+## Безопасность
+
+- **PIN хранится как argon2id-хеш** — исходный PIN не восстановим.
+- **JWT подписываются** секретом из `JWT_SECRET`.
+- **5 неверных попыток входа** блокируют аккаунт.
+- **Rate limiting**: 5 попыток логина в минуту с одного IP; 120 запросов в минуту на авторизованного пользователя.
+- **Сообщения хранятся в открытом виде** в PostgreSQL — сервер видит текст. Шифрование на уровне транспорта (TLS), но не end-to-end.
+- **TLS обязателен** в продакшне — все токены и PIN передаются по зашифрованному каналу.
+
+---
+
+## Документация
+
+| Файл | Содержимое |
+|------|------------|
+| [`docs/api.md`](docs/api.md) | HTTP и WebSocket API, форматы сообщений, коды ошибок |
+| [`docs/architecture.md`](docs/architecture.md) | Архитектурные решения |
+| [`docs/containers.md`](docs/containers.md) | Docker-сервисы и сетевая топология |
+| [`docs/database.md`](docs/database.md) | Схема базы данных |
+| [`docs/push-notifications.md`](docs/push-notifications.md) | Expo Push — уведомления о сообщениях |
+| [`docs/voip-call-notifications.md`](docs/voip-call-notifications.md) | FCM VoIP — уведомления о звонках |
+| [`docs/in-app-updates.md`](docs/in-app-updates.md) | Механизм авто-обновления APK |
+| [`deploy/README.md`](deploy/README.md) | Полный гайд по деплою на VPS |
