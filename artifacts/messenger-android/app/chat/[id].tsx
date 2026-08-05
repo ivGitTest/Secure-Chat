@@ -223,17 +223,19 @@ export default function ChatScreen() {
       )}
 
       <View style={[styles.inputBar, { paddingBottom: insets.bottom + 8 }]}>
-        <TextInput
-          style={styles.input}
-          value={inputText}
-          onChangeText={setInputText}
-          placeholder="Сообщение…"
-          multiline
-          returnKeyType="default"
-          placeholderTextColor={C.mutedForeground}
-          underlineColorAndroid="transparent"
-          textAlignVertical="center"
-        />
+        <View style={styles.inputShell}>
+          <TextInput
+            style={styles.input}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Сообщение…"
+            multiline
+            returnKeyType="default"
+            placeholderTextColor={C.mutedForeground}
+            underlineColorAndroid="transparent"
+            textAlignVertical="center"
+          />
+        </View>
         <TouchableOpacity
           style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
           onPress={sendMessage}
@@ -306,15 +308,23 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingHorizontal: 16,
     paddingTop: 10,
-    borderTopWidth: 2,
-    borderTopColor: C.border,
     backgroundColor: C.background,
     gap: 10,
   },
-  input: {
+  inputShell: {
     flex: 1,
+    minHeight: 52,
+    maxHeight: 120,
+    justifyContent: 'center',
     backgroundColor: C.input,
     borderRadius: 28,
+    overflow: 'hidden',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderBottomWidth: 0,
     paddingHorizontal: 20,
     paddingVertical: 14,
     fontSize: 18,
