@@ -204,23 +204,23 @@ export default function ChatScreen() {
 
   return (
     <View style={styles.root}>
-      <FlatList<Message>
-        data={messages}
-        inverted
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.msgList}
-        keyboardDismissMode="interactive"
-        keyboardShouldPersistTaps="handled"
-        scrollEnabled={messages.length > 0}
-        ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyText}>Начните переписку</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <MessageBubble message={item} isMe={item.senderId === userId} />
-        )}
-      />
+      {messages.length === 0 ? (
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyText}>Нет истории переписки</Text>
+        </View>
+      ) : (
+        <FlatList<Message>
+          data={messages}
+          inverted
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.msgList}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => (
+            <MessageBubble message={item} isMe={item.senderId === userId} />
+          )}
+        />
+      )}
 
       <View style={[styles.inputBar, { paddingBottom: insets.bottom + 8 }]}>
         <TextInput
@@ -265,7 +265,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 80,
-    transform: [{ scaleY: -1 }],
   },
   emptyText: { fontSize: 16, color: C.mutedForeground, fontFamily: 'Inter_400Regular' },
 
