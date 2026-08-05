@@ -17,7 +17,7 @@ import { getServerUrl, setServerUrl } from '@/services/serverConfig';
 
 export default function ServerConfigScreen() {
   const router = useRouter();
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState('https://chat.naviryb.xyz');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
