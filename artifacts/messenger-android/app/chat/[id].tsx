@@ -231,6 +231,8 @@ export default function ChatScreen() {
           multiline
           returnKeyType="default"
           placeholderTextColor={C.mutedForeground}
+          underlineColorAndroid="transparent"
+          textAlignVertical="center"
         />
         <TouchableOpacity
           style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
