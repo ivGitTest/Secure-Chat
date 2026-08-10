@@ -344,3 +344,7 @@ Push-уведомления о входящих звонках работают 
 | [`docs/voip-call-notifications.md`](docs/voip-call-notifications.md) | FCM VoIP — уведомления о звонках |
 | [`docs/in-app-updates.md`](docs/in-app-updates.md) | Механизм авто-обновления APK |
 | [`deploy/README.md`](deploy/README.md) | Полный гайд по деплою на VPS |
+
+## Лицензия
+
+Этот проект распространяется под лицензией MIT. Подробности см. в файле [LICENSE](LICENSE).
