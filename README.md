@@ -270,6 +270,11 @@ docker compose -f deploy/docker-compose.yml exec api \
 Этот способ выполняет сборку на серверах Expo. Локальные Java, Gradle и
 Android SDK не требуются.
 
+> **Подпись APK:** production использует защищённые credentials EAS Cloud.
+> `credentials.json`, `keystore.jks` и пароли не должны находиться в Git или
+> передаваться в чат. APK из EAS и GitHub Actions можно устанавливать поверх
+> друг друга только если оба канала используют один и тот же сертификат.
+
 Перейдите в каталог мобильного приложения и один раз войдите в Expo под
 аккаунтом, к которому привязан EAS-проект:
 
@@ -327,7 +332,8 @@ npx eas-cli@latest env:list --environment production
 
 ### Автоматически — GitHub Actions
 
-При пуше тега или ручном запуске `Build Android APK` GitHub Actions:
+Workflow запускается вручную в GitHub: **Actions → Build Android APK →
+Run workflow**. Он:
 
 1. Запускает `expo prebuild` на Ubuntu-раннере.
 2. Собирает подписанный APK через Gradle.
@@ -336,22 +342,39 @@ npx eas-cli@latest env:list --environment production
 GitHub Actions работает независимо от EAS Cloud: workflow
 `.github/workflows/build-android.yml` сам устанавливает Java и Android SDK,
 выполняет `expo prebuild` и собирает APK локальным Gradle. Его секреты и
-настройки менять не нужно.
+настройки хранятся только в GitHub Actions Secrets.
 
 **Необходимые GitHub Secrets:**
 
 | Secret | Содержимое |
 |--------|------------|
-| `ANDROID_KEYSTORE_BASE64` | Keystore-файл в base64 (см. `scripts/gen-keystore.sh`) |
+| `ANDROID_KEYSTORE_BASE64` | Keystore-файл в base64 |
 | `ANDROID_KEYSTORE_PASSWORD` | Пароль keystore |
 | `ANDROID_KEY_ALIAS` | Псевдоним ключа |
 | `ANDROID_KEY_PASSWORD` | Пароль ключа |
 | `GOOGLE_SERVICES_JSON` | Содержимое `google-services.json` (без base64) |
 
-Сгенерировать keystore:
+Если создаётся новый ключ, сгенерируйте keystore на компьютере с JDK 17.
+Файл не добавляйте в Git:
+
 ```bash
-bash scripts/gen-keystore.sh
+mkdir -p "$HOME/.android-signing"
+chmod 700 "$HOME/.android-signing"
+
+keytool -genkeypair -v \
+  -keystore "$HOME/.android-signing/messenger-upload.jks" \
+  -storetype PKCS12 \
+  -alias upload \
+  -keyalg RSA -keysize 2048 -validity 10000
+
+# Скопируйте результат в GitHub Secret ANDROID_KEYSTORE_BASE64.
+base64 -w 0 "$HOME/.android-signing/messenger-upload.jks"
 ```
+
+После создания ключа обновите в GitHub Secrets:
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS` и `ANDROID_KEY_PASSWORD`. Старые значения, которые были
+раскрыты, необходимо удалить или заменить.
 
 ### Вручную — локальная сборка
 
