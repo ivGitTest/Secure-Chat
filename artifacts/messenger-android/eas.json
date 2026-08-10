@@ -20,7 +20,6 @@
       }
     },
     "production": {
-      "credentialsSource": "local",
       "env": {
         "NODE_ENV": "production"
       },
