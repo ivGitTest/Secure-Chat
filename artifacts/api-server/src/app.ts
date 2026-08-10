@@ -11,10 +11,15 @@ const app: Express = express();
 app.set("trust proxy", 1);
 
 // Security headers — must be first middleware so headers appear on every response.
-// contentSecurityPolicy is disabled: this server returns JSON/WebSocket only, no HTML.
+// CSP is set to default-src 'none': this server returns JSON/WebSocket only, no HTML,
+// so a maximally-restrictive policy adds defense-in-depth with no functional cost.
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+      },
+    },
   }),
 );
 
