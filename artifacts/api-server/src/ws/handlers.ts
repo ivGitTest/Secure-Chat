@@ -7,6 +7,7 @@ import { logger } from "../lib/logger";
 import { send, sendToUser } from "./connections";
 import { handleSignaling } from "./signaling";
 import type { ExtendedWebSocket, WsEnvelope } from "./types";
+import { checkRateLimit } from "./rateLimiter";
 
 /** Parse raw WS data into an envelope; returns null on parse failure. */
 function parseEnvelope(data: RawData): WsEnvelope | null {
@@ -42,6 +43,15 @@ function parseEnvelope(data: RawData): WsEnvelope | null {
 
 /** Main dispatcher — called for every incoming WS message. */
 export function handleMessage(ws: ExtendedWebSocket, data: RawData): void {
+  // Rate limit: at most 30 messages per second per user
+  if (!checkRateLimit(ws.userId)) {
+    send(ws, {
+      type: "error",
+      payload: { code: "RATE_LIMITED", message: "Too many messages. Slow down." },
+    });
+    return;
+  }
+
   const envelope = parseEnvelope(data);
   if (!envelope) {
     send(ws, {
