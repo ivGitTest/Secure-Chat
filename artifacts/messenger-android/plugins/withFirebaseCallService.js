@@ -59,7 +59,7 @@
  * Both resolve to the same location on Android.
  */
 
-const { withAndroidManifest, withDangerousMod } = require('expo/config-plugins');
+const { withAndroidManifest, withDangerousMod, withAppBuildGradle } = require('expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 
@@ -976,39 +976,64 @@ module.exports = function withFirebaseCallService(config) {
     return modConfig;
   });
 
-  // ── Step 3: fix manifest merger conflict for default_notification_color ─────
-  // expo-notifications (listed before our plugin in app.json) adds:
-  //   <meta-data android:name="com.google.firebase.messaging.default_notification_color"
-  //              android:resource="@color/notification_icon_color"/>
-  // to the APP manifest.  @react-native-firebase/messaging also declares
-  //   android:resource="@color/white"
-  // in its LIBRARY manifest.  The Android manifest merger rejects the duplicate
-  // unless the higher-priority (app) entry carries tools:replace="android:resource".
+  // ── Step 3: add firebase-messaging to app compile classpath ─────────────────
+  // CallFirebaseMessagingService.java directly subclasses FirebaseMessagingService
+  // and uses RemoteMessage from com.google.firebase.messaging.
+  // @react-native-firebase/messaging v21 declares firebase-messaging as
+  // `implementation` (not `api`), so it is NOT transitively visible to app-level
+  // Java code. Without this step Gradle fails with:
+  //   error: cannot find symbol: class FirebaseMessagingService
+  //   error: cannot find symbol: class RemoteMessage
   //
-  // withAndroidManifest is the correct hook here — NOT withDangerousMod.
-  // Expo executes withDangerousMod BEFORE withAndroidManifest, so the
-  // element would not yet exist when the dangerous mod runs.
-  // Because our plugin appears after expo-notifications in the plugins[] array,
-  // our withAndroidManifest callback fires after expo-notifications has already
-  // inserted the meta-data into the in-memory manifest JSON, so we can find and
-  // patch it reliably.
-  config = withAndroidManifest(config, (modConfig) => {
-    const manifest = modConfig.modResults.manifest;
-
-    // Ensure xmlns:tools is declared on <manifest> so tools:replace is valid XML.
-    if (!manifest.$['xmlns:tools']) {
-      manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
+  // We read the Firebase BoM version from @react-native-firebase/app's package.json
+  // so it stays in sync automatically when RNFB is upgraded.
+  config = withAppBuildGradle(config, (modConfig) => {
+    // Idempotent: don't add twice on repeated prebuild runs.
+    if (modConfig.modResults.contents.includes('com.google.firebase:firebase-messaging')) {
+      return modConfig;
     }
 
-    const application = manifest.application?.[0];
-    if (!application) return modConfig;
+    // Resolve the Firebase BoM version that RNFB itself pins to.
+    let bomVersion = '33.12.0'; // Safe default for RNFB v21
+    try {
+      const rnfbPkgPath = require.resolve(
+        '@react-native-firebase/app/package.json',
+        { paths: [modConfig.modRequest.projectRoot] },
+      );
+      const rnfbPkg = JSON.parse(
+        fs.readFileSync(rnfbPkgPath, 'utf8'),
+      );
+      bomVersion = rnfbPkg?.sdkVersions?.android?.firebase ?? bomVersion;
+    } catch {
+      console.warn(
+        '[withFirebaseCallService] Could not read RNFB BoM version; using fallback',
+        bomVersion,
+      );
+    }
 
-    // tools:replace for default_notification_color is handled by
-    // ./plugins/withManifestMergerFix (listed first in app.json plugins[]).
-    // See withManifestMergerFix.js for the explanation of why plugin order matters.
+    const dep = [
+      '',
+      '    // Required by CallFirebaseMessagingService (extends FirebaseMessagingService).',
+      '    // RNFB v21+ declares firebase-messaging as implementation (not api), so the',
+      '    // app must add it explicitly to its own compile classpath.',
+      `    implementation(platform("com.google.firebase:firebase-bom:${bomVersion}"))`,
+      '    implementation("com.google.firebase:firebase-messaging")',
+    ].join('\n');
 
+    modConfig.modResults.contents = modConfig.modResults.contents.replace(
+      'dependencies {',
+      `dependencies {${dep}`,
+    );
+
+    console.log(
+      `[withFirebaseCallService] Added firebase-messaging (BoM ${bomVersion}) to app/build.gradle`,
+    );
     return modConfig;
   });
+
+  // ── Note: tools:replace for default_notification_color ───────────────────────
+  // Handled by ./plugins/withManifestMergerFix (listed first in app.json plugins[]).
+  // See withManifestMergerFix.js for the explanation of why plugin order matters.
 
   return config;
 };
