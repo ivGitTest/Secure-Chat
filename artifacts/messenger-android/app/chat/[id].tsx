@@ -6,13 +6,7 @@ import React, {
   useState,
 } from 'react';
 
-/** Simple UUID v4 generator — works in Hermes without expo-crypto. */
-function uuid4(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
-  });
-}
+import * as Crypto from 'expo-crypto';
 import {
   ActivityIndicator,
   Alert,
@@ -169,7 +163,7 @@ export default function ChatScreen() {
       Alert.alert('Ошибка', 'Нет соединения с сервером');
       return;
     }
-    const clientId = uuid4();
+    const clientId = Crypto.randomUUID();
     const tempId = `temp-${clientId}`;
     pendingRef.current.set(clientId, tempId);
     const tempMsg: Message = {

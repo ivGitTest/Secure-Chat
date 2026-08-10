@@ -64,7 +64,7 @@ export function setupWebSocketServer(httpServer: http.Server): WebSocketServer {
     let userId: string;
     let sessionId: string;
     try {
-      const decoded = jwt.verify(token, getJwtSecret());
+      const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] });
       if (typeof decoded === "string") throw new Error("Unexpected string payload");
       const payload = decoded as Record<string, unknown>;
       const sub = payload["sub"];
