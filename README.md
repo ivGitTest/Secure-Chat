@@ -70,7 +70,7 @@
 | **Firebase / FCM** | Пуш-уведомления о входящих звонках на убитое приложение. Требует Google-аккаунт, Firebase-проект и `google-services.json`. Сервер использует Service Account JSON для отправки прямых FCM data-push. |
 | **GitHub Actions** | CI-сборка подписанного APK (`.github/workflows/build-android.yml`). Запускается вручную или по тегу. Артефакт (APK) публикуется в GitHub Releases и подтягивается клиентом при авто-обновлении. |
 | **Let's Encrypt / Certbot** | TLS-сертификат для домена. Получается один раз и обновляется через `certbot renew`. |
-| **Expo CLI** | Сборка нативного Android-проекта через `expo prebuild`. CI не использует EAS cloud — только локальный Gradle. |
+| **Expo / EAS** | Облачная сборка подписанного APK через EAS Cloud из Replit Shell. Java и Android SDK в Replit для этого не нужны. |
 
 ---
 
@@ -265,6 +265,66 @@ docker compose -f deploy/docker-compose.yml exec api \
 
 ## Сборка Android APK
 
+### Через EAS Cloud из Replit Shell
+
+Этот способ выполняет сборку на серверах Expo. Локальные Java, Gradle и
+Android SDK не требуются.
+
+Перейдите в каталог мобильного приложения и один раз войдите в Expo под
+аккаунтом, к которому привязан EAS-проект:
+
+```bash
+cd artifacts/messenger-android
+npx eas-cli@latest login
+npx eas-cli@latest whoami
+```
+
+Запуск сборки:
+
+```bash
+npx eas-cli@latest build --platform android --profile production
+```
+
+Или коротким скриптом:
+
+```bash
+bash build_apk.sh
+```
+
+Профиль `production` настроен на `buildType: apk`, поэтому результатом будет
+устанавливаемый APK, а не AAB. После постановки сборки в очередь EAS покажет
+ссылку на страницу и готовый файл.
+
+#### Firebase-конфигурация для EAS Cloud
+
+`google-services.json` нужен для Android-сборки, но не должен попадать в Git.
+Добавьте его в EAS как переменную окружения проекта `GOOGLE_SERVICES_JSON`
+с типом **Secret file**. Из каталога `artifacts/messenger-android` это можно
+сделать так:
+
+```bash
+npx eas-cli@latest env:set production \
+  --name GOOGLE_SERVICES_JSON \
+  --type file \
+  --value ./google-services.json \
+  --visibility secret \
+  --non-interactive
+```
+
+EAS передаст секретный файл удалённому сборщику, а `app.config.js` скопирует
+его во временный `google-services.json` во время подготовки Android-проекта.
+Файл не добавляется в Git. Для GitHub Actions по-прежнему используется
+одноимённый secret с текстом JSON.
+
+Проверка переменных:
+
+```bash
+npx eas-cli@latest env:list --environment production
+```
+
+Если `GOOGLE_SERVICES_JSON` уже настроена в EAS, дополнительных действий
+перед сборкой не требуется.
+
 ### Автоматически — GitHub Actions
 
 При пуше тега или ручном запуске `Build Android APK` GitHub Actions:
@@ -272,6 +332,11 @@ docker compose -f deploy/docker-compose.yml exec api \
 1. Запускает `expo prebuild` на Ubuntu-раннере.
 2. Собирает подписанный APK через Gradle.
 3. Публикует APK как артефакт сборки.
+
+GitHub Actions работает независимо от EAS Cloud: workflow
+`.github/workflows/build-android.yml` сам устанавливает Java и Android SDK,
+выполняет `expo prebuild` и собирает APK локальным Gradle. Его секреты и
+настройки менять не нужно.
 
 **Необходимые GitHub Secrets:**
 
