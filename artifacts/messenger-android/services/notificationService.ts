@@ -79,7 +79,7 @@ export async function registerForPushNotifications(): Promise<void> {
 
       if (authorized) {
         fcmToken = await messaging().getToken();
-        console.log('[Push] FCM token acquired:', fcmToken.slice(0, 20) + '…');
+        if (__DEV__) console.log('[Push] FCM token acquired (dev only)');
       }
     } catch (err) {
       console.warn('[Push] FCM token unavailable (graceful):', err instanceof Error ? err.message : err);
