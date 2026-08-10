@@ -20,7 +20,6 @@
       }
     },
     "production": {
-      "prebuildCommand": "bash scripts/prebuild-eas.sh",
       "env": {
         "NODE_ENV": "production"
       },

@@ -976,5 +976,39 @@ module.exports = function withFirebaseCallService(config) {
     return modConfig;
   });
 
+  // ── Step 3: fix manifest merger conflict for default_notification_color ─────
+  // expo-notifications (listed before our plugin in app.json) adds:
+  //   <meta-data android:name="com.google.firebase.messaging.default_notification_color"
+  //              android:resource="@color/notification_icon_color"/>
+  // to the APP manifest.  @react-native-firebase/messaging also declares
+  //   android:resource="@color/white"
+  // in its LIBRARY manifest.  The Android manifest merger rejects the duplicate
+  // unless the higher-priority (app) entry carries tools:replace="android:resource".
+  //
+  // withAndroidManifest is the correct hook here — NOT withDangerousMod.
+  // Expo executes withDangerousMod BEFORE withAndroidManifest, so the
+  // element would not yet exist when the dangerous mod runs.
+  // Because our plugin appears after expo-notifications in the plugins[] array,
+  // our withAndroidManifest callback fires after expo-notifications has already
+  // inserted the meta-data into the in-memory manifest JSON, so we can find and
+  // patch it reliably.
+  config = withAndroidManifest(config, (modConfig) => {
+    const manifest = modConfig.modResults.manifest;
+
+    // Ensure xmlns:tools is declared on <manifest> so tools:replace is valid XML.
+    if (!manifest.$['xmlns:tools']) {
+      manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
+    }
+
+    const application = manifest.application?.[0];
+    if (!application) return modConfig;
+
+    // tools:replace for default_notification_color is handled by
+    // ./plugins/withManifestMergerFix (listed first in app.json plugins[]).
+    // See withManifestMergerFix.js for the explanation of why plugin order matters.
+
+    return modConfig;
+  });
+
   return config;
 };
