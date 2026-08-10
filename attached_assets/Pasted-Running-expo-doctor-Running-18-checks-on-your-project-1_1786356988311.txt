@@ -1,0 +1,40 @@
+Running "expo doctor"
+Running 18 checks on your project...
+14/18 checks passed. 4 checks failed. Possible issues detected:
+Use the --verbose flag to see more details about passed checks.
+
+✖ Check Expo config for common issues
+You have an app.json file in your project, but your app.config.js is not using the values from it.
+Advice:
+Remove the static app.json, or use its values in your dynamic app.config.js. Learn more: https://docs.expo.dev/workflow/configuration
+
+✖ Check for issues with Metro config
+- "watchFolders" does not contain all entries from Expo's defaults
+Advice:
+Modifying the "metro.config.js" is dangerous and may lead to unintended consequences.
+Unless you know what these overrides do, remove them and adopt the recommended values from "expo/metro-config".
+
+✖ Validate packages against React Native Directory package metadata
+The following issues were found when validating your dependencies against React Native Directory:
+  Untested on New Architecture: react-native-callkeep, react-native-webrtc
+Advice:
+Use libraries that are actively maintained and support the New Architecture. Find alternative libraries with https://reactnative.directory.
+Add packages to expo.doctor.reactNativeDirectoryCheck.exclude in package.json to selectively skip validations, if the warning is not relevant.
+
+✖ Check that packages match versions required by installed Expo SDK
+
+❗ Major version mismatches
+package                  expected  found   
+expo-crypto              ~15.0.9   57.0.1  
+react-native-reanimated  ~4.1.1    3.19.5  
+
+Changelogs:
+- expo-crypto → https://github.com/expo/expo/blob/sdk-54/packages/expo-crypto/CHANGELOG.md
+
+2 packages out of date.
+Advice:
+Use 'npx expo install --check' to review and upgrade your dependencies.
+To ignore specific packages, add them to "expo.install.exclude" in package.json. Learn more: https://expo.fyi/dependency-validation
+4 checks failed, indicating possible issues with the project.
+Command "expo doctor" failed.
+npx -y expo-doctor exited with non-zero code: 1

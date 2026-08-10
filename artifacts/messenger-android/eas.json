@@ -20,7 +20,7 @@
       }
     },
     "production": {
-      "prebuildCommand": "npx expo prebuild --platform android && node scripts/fix-android-manifest.js",
+      "prebuildCommand": "bash scripts/prebuild-eas.sh",
       "env": {
         "NODE_ENV": "production"
       },
