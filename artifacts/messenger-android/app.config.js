@@ -92,6 +92,9 @@ module.exports = {
       }],
       '@react-native-firebase/app',
       '@react-native-firebase/messaging',
+      // Должен идти ПОСЛЕ firebase-плагинов: фиксирует конфликт manifest merger
+      // для meta-data default_notification_color (@color/white vs @color/notification_icon_color).
+      './plugins/withFirebaseColorFix',
       './plugins/withCallKeep',
       './plugins/withFirebaseCallService',
       './plugins/withMicrophoneCallService',

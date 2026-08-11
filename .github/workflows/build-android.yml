@@ -106,46 +106,6 @@ jobs:
         run: |
           pnpm exec expo prebuild --platform android --no-install --clean
 
-      # ── Post-prebuild manifest fixes ──────────────────────────────────────
-      # Patches applied to the generated AndroidManifest.xml that cannot be
-      # done reliably in config plugins due to plugin execution-order races
-      # (some Expo package plugins add their meta-data AFTER our plugin runs).
-      - name: Fix manifest merger conflicts
-        working-directory: artifacts/messenger-android
-        run: |
-          python3 - << 'PYEOF'
-          import sys
-
-          path = 'android/app/src/main/AndroidManifest.xml'
-          txt = open(path).read()
-
-          # react-native-firebase_messaging ships its own AndroidManifest that
-          # declares default_notification_color=@color/white. Our app-level manifest
-          # declares it as @color/notification_icon_color. Android manifest merger
-          # rejects the duplicate unless the higher-priority (app) entry carries
-          # tools:replace="android:resource". xmlns:tools is already on <manifest>.
-          OLD = (
-              'android:name="com.google.firebase.messaging.default_notification_color"'
-              ' android:resource="@color/notification_icon_color"/>'
-          )
-          NEW = (
-              'android:name="com.google.firebase.messaging.default_notification_color"'
-              ' android:resource="@color/notification_icon_color"'
-              ' tools:replace="android:resource"/>'
-          )
-
-          if OLD in txt:
-              txt = txt.replace(OLD, NEW, 1)
-              open(path, 'w').write(txt)
-              print('manifest: added tools:replace to default_notification_color')
-          else:
-              # Print current notification_color lines to aid debugging
-              for i, line in enumerate(txt.splitlines(), 1):
-                  if 'notification_color' in line:
-                      print(f'  line {i}: {line.strip()}', file=sys.stderr)
-              print('WARNING: expected meta-data line not found — check manifest format', file=sys.stderr)
-          PYEOF
-
       # ── Release signing ────────────────────────────────────────────────────
       # Decodes the keystore, then patches the generated build.gradle to add a
       # proper release signingConfig that reads from env vars at build time.
