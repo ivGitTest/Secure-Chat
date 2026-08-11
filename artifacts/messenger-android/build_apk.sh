@@ -1,1 +1,1 @@
-npx -y eas-cli@latest build --platform android --profile preview
+exec ./scripts/eas-build.sh preview

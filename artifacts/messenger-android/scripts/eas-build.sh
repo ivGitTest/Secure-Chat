@@ -14,6 +14,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PROFILE=${1:-preview}
+RELEASE_NOTES=$(node -p "require('./release.json').releaseNotes || ''")
 
 # Показать что собираем
 node -e "
@@ -25,7 +26,13 @@ console.log('🔧  Профиль: $PROFILE');
 console.log('');
 "
 
-eas build --profile "$PROFILE" --platform android
+EAS_ARGS=(build --profile "$PROFILE" --platform android)
+if [[ -n "$RELEASE_NOTES" ]]; then
+  EAS_ARGS+=(--message "$RELEASE_NOTES")
+fi
+
+# Use an ephemeral local CLI so a global `eas` installation is not required.
+pnpm dlx eas-cli@latest "${EAS_ARGS[@]}"
 
 # Генерируем version.json для выгрузки на VPS
 node -e "
