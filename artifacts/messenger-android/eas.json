@@ -17,7 +17,8 @@
       },
       "android": {
         "buildType": "apk"
-      }
+      },
+      "prebuildCommand": "expo prebuild --platform android --no-install && node scripts/fix-android-manifest.js"
     },
     "production": {
       "env": {
@@ -25,7 +26,8 @@
       },
       "android": {
         "buildType": "app-bundle"
-      }
+      },
+      "prebuildCommand": "expo prebuild --platform android --no-install && node scripts/fix-android-manifest.js"
     }
   },
   "submit": {
