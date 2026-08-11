@@ -18,7 +18,7 @@
       "android": {
         "buildType": "apk"
       },
-      "prebuildCommand": "expo prebuild --platform android --no-install && node scripts/fix-android-manifest.js"
+      "prebuildCommand": "bash scripts/eas-prebuild.sh"
     },
     "production": {
       "env": {
@@ -27,7 +27,7 @@
       "android": {
         "buildType": "app-bundle"
       },
-      "prebuildCommand": "expo prebuild --platform android --no-install && node scripts/fix-android-manifest.js"
+      "prebuildCommand": "bash scripts/eas-prebuild.sh"
     }
   },
   "submit": {
