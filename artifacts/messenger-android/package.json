@@ -57,6 +57,16 @@
     "zod": "catalog:",
     "zod-validation-error": "^3.4.0"
   },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["react-native-callkeep", "react-native-webrtc"]
+      }
+    },
+    "install": {
+      "exclude": ["react-native-reanimated"]
+    }
+  },
   "dependencies": {
     "@react-native-firebase/app": "^21.0.0",
     "@react-native-firebase/messaging": "^21.0.0",
