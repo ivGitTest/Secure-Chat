@@ -1,11 +1,21 @@
 import React from 'react';
 import './_group.css';
 
+// Noble, muted avatar palette — one per contact
+const AVATAR_COLORS = [
+  '#7B6FA0', // приглушённый сиреневый
+  '#5E8C7A', // матовый нефрит
+  '#A07A5E', // тёплый терракот
+  '#5E7A9C', // стальной синий
+  '#8A6F6F', // пыльная роза
+  '#6B8A6B', // шалфей
+];
+
 const contacts = [
-  { id: '1', name: 'Мама', lastMsg: 'Купи хлеба по дороге', time: '14:32', unread: 2, online: true },
-  { id: '2', name: 'Папа', lastMsg: 'Когда будешь дома?', time: '13:15', unread: 0, online: false },
-  { id: '3', name: 'Бабушка', lastMsg: 'Спасибо за фото, внучок!', time: '11:08', unread: 0, online: true },
-  { id: '4', name: 'Настя', lastMsg: 'Смотри, что нашла', time: 'Вчера', unread: 1, online: true },
+  { id: '1', name: 'Мама', lastMsg: 'Купи хлеба по дороге', time: '14:32', unread: 2, online: true, color: AVATAR_COLORS[0] },
+  { id: '2', name: 'Папа', lastMsg: 'Когда будешь дома?', time: '13:15', unread: 0, online: false, color: AVATAR_COLORS[1] },
+  { id: '3', name: 'Бабушка', lastMsg: 'Спасибо за фото, внучок!', time: '11:08', unread: 0, online: true, color: AVATAR_COLORS[2] },
+  { id: '4', name: 'Настя', lastMsg: 'Смотри, что нашла', time: 'Вчера', unread: 1, online: true, color: AVATAR_COLORS[3] },
 ];
 
 // Card without border — flat row with thin divider between items
@@ -58,7 +68,7 @@ export default function ContactsV2() {
               <div className="relative flex-shrink-0">
                 <div
                   className="w-[56px] h-[56px] rounded-[18px] flex items-center justify-center text-white shadow-sm"
-                  style={{ background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-dim) 100%)' }}
+                  style={{ background: contact.color }}
                 >
                   <span className="text-[22px] font-bold">{contact.name[0]}</span>
                 </div>
