@@ -3,3 +3,4 @@
 - [Express req.user typing](express-req-user-typing.md) — add "express" to tsconfig types array + declare namespace Express { interface Request } in a .d.ts file; do NOT use declare module "express-serve-static-core"
 - [drizzle-zod custom overrides](drizzle-zod-overrides.md) — do not pass custom Zod schema overrides to createInsertSchema; they cause type errors due to internal Zod version mismatch
 - [argon2 native build](argon2-native-build.md) — add argon2 to onlyBuiltDependencies in pnpm-workspace.yaml; esbuild externalizes it so it loads at runtime from node_modules
+- [EAS Firebase config](eas-google-services.md) — google-services.json is gitignored; EAS needs the one-time GOOGLE_SERVICES_JSON project secret
