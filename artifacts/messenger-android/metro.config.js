@@ -11,7 +11,9 @@ const config = getDefaultConfig(projectRoot);
 // pnpm installs packages as symlinks into node_modules/.pnpm (the virtual store).
 // Metro doesn't follow symlinks that point outside the project root unless we
 // explicitly add the target directories to watchFolders.
+// Добавляем корень монорепо к дефолтным watchFolders Expo (не заменяем их).
 config.watchFolders = [
+  ...(config.watchFolders ?? []),
   workspaceRoot,
 ];
 
@@ -28,7 +30,10 @@ const { blockList } = config.resolver;
 const escapedRoot = workspaceRoot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 config.resolver.blockList = [
   ...(Array.isArray(blockList) ? blockList : blockList ? [blockList] : []),
+  // Временные файлы нативных модулей pnpm
   new RegExp(`${escapedRoot}/node_modules/.pnpm/.*_tmp_[^/]*/`),
+  // Кеш pnpm dlx (временные установки CLI-инструментов типа eas-cli)
+  new RegExp(`${escapedRoot}/.cache/pnpm/dlx/`),
 ];
 
 module.exports = config;
