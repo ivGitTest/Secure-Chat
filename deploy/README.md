@@ -1,20 +1,20 @@
-# Deployment Guide — Family Messenger
+# Руководство по развёртыванию — Семейный мессенджер
 
-This guide walks you through deploying the messenger on a fresh Ubuntu VPS using Docker Compose.
+Это руководство описывает развёртывание мессенджера на чистом VPS с Ubuntu с помощью Docker Compose.
 
 ---
 
-## Prerequisites
+## Предварительные требования
 
-| Requirement | Version |
+| Требование | Версия |
 |-------------|---------|
-| Ubuntu | 22.04 LTS or 24.04 |
+| Ubuntu | 22.04 LTS или 24.04 |
 | Docker Engine | 24+ |
-| Docker Compose Plugin | v2.20+ |
-| A domain with DNS A record | Pointing to your VPS IP |
-| Open ports | 3478 (UDP) · 49152-65535 (UDP) — ports 80/443 handled by host proxy |
+| Плагин Docker Compose | v2.20+ |
+| Домен с DNS-записью A | Должна указывать на IP вашего VPS |
+| Открытые порты | 3478 (UDP) · 49152–65535 (UDP); порты 80/443 обрабатывает прокси хоста |
 
-### Install Docker (Ubuntu)
+### Установка Docker (Ubuntu)
 
 ```bash
 curl -fsSL https://get.docker.com | sh
@@ -24,7 +24,7 @@ newgrp docker
 
 ---
 
-## Step 1 — Clone the repository
+## Шаг 1 — Клонирование репозитория
 
 ```bash
 git clone <YOUR_REPO_URL> messenger
@@ -33,40 +33,40 @@ cd messenger
 
 ---
 
-## Step 2 — Configure environment variables
+## Шаг 2 — Настройка переменных окружения
 
 ```bash
 cp deploy/.env.example deploy/.env
-nano deploy/.env        # or any editor
+nano deploy/.env        # или любой другой редактор
 ```
 
-Fill in every value:
+Заполните все значения:
 
-| Variable | Description |
+| Переменная | Описание |
 |----------|-------------|
-| `DOMAIN` | Your public domain, e.g. `chat.naviry.xyz` |
-| `POSTGRES_PASSWORD` | Strong random password (≥ 32 chars) |
-| `JWT_SECRET` | Random secret for signing JWTs (≥ 32 chars) |
-| `JWT_EXPIRES_IN` | Token lifetime, e.g. `7d` |
-| `TURN_SECRET` | Random secret for TURN credentials (≥ 32 chars) |
-| `TURN_REALM` | Usually the same as `DOMAIN` |
-| `EXTERNAL_IP` | Your VPS public IP — run `curl -s https://ifconfig.me` |
+| `DOMAIN` | Ваш публичный домен, например `chat.naviry.xyz` |
+| `POSTGRES_PASSWORD` | Надёжный случайный пароль (не менее 32 символов) |
+| `JWT_SECRET` | Случайный секрет для подписи JWT (не менее 32 символов) |
+| `JWT_EXPIRES_IN` | Срок действия токена, например `7d` |
+| `TURN_SECRET` | Случайный секрет для учётных данных TURN (не менее 32 символов) |
+| `TURN_REALM` | Обычно совпадает с `DOMAIN` |
+| `EXTERNAL_IP` | Публичный IP вашего VPS — выполните `curl -s https://ifconfig.me` |
 
-Generate random secrets:
+Сгенерируйте случайные секреты:
 ```bash
 openssl rand -hex 32
 ```
 
 ---
 
-## Step 3 — Configure the host reverse proxy
+## Шаг 3 — Настройка обратного прокси на хосте
 
-The messenger's nginx runs inside Docker on `127.0.0.1:7080` (HTTP only).
-Your host reverse proxy handles TLS for `chat.naviry.xyz` and forwards traffic here.
+Nginx мессенджера работает внутри Docker на `127.0.0.1:7080` (только HTTP).
+Обратный прокси на хосте обслуживает TLS для `chat.naviry.xyz` и перенаправляет сюда трафик.
 
-### If the host proxy is nginx (system service)
+### Если прокси на хосте — nginx (системный сервис)
 
-Add a new site file, e.g. `/etc/nginx/sites-available/chat.naviry.xyz`:
+Создайте файл нового сайта, например `/etc/nginx/sites-available/chat.naviry.xyz`:
 
 ```nginx
 server {
@@ -106,16 +106,16 @@ server {
 }
 ```
 
-Then enable it and reload:
+Затем включите сайт и перезагрузите nginx:
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/chat.naviry.xyz /etc/nginx/sites-enabled/
 sudo nginx -t && sudo nginx -s reload
 ```
 
-### If the host proxy is Caddy
+### Если прокси на хосте — Caddy
 
-Add to your `Caddyfile`:
+Добавьте конфигурацию в `Caddyfile`:
 
 ```
 chat.naviry.xyz {
@@ -130,38 +130,38 @@ chat.naviry.xyz {
 }
 ```
 
-Then reload: `sudo systemctl reload caddy`
+Затем перезагрузите Caddy: `sudo systemctl reload caddy`
 
-### TLS certificate for the host proxy
+### TLS-сертификат для прокси на хосте
 
-If the host proxy does not yet have a cert for `chat.naviry.xyz`, obtain one via DNS challenge (no ports needed):
+Если у прокси ещё нет сертификата для `chat.naviry.xyz`, получите его через DNS-проверку (открывать порты не требуется):
 
 ```bash
 sudo apt-get install -y certbot
 sudo certbot certonly --manual --preferred-challenges dns -d chat.naviry.xyz
 ```
 
-Follow the prompts to add a TXT record, then verify and press Enter.
+Следуйте инструкциям: добавьте TXT-запись, дождитесь её проверки и нажмите Enter.
 
 ---
 
-## Step 4 — Build and start the stack
+## Шаг 4 — Сборка и запуск стека
 
 ```bash
 cd deploy
 docker compose up -d --build
 ```
 
-The first build takes a few minutes (downloads Node.js, installs pnpm, runs esbuild).
+Первая сборка занимает несколько минут: скачивается Node.js, устанавливается pnpm и запускается esbuild.
 
-### Check service status
+### Проверка состояния сервисов
 
 ```bash
 docker compose ps
 docker compose logs -f api
 ```
 
-All four services should show `healthy` or `running`:
+Все четыре сервиса должны иметь статус `healthy` или `running`:
 
 ```
 NAME       STATUS
@@ -173,16 +173,16 @@ nginx      healthy
 
 ---
 
-## Step 5 — Verify the deployment
+## Шаг 5 — Проверка развёртывания
 
-### Health check
+### Проверка состояния сервера
 
 ```bash
 curl https://chat.naviry.xyz/api/v1/health
-# Expected: {"status":"ok"}
+# Ожидаемый результат: {"status":"ok"}
 ```
 
-### WebSocket handshake
+### Установка WebSocket-соединения
 
 ```bash
 curl -i -N \
@@ -191,86 +191,101 @@ curl -i -N \
   -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
   -H "Sec-WebSocket-Version: 13" \
   https://chat.naviry.xyz/ws
-# Expected: HTTP/1.1 101 Switching Protocols
+# Ожидаемый результат: HTTP/1.1 101 Switching Protocols
 ```
 
 ---
 
-## Step 6 — Set up push notifications (optional but recommended)
+## Шаг 6 — Настройка push-уведомлений (необязательно, но рекомендуется)
 
-Push notifications allow family members to receive alerts about new messages and calls even when the app is in the background or the phone is locked.
+Push-уведомления позволяют членам семьи получать сообщения о новых сообщениях и звонках, даже когда приложение работает в фоне или телефон заблокирован.
 
-### Overview
+### Обзор
 
-The app uses **Expo Push Service → Google FCM** for Android notifications. The server needs no Firebase credentials — it calls the Expo Push API (`exp.host/--/api/v2/push/send`), which proxies to FCM on your behalf.
+Приложение использует **Expo Push Service → Google FCM** для Android-уведомлений. Серверу не нужны учётные данные Firebase: он вызывает Expo Push API (`exp.host/--/api/v2/push/send`), а тот передаёт уведомления в FCM.
 
-### 6a — Create a Firebase project
+### 6a — Создание проекта Firebase
 
-1. Go to [console.firebase.google.com](https://console.firebase.google.com) and sign in with any Google account.
-2. Click **Add project**, name it (e.g. `family-messenger`), disable Google Analytics (not needed), and click **Create project**.
-3. In the project overview, click the **Android** icon (➕ Add app).
-4. Enter the **Android package name**: `com.ivaexpi.messengerandroid`
-5. Nickname: `Семейный мессенджер` (optional)
-6. Click **Register app**, then **Download `google-services.json`**.
-7. Skip the rest of the wizard (SDK setup is handled by `expo-notifications`).
+1. Откройте [console.firebase.google.com](https://console.firebase.google.com) и войдите с помощью любого Google-аккаунта.
+2. Нажмите **Add project**, задайте имя (например, `family-messenger`), отключите Google Analytics (он не нужен) и нажмите **Create project**.
+3. В обзоре проекта нажмите значок **Android** (➕ Add app).
+4. Укажите **имя пакета Android**: `com.ivaexpi.messengerandroid`
+5. Псевдоним: `Семейный мессенджер` (необязательно).
+6. Нажмите **Register app**, затем **Download `google-services.json`**.
+7. Остальную часть мастера можно пропустить: настройкой SDK занимается `expo-notifications`.
 
-### 6b — Add google-services.json to GitHub Secrets
+### 6b — Добавление google-services.json в секреты GitHub Actions
 
-The `google-services.json` file is automatically written during the CI build. Store its **entire contents** as a GitHub Secret:
+Файл `google-services.json` автоматически создаётся во время CI-сборки. Сохраните **всё его содержимое** в секрете GitHub:
 
 ```bash
-# Copy the file contents
+# Вывести содержимое файла
 cat google-services.json
 ```
 
-In your GitHub repository → **Settings → Secrets and variables → Actions → New repository secret**:
+В репозитории GitHub откройте **Settings → Secrets and variables → Actions → New repository secret**:
 
-| Secret name | Value |
+| Имя секрета | Значение |
 |-------------|-------|
-| `GOOGLE_SERVICES_JSON` | Paste the full contents of `google-services.json` |
+| `GOOGLE_SERVICES_JSON` | Полное содержимое `google-services.json` |
 
-The build workflow already has the step to write this file before `eas build`.
+В workflow сборки уже есть шаг, который записывает этот файл перед сборкой.
 
-### 6c — Connect Firebase to your Expo project (one-time)
+### 6c — Добавление google-services.json в секреты EAS (одноразово)
 
-Expo's push service needs to know your Firebase project's credentials to forward notifications. Run this once from your machine:
+Для облачной сборки через EAS файл, который находится локально и добавлен в `.gitignore`, в репозиторий не попадает. Один раз загрузите его содержимое в секрет проекта EAS:
 
 ```bash
 cd artifacts/messenger-android
-npx eas credentials
-# Select: Android → Manage FCM credentials → Upload FCM API key
+pnpm dlx eas-cli@latest secret:create \
+  --scope project \
+  --name GOOGLE_SERVICES_JSON \
+  --type string \
+  --value "$(cat google-services.json)"
 ```
 
-Get the **Server key** from Firebase Console → Project Settings → Cloud Messaging → **Cloud Messaging API (Legacy)** or use the **Service Account** (v1 API). Follow the EAS prompts.
+После этого повторно выполнять команду не нужно. `app.config.js` получит секрет во время сборки и создаст `google-services.json` перед `prebuild`.
 
-### Notes
+### 6d — Подключение Firebase к проекту Expo (одноразово)
 
-- Notifications work only in **standalone APK builds** (from GitHub Actions). Expo Go shows `[Push] Registration skipped` in the console, which is expected.
-- `google-services.json` does **not** contain secrets — it's safe to commit to the repo if you prefer not to use GitHub Secrets. Add `!artifacts/messenger-android/google-services.json` to `.gitignore` exceptions.
-- If you skip this step entirely, the app works normally — push notifications just won't be delivered when offline.
+Сервис push-уведомлений Expo должен знать учётные данные проекта Firebase, чтобы пересылать уведомления. Выполните это один раз на своём компьютере:
+
+```bash
+cd artifacts/messenger-android
+pnpm dlx eas-cli@latest credentials
+# Выберите: Android → Manage FCM credentials → Upload FCM API key
+```
+
+Получите **Server key** в Firebase Console → Project Settings → Cloud Messaging → **Cloud Messaging API (Legacy)** либо используйте **Service Account** (API v1). Следуйте подсказкам EAS.
+
+### Примечания
+
+- Уведомления работают только в **standalone APK-сборках** (в том числе из GitHub Actions). В Expo Go в консоли появляется `[Push] Registration skipped` — это ожидаемо.
+- `google-services.json` **не содержит секретов**. Его можно безопасно добавить в репозиторий, если вы не хотите использовать секрет GitHub. Для этого добавьте исключение `!artifacts/messenger-android/google-services.json` в `.gitignore`.
+- Если полностью пропустить этот шаг, приложение будет работать обычно, но push-уведомления не будут доставляться в автономном режиме.
 
 ---
 
-## Step 7 — Create users
+## Шаг 7 — Создание пользователей
 
-Run the admin CLI inside the api container. The CLI takes flags — there are no interactive prompts.
+Запустите административную CLI внутри контейнера `api`. Команды принимают флаги и не используют интерактивные запросы.
 
 ```bash
-# Create a user (PIN must be exactly 6 digits)
+# Создать пользователя (PIN должен состоять ровно из 6 цифр)
 docker compose exec api node /app/dist/admin.mjs create-user \
   --id alice --name "Alice" --pin 123456
 
-# List all users
+# Показать всех пользователей
 docker compose exec api node /app/dist/admin.mjs list-users
 
-# Block / unblock a user
+# Заблокировать / разблокировать пользователя
 docker compose exec api node /app/dist/admin.mjs block-user   --id alice
 docker compose exec api node /app/dist/admin.mjs unblock-user --id alice
 ```
 
-Available commands:
+Доступные команды:
 
-| Command | Required flags |
+| Команда | Обязательные флаги |
 |---------|---------------|
 | `create-user` | `--id <userId>` `--name <name>` `--pin <6-digit-pin>` |
 | `list-users` | — |
@@ -279,7 +294,7 @@ Available commands:
 
 ---
 
-## Updating the application
+## Обновление приложения
 
 ### Универсальная инструкция после изменений
 
@@ -356,114 +371,114 @@ curl https://chat.naviry.xyz/updates/version.json
 
 ---
 
-## Useful commands
+## Полезные команды
 
 ```bash
-# View real-time logs
+# Смотреть логи в реальном времени
 docker compose logs -f
 
-# Stop all services
+# Остановить все сервисы
 docker compose down
 
-# Stop and remove all data (⚠ irreversible)
+# Остановить сервисы и удалить все данные (⚠ необратимо)
 docker compose down -v
 
-# Restart a single service
+# Перезапустить отдельный сервис
 docker compose restart api
 docker compose restart nginx
 
-# Open a database shell
+# Открыть консоль базы данных
 docker compose exec postgres psql -U messenger -d messenger
 ```
 
 ---
 
-## Architecture overview
+## Обзор архитектуры
 
 ```
-Internet
+Интернет
    │
-   ├── :80  ──────────────────────► nginx (HTTP → HTTPS redirect)
-   ├── :443 ─────────────────────── nginx (TLS termination)
+   ├── :80  ──────────────────────► nginx (перенаправление HTTP → HTTPS)
+   ├── :443 ─────────────────────── nginx (завершение TLS)
    │           /ws  ──────────────► api:3000  (WebSocket)
    │           /api/ ─────────────► api:3000  (REST)
    │
-   └── :3478/udp ─────────────────► coturn (STUN/TURN relay)
-       :49152-65535/udp ──────────► coturn (media relay)
+   └── :3478/udp ─────────────────► coturn (ретранслятор STUN/TURN)
+       :49152-65535/udp ──────────► coturn (ретрансляция медиаданных)
 
-Internal Docker network (messenger):
+Внутренняя сеть Docker (messenger):
   nginx ──► api ──► postgres
 ```
 
 ---
 
-## Certificate expiry alerts
+## Уведомления об окончании действия сертификата
 
-The script `deploy/scripts/check-cert-expiry.sh` checks how many days remain on the TLS certificate and sends an alert when fewer than **14 days** are left.  Run it daily from cron so you always have plenty of lead time to fix a failed renewal before the messenger goes dark.
+Скрипт `deploy/scripts/check-cert-expiry.sh` проверяет, сколько дней осталось до окончания действия TLS-сертификата, и отправляет уведомление, если осталось менее **14 дней**. Запускайте его ежедневно через cron, чтобы вовремя исправить проблему с продлением и не допустить отключения мессенджера.
 
-### How it works
+### Как это работает
 
-1. Reads the local certificate file (`deploy/certs/fullchain.pem`) if it exists; otherwise connects to the live domain with `openssl s_client`.
-2. Calculates the number of days until expiry.
-3. If the count is **below the threshold** it sends one or more alerts and exits with code 1 (so cron can also mail root).
-4. If the cert is still healthy it logs an OK line and exits with code 0.
+1. Если локальный файл сертификата (`deploy/certs/fullchain.pem`) существует, скрипт читает его; в противном случае подключается к рабочему домену через `openssl s_client`.
+2. Вычисляет количество дней до окончания действия сертификата.
+3. Если количество дней **ниже порога**, отправляет одно или несколько уведомлений и завершается с кодом 1 (поэтому cron также может отправить письмо пользователю root).
+4. Если сертификат действителен, записывает строку OK в лог и завершается с кодом 0.
 
-### Set up the daily cron job
+### Настройка ежедневной задачи cron
 
 ```bash
 sudo crontab -e
 ```
 
-Add (adjust the path to match where you cloned the repo):
+Добавьте задачу, изменив путь в соответствии с расположением клонированного репозитория:
 
 ```cron
-# Check cert expiry every morning at 08:00
+# Проверять срок действия сертификата каждое утро в 08:00
 0 8 * * * DOMAIN=chat.naviry.xyz /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
 ```
 
-### Configure a notification channel
+### Настройка канала уведомлений
 
-Set the variables in your shell, in `/etc/environment`, or prepend them on the cron line.
+Задайте переменные в shell, в `/etc/environment` или добавьте их в начало строки cron.
 
-#### Option A — Telegram (recommended, no SMTP needed)
+#### Вариант A — Telegram (рекомендуется, SMTP не нужен)
 
-1. Create a bot: message [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token.
-2. Start a chat with your bot (or add it to a group), then get the chat ID:
+1. Создайте бота: отправьте сообщение [@BotFather](https://t.me/BotFather) → `/newbot` → скопируйте токен.
+2. Начните чат с ботом (или добавьте его в группу), затем получите ID чата:
    ```bash
    curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates" | python3 -m json.tool | grep '"id"'
    ```
-3. Set the variables in your crontab line:
+3. Добавьте переменные в строку crontab:
    ```cron
    0 8 * * * DOMAIN=chat.naviry.xyz TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
    ```
 
-#### Option B — Email
+#### Вариант B — электронная почта
 
-Requires `mailutils` (or a compatible `mail` command) and a configured MTA on the host (e.g. Postfix with a relay, or `msmtp`):
+Требуется `mailutils` (или совместимая команда `mail`) и настроенный MTA на хосте, например Postfix с relay или `msmtp`:
 
 ```bash
 sudo apt-get install -y mailutils
 ```
 
-Then add `ALERT_EMAIL` to the cron line:
+Затем добавьте `ALERT_EMAIL` в строку cron:
 
 ```cron
 0 8 * * * DOMAIN=chat.naviry.xyz ALERT_EMAIL=you@example.com /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
 ```
 
-Both channels can be active at the same time — just set all four variables.
+Оба канала могут работать одновременно — задайте все четыре переменные.
 
-### Tune the warning threshold
+### Изменение порога предупреждения
 
-The default threshold is 14 days.  Override it with `WARN_DAYS`:
+Порог по умолчанию — 14 дней. Переопределите его с помощью `WARN_DAYS`:
 
 ```cron
 0 8 * * * DOMAIN=chat.naviry.xyz WARN_DAYS=21 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
 ```
 
-### Test without waiting
+### Проверка без ожидания
 
-Force a warning by temporarily setting `WARN_DAYS` higher than the actual days remaining:
+Чтобы принудительно получить предупреждение, временно задайте для `WARN_DAYS` значение больше фактического количества оставшихся дней:
 
 ```bash
 DOMAIN=chat.naviry.xyz WARN_DAYS=999 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> \
@@ -472,35 +487,35 @@ DOMAIN=chat.naviry.xyz WARN_DAYS=999 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID
 
 ---
 
-## Automated database backups
+## Автоматическое резервное копирование базы данных
 
-The script `deploy/scripts/backup-postgres.sh` runs `pg_dump` inside the running postgres container and writes a compressed dump to a host directory.  No extra tooling is required — it uses the `docker compose exec` command already available on the host.
+Скрипт `deploy/scripts/backup-postgres.sh` запускает `pg_dump` внутри работающего контейнера postgres и записывает сжатый дамп в каталог на хосте. Дополнительные инструменты не требуются: используется доступная на хосте команда `docker compose exec`.
 
-### Backup rotation
+### Ротация резервных копий
 
-| Type | Filename pattern | Retained |
+| Тип | Шаблон имени файла | Хранение |
 |------|-----------------|----------|
-| Daily | `daily-YYYY-MM-DD.sql.gz` | Last **7** dumps |
-| Weekly | `weekly-YYYY-MM-DD.sql.gz` | Last **4** dumps (taken on Sundays) |
+| Ежедневная | `daily-YYYY-MM-DD.sql.gz` | Последние **7** дампов |
+| Еженедельная | `weekly-YYYY-MM-DD.sql.gz` | Последние **4** дампа (создаются по воскресеньям) |
 
-Backups are written to `/opt/messenger/backups` by default (configurable via `BACKUP_DIR`).  The directory is on the **host filesystem**, outside every Docker volume, so `docker compose down -v` or `docker volume prune` cannot touch it.
+По умолчанию резервные копии записываются в `/opt/messenger/backups` (каталог можно изменить через `BACKUP_DIR`). Он находится в **файловой системе хоста**, за пределами всех Docker volumes, поэтому команды `docker compose down -v` и `docker volume prune` не затронут эти файлы.
 
-### Set up the daily cron job
+### Настройка ежедневной задачи cron
 
 ```bash
 sudo crontab -e
 ```
 
-Add (adjust the path to match where you cloned the repo):
+Добавьте задачу, изменив путь в соответствии с расположением клонированного репозитория:
 
 ```cron
-# Backup Postgres every night at 02:00
+# Создавать резервную копию Postgres каждую ночь в 02:00
 0 2 * * * COMPOSE_DIR=/path/to/messenger/deploy /path/to/messenger/deploy/scripts/backup-postgres.sh >> /var/log/messenger-backup.log 2>&1
 ```
 
-### Optional: Telegram alert on failure
+### Необязательно: уведомление об ошибке в Telegram
 
-If you also use Telegram for cert-expiry alerts, reuse the same bot token and chat ID.  Add both variables to the cron line:
+Если Telegram уже используется для уведомлений об окончании действия сертификата, используйте тот же токен бота и ID чата. Добавьте обе переменные в строку cron:
 
 ```cron
 0 2 * * * COMPOSE_DIR=/path/to/messenger/deploy \
@@ -509,114 +524,114 @@ If you also use Telegram for cert-expiry alerts, reuse the same bot token and ch
           /path/to/messenger/deploy/scripts/backup-postgres.sh >> /var/log/messenger-backup.log 2>&1
 ```
 
-A Telegram message is sent **only on failure**; a successful run is silent (logged to the log file only).
+Сообщение в Telegram отправляется **только при ошибке**; при успешном выполнении уведомление не отправляется, запись появляется только в лог-файле.
 
-### Configuration variables
+### Переменные конфигурации
 
-| Variable | Default | Description |
+| Переменная | Значение по умолчанию | Описание |
 |----------|---------|-------------|
-| `COMPOSE_DIR` | Script's parent directory | Directory containing `docker-compose.yml` |
-| `BACKUP_DIR` | `/opt/messenger/backups` | Host directory for dump files |
-| `KEEP_DAILY` | `7` | Number of daily dumps to keep |
-| `KEEP_WEEKLY` | `4` | Number of weekly dumps to keep |
-| `TELEGRAM_BOT_TOKEN` | *(empty)* | Bot token for failure alerts |
-| `TELEGRAM_CHAT_ID` | *(empty)* | Chat/user ID for failure alerts |
+| `COMPOSE_DIR` | Каталог скрипта | Каталог, содержащий `docker-compose.yml` |
+| `BACKUP_DIR` | `/opt/messenger/backups` | Каталог хоста для файлов дампов |
+| `KEEP_DAILY` | `7` | Количество сохраняемых ежедневных дампов |
+| `KEEP_WEEKLY` | `4` | Количество сохраняемых еженедельных дампов |
+| `TELEGRAM_BOT_TOKEN` | *(пусто)* | Токен бота для уведомлений об ошибках |
+| `TELEGRAM_CHAT_ID` | *(пусто)* | ID чата или пользователя для уведомлений об ошибках |
 
-### Run a manual backup immediately
+### Немедленное создание резервной копии вручную
 
 ```bash
 COMPOSE_DIR=/path/to/messenger/deploy \
   /path/to/messenger/deploy/scripts/backup-postgres.sh
 ```
 
-### Verify backups are being created
+### Проверка создания резервных копий
 
 ```bash
 ls -lh /opt/messenger/backups/
-# Example output:
+# Пример вывода:
 # -rw-r--r-- 1 root root  42K Jul 28 02:00 daily-2026-07-28.sql.gz
 # -rw-r--r-- 1 root root  41K Jul 27 02:00 daily-2026-07-27.sql.gz
 # -rw-r--r-- 1 root root  40K Jul 27 02:00 weekly-2026-07-27.sql.gz
 ```
 
-### Off-VPS copies (recommended)
+### Копии за пределами VPS (рекомендуется)
 
-For full protection against VPS loss, periodically sync the backup directory to another location, for example using `rsync`:
+Для защиты от потери VPS периодически синхронизируйте каталог резервных копий с другим местом, например с помощью `rsync`:
 
 ```bash
-# Run daily or weekly from a separate machine / cron job
+# Запускайте ежедневно или еженедельно с другого компьютера / через cron
 rsync -avz user@your-vps:/opt/messenger/backups/ ~/messenger-backups/
 ```
 
-Or use any cloud storage tool (`rclone`, `s3cmd`, `restic`, etc.) that can read the host directory.
+Также можно использовать любой инструмент облачного хранилища (`rclone`, `s3cmd`, `restic` и т. п.), который умеет читать каталог на хосте.
 
 ---
 
-## Restore procedure
+## Восстановление базы данных
 
-Follow these steps to restore the database from a backup file.
+Выполните следующие шаги, чтобы восстановить базу данных из файла резервной копии.
 
-### 1 — Choose a backup file
+### 1 — Выберите файл резервной копии
 
 ```bash
 ls -lht /opt/messenger/backups/
-# Pick the file you want to restore, e.g. daily-2026-07-28.sql.gz
+# Выберите файл для восстановления, например daily-2026-07-28.sql.gz
 ```
 
-### 2 — Stop the API so no new writes arrive
+### 2 — Остановите API, чтобы новые записи не поступали
 
 ```bash
 cd /path/to/messenger/deploy
 docker compose stop api
 ```
 
-### 3 — Drop and recreate the database
+### 3 — Удалите и создайте базу заново
 
 ```bash
-# Open a psql shell inside the postgres container
+# Откройте консоль psql внутри контейнера postgres
 docker compose exec postgres psql -U messenger -d postgres
 
--- Inside psql:
+-- Внутри psql:
 DROP DATABASE messenger;
 CREATE DATABASE messenger OWNER messenger;
 \q
 ```
 
-### 4 — Restore the dump
+### 4 — Восстановите дамп
 
 ```bash
-# Decompress and pipe directly into psql inside the container
+# Распакуйте дамп и передайте его напрямую в psql внутри контейнера
 gunzip -c /opt/messenger/backups/daily-2026-07-28.sql.gz \
   | docker compose exec -T postgres psql -U messenger -d messenger
 ```
 
-### 5 — Restart the API
+### 5 — Перезапустите API
 
 ```bash
 docker compose start api
 ```
 
-### 6 — Verify
+### 6 — Проверьте результат
 
 ```bash
 curl https://chat.naviry.xyz/api/v1/health
-# Expected: {"status":"ok"}
+# Ожидаемый результат: {"status":"ok"}
 
-# Spot-check a few rows
+# Выборочно проверьте несколько строк
 docker compose exec postgres psql -U messenger -d messenger \
   -c "SELECT COUNT(*) FROM messages;"
 ```
 
 ---
 
-## Troubleshooting
+## Устранение неполадок
 
-| Symptom | Fix |
+| Проблема | Решение |
 |---------|-----|
-| `api` container restarts | Check `docker compose logs api` — usually a bad env var or DB not ready |
-| 502 Bad Gateway | Api is still starting; wait 30 s and retry |
-| WebSocket drops after 60 s | Confirm `proxy_read_timeout 3600s` is in nginx config |
-| TURN not working | Confirm `EXTERNAL_IP` is correct and UDP 3478 / 49152-65535 are open |
-| Certificate error on Android | Ensure you used a real Certbot cert, not a self-signed one |
-| Backup script exits with error | Check `/var/log/messenger-backup.log`; ensure the postgres container is running (`docker compose ps`) |
-| Restore: `DROP DATABASE` fails | Stop all services first (`docker compose stop api nginx`) so no connections remain |
+| Контейнер `api` перезапускается | Проверьте `docker compose logs api` — обычно причина в неверной переменной окружения или в ещё не готовой базе данных |
+| 502 Bad Gateway | API ещё запускается; подождите 30 секунд и повторите запрос |
+| WebSocket отключается через 60 секунд | Убедитесь, что в конфигурации nginx указано `proxy_read_timeout 3600s` |
+| TURN не работает | Проверьте правильность `EXTERNAL_IP` и открытые UDP-порты 3478 / 49152–65535 |
+| Ошибка сертификата на Android | Убедитесь, что используется настоящий сертификат Certbot, а не самоподписанный |
+| Скрипт резервного копирования завершается с ошибкой | Проверьте `/var/log/messenger-backup.log` и убедитесь, что контейнер postgres запущен (`docker compose ps`) |
+| Восстановление: `DROP DATABASE` завершается ошибкой | Сначала остановите все сервисы (`docker compose stop api nginx`), чтобы не осталось активных подключений |
