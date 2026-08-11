@@ -17,8 +17,7 @@
       },
       "android": {
         "buildType": "apk"
-      },
-      "prebuildCommand": "bash scripts/eas-prebuild.sh"
+      }
     },
     "production": {
       "env": {
@@ -26,8 +25,7 @@
       },
       "android": {
         "buildType": "app-bundle"
-      },
-      "prebuildCommand": "bash scripts/eas-prebuild.sh"
+      }
     }
   },
   "submit": {
