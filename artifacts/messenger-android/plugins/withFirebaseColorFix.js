@@ -29,7 +29,7 @@
  * Это гарантированно работает независимо от порядка остальных плагинов.
  */
 
-const { withDangerousMod } = require('@expo/config-plugins');
+const { withDangerousMod } = require('expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
