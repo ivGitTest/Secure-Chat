@@ -4,7 +4,7 @@ import React, {
   useContext,
   useState,
 } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getToken,
   getUsers,
@@ -52,9 +52,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setAuth = useCallback(
     async (token: string, userId: string, userName: string) => {
       await saveToken(token);
-      await Promise.all([
-        SecureStore.setItemAsync('user_id', userId),
-        SecureStore.setItemAsync('user_name', userName),
+      await AsyncStorage.multiSet([
+        ['user_id', userId],
+        ['user_name', userName],
       ]);
       setState({ token, userId, userName, users: [] });
       await wsService.connect();
@@ -71,20 +71,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // ignore logout errors
     }
     await removeToken();
-    await Promise.all([
-      SecureStore.deleteItemAsync('user_id'),
-      SecureStore.deleteItemAsync('user_name'),
-    ]);
+    await AsyncStorage.multiRemove(['user_id', 'user_name']);
     setState({ token: null, userId: null, userName: null, users: [] });
   }, []);
 
   const restoreAuth = useCallback(async (): Promise<boolean> => {
     const token = await getToken();
     if (!token) return false;
-    const [userId, userName] = await Promise.all([
-      SecureStore.getItemAsync('user_id'),
-      SecureStore.getItemAsync('user_name'),
-    ]);
+    const pairs = await AsyncStorage.multiGet(['user_id', 'user_name']);
+    const userId = pairs[0]?.[1] ?? null;
+    const userName = pairs[1]?.[1] ?? null;
     if (!userId) return false;
     setState({ token, userId, userName: userName ?? userId, users: [] });
     void wsService.connect();

@@ -36,7 +36,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
 
   let payload: JwtPayload;
   try {
-    payload = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as JwtPayload;
+    payload = jwt.verify(token, getJwtSecret()) as JwtPayload;
   } catch {
     res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid or expired token." } });
     return;

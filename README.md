@@ -70,7 +70,7 @@
 | **Firebase / FCM** | Пуш-уведомления о входящих звонках на убитое приложение. Требует Google-аккаунт, Firebase-проект и `google-services.json`. Сервер использует Service Account JSON для отправки прямых FCM data-push. |
 | **GitHub Actions** | CI-сборка подписанного APK (`.github/workflows/build-android.yml`). Запускается вручную или по тегу. Артефакт (APK) публикуется в GitHub Releases и подтягивается клиентом при авто-обновлении. |
 | **Let's Encrypt / Certbot** | TLS-сертификат для домена. Получается один раз и обновляется через `certbot renew`. |
-| **Expo / EAS** | Облачная сборка подписанного APK через EAS Cloud из Replit Shell. Java и Android SDK в Replit для этого не нужны. |
+| **Expo CLI** | Сборка нативного Android-проекта через `expo prebuild`. CI не использует EAS cloud — только локальный Gradle. |
 
 ---
 
@@ -265,116 +265,28 @@ docker compose -f deploy/docker-compose.yml exec api \
 
 ## Сборка Android APK
 
-### Через EAS Cloud из Replit Shell
-
-Этот способ выполняет сборку на серверах Expo. Локальные Java, Gradle и
-Android SDK не требуются.
-
-> **Подпись APK:** production использует защищённые credentials EAS Cloud.
-> `credentials.json`, `keystore.jks` и пароли не должны находиться в Git или
-> передаваться в чат. APK из EAS и GitHub Actions можно устанавливать поверх
-> друг друга только если оба канала используют один и тот же сертификат.
-
-Перейдите в каталог мобильного приложения и один раз войдите в Expo под
-аккаунтом, к которому привязан EAS-проект:
-
-```bash
-cd artifacts/messenger-android
-npx eas-cli@latest login
-npx eas-cli@latest whoami
-```
-
-Запуск сборки:
-
-```bash
-npx eas-cli@latest build --platform android --profile production
-```
-
-Или коротким скриптом:
-
-```bash
-bash build_apk.sh
-```
-
-Профиль `production` настроен на `buildType: apk`, поэтому результатом будет
-устанавливаемый APK, а не AAB. После постановки сборки в очередь EAS покажет
-ссылку на страницу и готовый файл.
-
-#### Firebase-конфигурация для EAS Cloud
-
-`google-services.json` нужен для Android-сборки, но не должен попадать в Git.
-Добавьте его в EAS как переменную окружения проекта `GOOGLE_SERVICES_JSON`
-с типом **Secret file**. Из каталога `artifacts/messenger-android` это можно
-сделать так:
-
-```bash
-npx eas-cli@latest env:set production \
-  --name GOOGLE_SERVICES_JSON \
-  --type file \
-  --value ./google-services.json \
-  --visibility secret \
-  --non-interactive
-```
-
-EAS передаст секретный файл удалённому сборщику, а `app.config.js` скопирует
-его во временный `google-services.json` во время подготовки Android-проекта.
-Файл не добавляется в Git. Для GitHub Actions по-прежнему используется
-одноимённый secret с текстом JSON.
-
-Проверка переменных:
-
-```bash
-npx eas-cli@latest env:list --environment production
-```
-
-Если `GOOGLE_SERVICES_JSON` уже настроена в EAS, дополнительных действий
-перед сборкой не требуется.
-
 ### Автоматически — GitHub Actions
 
-Workflow запускается вручную в GitHub: **Actions → Build Android APK →
-Run workflow**. Он:
+При пуше тега или ручном запуске `Build Android APK` GitHub Actions:
 
 1. Запускает `expo prebuild` на Ubuntu-раннере.
 2. Собирает подписанный APK через Gradle.
 3. Публикует APK как артефакт сборки.
 
-GitHub Actions работает независимо от EAS Cloud: workflow
-`.github/workflows/build-android.yml` сам устанавливает Java и Android SDK,
-выполняет `expo prebuild` и собирает APK локальным Gradle. Его секреты и
-настройки хранятся только в GitHub Actions Secrets.
-
 **Необходимые GitHub Secrets:**
 
 | Secret | Содержимое |
 |--------|------------|
-| `ANDROID_KEYSTORE_BASE64` | Keystore-файл в base64 |
+| `ANDROID_KEYSTORE_BASE64` | Keystore-файл в base64 (см. `scripts/gen-keystore.sh`) |
 | `ANDROID_KEYSTORE_PASSWORD` | Пароль keystore |
 | `ANDROID_KEY_ALIAS` | Псевдоним ключа |
 | `ANDROID_KEY_PASSWORD` | Пароль ключа |
 | `GOOGLE_SERVICES_JSON` | Содержимое `google-services.json` (без base64) |
 
-Если создаётся новый ключ, сгенерируйте keystore на компьютере с JDK 17.
-Файл не добавляйте в Git:
-
+Сгенерировать keystore:
 ```bash
-mkdir -p "$HOME/.android-signing"
-chmod 700 "$HOME/.android-signing"
-
-keytool -genkeypair -v \
-  -keystore "$HOME/.android-signing/messenger-upload.jks" \
-  -storetype PKCS12 \
-  -alias upload \
-  -keyalg RSA -keysize 2048 -validity 10000
-
-# Скопируйте результат в GitHub Secret ANDROID_KEYSTORE_BASE64.
-base64 -w 0 "$HOME/.android-signing/messenger-upload.jks"
+bash scripts/gen-keystore.sh
 ```
-
-После создания ключа обновите в GitHub Secrets:
-`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
-`ANDROID_KEY_ALIAS` и `ANDROID_KEY_PASSWORD`. Старые значения, которые были
-раскрыты, необходимо удалить или заменить.
 
 ### Вручную — локальная сборка
 
@@ -411,26 +323,12 @@ Push-уведомления о входящих звонках работают 
 
 ## Безопасность
 
-### Аутентификация и токены
 - **PIN хранится как argon2id-хеш** — исходный PIN не восстановим.
-- **JWT подписываются только алгоритмом HS256** — алгоритм явно указан в `jwt.verify()`, атаки `alg: none` и RS256-подмена невозможны.
+- **JWT подписываются** секретом из `JWT_SECRET`.
 - **5 неверных попыток входа** блокируют аккаунт.
-- **user_id и user_name хранятся в `expo-secure-store`** (Android Keystore / шифрованное хранилище) — не в AsyncStorage.
-
-### Транспорт и заголовки
-- **TLS обязателен** в продакшне — все токены, PIN и сообщения передаются по зашифрованному каналу.
-- **Helmet CSP** настроен как `default-src 'none'` — максимально жёсткая политика для API-сервера без HTML.
-- **HTTP-адреса сервера** — клиент предупреждает при вводе `http://` вместо `https://`.
-
-### Rate limiting
-- **Логин**: 5 попыток в минуту с одного IP.
-- **REST API**: 120 запросов в минуту на авторизованного пользователя.
-- **WebSocket сообщения**: скользящее окно 30 сообщений/секунду на пользователя; превышение сбрасывает сообщение с кодом `RATE_LIMITED` (без разрыва соединения).
-
-### Прочее
-- **Device ID** формируется через `expo-crypto.randomUUID()` (криптографически стойкий).
-- **coturn** запущен без флага `verbose` — не логирует IP-адреса участников в продакшне.
+- **Rate limiting**: 5 попыток логина в минуту с одного IP; 120 запросов в минуту на авторизованного пользователя.
 - **Сообщения хранятся в открытом виде** в PostgreSQL — сервер видит текст. Шифрование на уровне транспорта (TLS), но не end-to-end.
+- **TLS обязателен** в продакшне — все токены и PIN передаются по зашифрованному каналу.
 
 ---
 
@@ -446,7 +344,3 @@ Push-уведомления о входящих звонках работают 
 | [`docs/voip-call-notifications.md`](docs/voip-call-notifications.md) | FCM VoIP — уведомления о звонках |
 | [`docs/in-app-updates.md`](docs/in-app-updates.md) | Механизм авто-обновления APK |
 | [`deploy/README.md`](deploy/README.md) | Полный гайд по деплою на VPS |
-
-## Лицензия
-
-Этот проект распространяется под лицензией MIT. Подробности см. в файле [LICENSE](LICENSE).

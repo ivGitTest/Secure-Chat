@@ -57,22 +57,11 @@
     "zod": "catalog:",
     "zod-validation-error": "^3.4.0"
   },
-  "expo": {
-    "doctor": {
-      "reactNativeDirectoryCheck": {
-        "exclude": ["react-native-callkeep", "react-native-webrtc"]
-      }
-    },
-    "install": {
-      "exclude": ["react-native-reanimated"]
-    }
-  },
   "dependencies": {
     "@react-native-firebase/app": "^21.0.0",
     "@react-native-firebase/messaging": "^21.0.0",
     "expo": "~54.0.36",
     "expo-application": "^7.0.8",
-    "expo-crypto": "~15.0.9",
     "expo-file-system": "~19.0.23",
     "expo-intent-launcher": "~13.0.8",
     "expo-notifications": "~0.32.17",

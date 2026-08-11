@@ -69,24 +69,6 @@ class WsService {
       const token = await SecureStore.getItemAsync('access_token');
       if (!serverUrl || !token) return;
 
-      // Warn when connecting to a non-local server over plain HTTP.
-      if (serverUrl.startsWith('http://')) {
-        try {
-          const { hostname } = new URL(serverUrl);
-          const isLocal =
-            hostname === 'localhost' ||
-            hostname === '127.0.0.1' ||
-            /^10\./.test(hostname) ||
-            /^192\.168\./.test(hostname) ||
-            /^172\.(1[6-9]|2\d|3[01])\./.test(hostname);
-          if (!isLocal) {
-            console.warn('[WS] Insecure connection: server URL uses http:// — tokens will be sent unencrypted');
-          }
-        } catch {
-          // ignore URL parse errors
-        }
-      }
-
       const wsUrl = serverUrl.replace(/^http/, 'ws') + '/ws';
 
       const RNWebSocket = globalThis.WebSocket as unknown as RNWebSocketCtor;

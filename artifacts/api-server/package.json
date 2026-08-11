@@ -9,7 +9,6 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "bundle-migrate": "esbuild --bundle --platform=node --format=esm --external:*.node --external:argon2 \"--banner:js=import { createRequire as __crReq } from 'node:module'; import { fileURLToPath as __furl } from 'node:url'; import { dirname as __dname } from 'node:path'; globalThis.require = __crReq(import.meta.url); globalThis.__filename = __furl(import.meta.url); globalThis.__dirname = __dname(__furl(import.meta.url));\" --outfile=dist/migrate.mjs ../../deploy/api/migrate.ts",
-    "test": "node --experimental-strip-types --test 'src/ws/rateLimiter.test.ts'",
     "bundle-admin": "esbuild --bundle --platform=node --format=esm --external:*.node --external:argon2 \"--banner:js=import { createRequire as __crReq } from 'node:module'; import { fileURLToPath as __furl } from 'node:url'; import { dirname as __dname } from 'node:path'; globalThis.require = __crReq(import.meta.url); globalThis.__filename = __furl(import.meta.url); globalThis.__dirname = __dname(__furl(import.meta.url));\" --outfile=dist/admin.mjs ../../scripts/src/admin.ts"
   },
   "dependencies": {

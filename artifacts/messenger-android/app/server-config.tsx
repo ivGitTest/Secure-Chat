@@ -15,22 +15,6 @@ import { useRouter } from 'expo-router';
 import colors from '@/constants/colors';
 import { getServerUrl, setServerUrl } from '@/services/serverConfig';
 
-/** Returns true when the host is a loopback or RFC-1918 private address. */
-function isLocalHost(url: string): boolean {
-  try {
-    const { hostname } = new URL(url);
-    return (
-      hostname === 'localhost' ||
-      hostname === '127.0.0.1' ||
-      /^10\./.test(hostname) ||
-      /^192\.168\./.test(hostname) ||
-      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
-    );
-  } catch {
-    return false;
-  }
-}
-
 export default function ServerConfigScreen() {
   const router = useRouter();
   const [url, setUrl] = useState('https://chat.naviryb.xyz');
@@ -51,22 +35,6 @@ export default function ServerConfigScreen() {
     if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
       Alert.alert('Ошибка', 'Адрес должен начинаться с http:// или https://');
       return;
-    }
-
-    // Warn the user when they try to use plain HTTP with a non-local host.
-    if (trimmed.startsWith('http://') && !isLocalHost(trimmed)) {
-      let confirmed = false;
-      await new Promise<void>((resolve) => {
-        Alert.alert(
-          '⚠️ Небезопасное соединение',
-          'Адрес использует незашифрованный протокол http://. Токены и сообщения будут передаваться в открытом виде. Используйте https:// для защиты данных.',
-          [
-            { text: 'Отмена', style: 'cancel', onPress: () => resolve() },
-            { text: 'Продолжить', style: 'destructive', onPress: () => { confirmed = true; resolve(); } },
-          ],
-        );
-      });
-      if (!confirmed) return;
     }
 
     setLoading(true);
