@@ -11,7 +11,7 @@
     },
     "preview": {
       "distribution": "internal",
-      "credentialsSource": "remote",
+      "credentialsSource": "local",
       "env": {
         "NODE_ENV": "production"
       },
@@ -24,7 +24,7 @@
         "NODE_ENV": "production"
       },
       "android": {
-        "buildType": "apk"
+        "buildType": "app-bundle"
       }
     }
   },

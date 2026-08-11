@@ -59,7 +59,7 @@
  * Both resolve to the same location on Android.
  */
 
-const { withAndroidManifest, withDangerousMod, withAppBuildGradle } = require('expo/config-plugins');
+const { withAndroidManifest, withDangerousMod } = require('expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 
@@ -975,65 +975,6 @@ module.exports = function withFirebaseCallService(config) {
 
     return modConfig;
   });
-
-  // ── Step 3: add firebase-messaging to app compile classpath ─────────────────
-  // CallFirebaseMessagingService.java directly subclasses FirebaseMessagingService
-  // and uses RemoteMessage from com.google.firebase.messaging.
-  // @react-native-firebase/messaging v21 declares firebase-messaging as
-  // `implementation` (not `api`), so it is NOT transitively visible to app-level
-  // Java code. Without this step Gradle fails with:
-  //   error: cannot find symbol: class FirebaseMessagingService
-  //   error: cannot find symbol: class RemoteMessage
-  //
-  // We read the Firebase BoM version from @react-native-firebase/app's package.json
-  // so it stays in sync automatically when RNFB is upgraded.
-  config = withAppBuildGradle(config, (modConfig) => {
-    // Idempotent: don't add twice on repeated prebuild runs.
-    if (modConfig.modResults.contents.includes('com.google.firebase:firebase-messaging')) {
-      return modConfig;
-    }
-
-    // Resolve the Firebase BoM version that RNFB itself pins to.
-    let bomVersion = '33.12.0'; // Safe default for RNFB v21
-    try {
-      const rnfbPkgPath = require.resolve(
-        '@react-native-firebase/app/package.json',
-        { paths: [modConfig.modRequest.projectRoot] },
-      );
-      const rnfbPkg = JSON.parse(
-        fs.readFileSync(rnfbPkgPath, 'utf8'),
-      );
-      bomVersion = rnfbPkg?.sdkVersions?.android?.firebase ?? bomVersion;
-    } catch {
-      console.warn(
-        '[withFirebaseCallService] Could not read RNFB BoM version; using fallback',
-        bomVersion,
-      );
-    }
-
-    const dep = [
-      '',
-      '    // Required by CallFirebaseMessagingService (extends FirebaseMessagingService).',
-      '    // RNFB v21+ declares firebase-messaging as implementation (not api), so the',
-      '    // app must add it explicitly to its own compile classpath.',
-      `    implementation(platform("com.google.firebase:firebase-bom:${bomVersion}"))`,
-      '    implementation("com.google.firebase:firebase-messaging")',
-    ].join('\n');
-
-    modConfig.modResults.contents = modConfig.modResults.contents.replace(
-      'dependencies {',
-      `dependencies {${dep}`,
-    );
-
-    console.log(
-      `[withFirebaseCallService] Added firebase-messaging (BoM ${bomVersion}) to app/build.gradle`,
-    );
-    return modConfig;
-  });
-
-  // ── Note: tools:replace for default_notification_color ───────────────────────
-  // Handled by ./plugins/withManifestMergerFix (listed first in app.json plugins[]).
-  // See withManifestMergerFix.js for the explanation of why plugin order matters.
 
   return config;
 };

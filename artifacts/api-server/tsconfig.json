@@ -8,7 +8,6 @@
     "types": ["node", "express"]
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts"],
   "references": [
     {
       "path": "../../lib/db"

@@ -21,21 +21,12 @@ const fs = require('fs');
 const path = require('path');
 
 const googleServicesPath = path.join(__dirname, 'google-services.json');
-let googleServicesFile = './google-services.json';
 
-// GitHub Actions passes the JSON content; EAS file variables pass a path to a
-// temporary mounted file. Keep the EAS path directly in Expo config so the
-// ignored local filename does not get omitted from the upload archive.
+// In CI: write google-services.json from the secret env var.
+// GOOGLE_SERVICES_JSON contains the JSON file content (not base64).
 if (process.env.GOOGLE_SERVICES_JSON) {
-  const configuredValue = process.env.GOOGLE_SERVICES_JSON;
-  if (fs.existsSync(configuredValue) && fs.statSync(configuredValue).isFile()) {
-    googleServicesFile = configuredValue;
-    console.log('[app.config.js] Using google-services.json from secret file');
-  } else {
-    fs.writeFileSync(googleServicesPath, configuredValue, 'utf8');
-    googleServicesFile = './google-services.json';
-    console.log('[app.config.js] Wrote google-services.json from JSON env');
-  }
+  fs.writeFileSync(googleServicesPath, process.env.GOOGLE_SERVICES_JSON, 'utf8');
+  console.log('[app.config.js] Wrote google-services.json from GOOGLE_SERVICES_JSON env');
 }
 
 /** @type {import('@expo/config').ExpoConfig} */
@@ -55,7 +46,7 @@ module.exports = {
       ...expo.android,
       // Required by @react-native-firebase/app plugin.
       // Points to the committed file locally; overwritten from secret in CI above.
-      googleServicesFile,
+      googleServicesFile: './google-services.json',
     },
     extra: {
       ...(expo.extra ?? {}),
