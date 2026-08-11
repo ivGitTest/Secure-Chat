@@ -7,6 +7,30 @@
 
 ---
 
+## Оглавление
+
+- [HTTP эндпоинты](#http-эндпоинты)
+  - [Служебные (без авторизации)](#служебные-без-авторизации)
+    - [`GET /healthz`](#get-healthz)
+    - [`GET /api/v1/health`](#get-apiv1health)
+  - [Аутентификация](#аутентификация)
+    - [`POST /api/v1/auth/login`](#post-apiv1authlogin)
+    - [`POST /api/v1/auth/logout`](#post-apiv1authlogout)
+  - [Пользователи](#пользователи)
+    - [`GET /api/v1/users`](#get-apiv1users)
+    - [`GET /api/v1/users/me`](#get-apiv1usersme)
+  - [Разговоры](#разговоры)
+    - [`GET /api/v1/conversations`](#get-apiv1conversations)
+    - [`GET /api/v1/conversations/:id/messages`](#get-apiv1conversationsidmessages)
+  - [Конфигурация](#конфигурация)
+    - [`GET /api/v1/config`](#get-apiv1config)
+- [WebSocket (`/ws`)](#websocket-ws)
+  - [Клиент → Сервер](#клиент--сервер)
+  - [Сервер → Клиент](#сервер--клиент)
+    - [Коды ошибок WebSocket](#коды-ошибок-websocket)
+- [Сессии и безопасность](#сессии-и-безопасность)
+- [Модель данных (основные таблицы)](#модель-данных-основные-таблицы)
+
 ## HTTP эндпоинты
 
 ### Служебные (без авторизации)
