@@ -33,9 +33,14 @@ function formatTime(iso: string | null): string {
   return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
-/** Deterministic color per initial letter */
+/** Noble, muted avatar palette — deterministic by initial letter */
 const AVATAR_COLORS = [
-  '#0044FF', '#7C3AED', '#0891B2', '#059669', '#D97706', '#DC2626',
+  '#7B6FA0', // приглушённый сиреневый
+  '#5E8C7A', // матовый нефрит
+  '#A07A5E', // тёплый терракот
+  '#5E7A9C', // стальной синий
+  '#8A6F6F', // пыльная роза
+  '#6B8A6B', // шалфей
 ];
 function avatarColor(name: string): string {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
