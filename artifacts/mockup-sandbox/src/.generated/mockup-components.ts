@@ -12,6 +12,7 @@ export const modules: ModuleMap = {
   "./components/mockups/msgr-combo2/Call.tsx": () => import("../components/mockups/msgr-combo2/Call.tsx"),
   "./components/mockups/msgr-combo2/Chat.tsx": () => import("../components/mockups/msgr-combo2/Chat.tsx"),
   "./components/mockups/msgr-combo2/Contacts.tsx": () => import("../components/mockups/msgr-combo2/Contacts.tsx"),
+  "./components/mockups/msgr-combo2/ContactsV2.tsx": () => import("../components/mockups/msgr-combo2/ContactsV2.tsx"),
   "./components/mockups/msgr-combo2/Login.tsx": () => import("../components/mockups/msgr-combo2/Login.tsx"),
   "./components/mockups/msgr-combo2/Server.tsx": () => import("../components/mockups/msgr-combo2/Server.tsx"),
   "./components/mockups/msgr-combo2/Version.tsx": () => import("../components/mockups/msgr-combo2/Version.tsx"),
