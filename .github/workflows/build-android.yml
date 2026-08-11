@@ -1,6 +1,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Build Android APK — expo prebuild + Gradle (no EAS cloud)
 #
+# Версия и номер сборки берутся из artifacts/messenger-android/release.json.
+# Release notes — тоже оттуда, но можно переопределить через поле ниже.
+#
 # Why not `eas build --local`?
 #   In a pnpm monorepo, EAS CLI calls `expo config --json` and expo CLI
 #   traverses up from the CWD, hits the root package.json of the monorepo
@@ -21,8 +24,8 @@ name: Build Android APK
 on:
   workflow_dispatch:
     inputs:
-      release_notes:
-        description: 'Что нового в этой версии (необязательно)'
+      release_notes_override:
+        description: 'Заметки к релизу (оставьте пустым — возьмётся из release.json)'
         required: false
         default: ''
         type: string
@@ -50,6 +53,28 @@ jobs:
 
       - name: Install monorepo dependencies
         run: pnpm install --no-frozen-lockfile
+
+      # ── Release metadata from release.json ────────────────────────────────
+      # Читаем версию, versionCode и release notes из единого файла.
+      # UI-поле release_notes_override имеет приоритет над release.json.
+      - name: Read release metadata
+        run: |
+          node -e "
+            const r = require('./artifacts/messenger-android/release.json');
+            const override = process.env.NOTES_OVERRIDE || '';
+            const notes    = override || r.releaseNotes || '';
+            const fs       = require('fs');
+            fs.appendFileSync(process.env.GITHUB_ENV, [
+              'APP_VERSION='   + r.version,
+              'APP_VERSION_CODE=' + r.versionCode,
+              'RELEASE_NOTES=' + notes,
+            ].join('\n') + '\n');
+            console.log('version     :', r.version);
+            console.log('versionCode :', r.versionCode);
+            console.log('releaseNotes:', notes || '(не указаны)');
+          "
+        env:
+          NOTES_OVERRIDE: ${{ inputs.release_notes_override }}
 
       # ── Java / Android SDK / NDK ───────────────────────────────────────────
       - name: Setup Java 17
@@ -210,17 +235,18 @@ jobs:
       #   scp version.json vps:~/docker_containers/messenger/updates/
       - name: Generate version.json
         env:
-          RELEASE_NOTES: ${{ inputs.release_notes }}
           BUILD_DATE: ${{ env.BUILD_DATE }}
+          APP_VERSION: ${{ env.APP_VERSION }}
+          APP_VERSION_CODE: ${{ env.APP_VERSION_CODE }}
+          RELEASE_NOTES: ${{ env.RELEASE_NOTES }}
         run: |
           node -e "
-            const app = require('./artifacts/messenger-android/app.json');
             const info = {
-              versionCode: app.expo.android.versionCode,
-              versionName: app.expo.version,
-              releasedAt: process.env.BUILD_DATE,
-              changelog: process.env.RELEASE_NOTES || '',
-              apkUrl: 'messenger.apk',
+              versionCode:  parseInt(process.env.APP_VERSION_CODE, 10),
+              versionName:  process.env.APP_VERSION,
+              releasedAt:   process.env.BUILD_DATE,
+              changelog:    process.env.RELEASE_NOTES || '',
+              apkUrl:       'messenger.apk',
             };
             require('fs').writeFileSync('version.json', JSON.stringify(info, null, 2));
             console.log(JSON.stringify(info, null, 2));
