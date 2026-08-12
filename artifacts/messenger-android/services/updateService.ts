@@ -130,6 +130,14 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo | null> 
     const installedCode = storedInstalled ? (parseInt(storedInstalled, 10) || 0) : 0;
     const effectiveCode = Math.max(nativeCode, installedCode);
 
+    // Reconciliation: если нативная версия обогнала сохранённую (например, APK обновили
+    // напрямую минуя updater, или после успешной установки через updater), синхронизируем
+    // INSTALLED_VERSION_KEY с реальным nativeCode. Это предотвращает ситуацию, когда
+    // installedCode «завис» на значении выше nativeCode и блокирует будущие обновления.
+    if (nativeCode > installedCode) {
+      await AsyncStorage.setItem(INSTALLED_VERSION_KEY, String(nativeCode)).catch(() => {});
+    }
+
     if (info.versionCode <= effectiveCode) return null;
 
     return {
@@ -183,18 +191,17 @@ export async function downloadAndInstall(
   // content:// URI обязателен на Android 7+ (FileProvider)
   const contentUri = await FileSystem.getContentUriAsync(result.uri);
 
+  // ⚠ Сохраняем ДО запуска установщика.
+  // Android убивает текущий процесс, когда устанавливает новый APK — всё, что
+  // написано после startActivityAsync, может никогда не выполниться.
+  // installedCode используется как fallback-версия при следующем старте на случай,
+  // если Application.nativeBuildVersion вернёт неожиданное значение.
+  await AsyncStorage.setItem(INSTALLED_VERSION_KEY, String(info.versionCode)).catch(() => {});
+  // Сбрасываем throttle ДО запуска: следующий старт сразу перепроверит версию.
+  await AsyncStorage.removeItem(LAST_CHECK_KEY).catch(() => {});
+
   await IntentLauncher.startActivityAsync('android.intent.action.INSTALL_PACKAGE', {
     data: contentUri,
     flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
   });
-
-  // Запоминаем versionCode, который был передан установщику.
-  // После перезапуска приложения checkForUpdate() использует это значение
-  // как «эффективную текущую версию» — даже если Application.nativeBuildVersion
-  // ещё не успел обновиться.
-  await AsyncStorage.setItem(INSTALLED_VERSION_KEY, String(info.versionCode)).catch(() => {});
-
-  // Сбрасываем throttle: следующий холодный старт должен сразу перепроверить,
-  // чтобы убедиться, что установленная версия актуальна.
-  await AsyncStorage.removeItem(LAST_CHECK_KEY).catch(() => {});
 }
