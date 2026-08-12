@@ -4,68 +4,124 @@
 
 - [Как это работает](#как-это-работает)
 - [Контракт version.json](#контракт-versionjson)
+- [Единственный источник версии — release.json](#единственный-источник-версии--releasejson)
 - [Разовая настройка VPS](#разовая-настройка-vps)
-- [Выкладка каждого обновления](#выкладка-каждого-обновления)
+- [Выкладка обновления одной командой](#выкладка-обновления-одной-командой)
+- [Сборка через EAS Cloud](#сборка-через-eas-cloud)
+- [Сборка через GitHub Actions](#сборка-через-github-actions)
 
 ## Как это работает
+
 1. Приложение раз в сутки (или по кнопке на экране «О приложении») запрашивает
    `https://<сервер>/updates/version.json`.
 2. Если `versionCode` в файле больше, чем у установленного APK — показывается
    баннер/карточка обновления.
 3. По кнопке «Обновить» APK скачивается и запускается системный установщик Android.
 
+### Логика версионирования на клиенте
+
+```
+effectiveCode = max(nativeBuildVersion, installedCode)
+```
+
+- `nativeBuildVersion` — реальный versionCode установленного APK из Android Package Manager.
+- `installedCode` — versionCode, зафиксированный updater'ом в AsyncStorage
+  **до** запуска установщика (Android убивает процесс во время установки,
+  поэтому фиксируем заранее).
+- Если `nativeBuildVersion > installedCode` (например, APK обновили вручную),
+  AsyncStorage синхронизируется с реальным значением автоматически при следующем запуске.
+
 ## Контракт version.json
+
 ```json
 {
-  "versionCode": 2,
-  "versionName": "1.1.0",
-  "releasedAt": "2026-07-29T10:00:00Z",
+  "versionCode": 9,
+  "versionName": "2.0.5",
+  "releasedAt": "2026-08-12T10:00:00Z",
   "changelog": "Что нового…",
   "apkUrl": "messenger.apk"
 }
 ```
+
 `apkUrl` — имя файла относительно `/updates/` или абсолютный URL.
 
+> ⚠ `versionCode` в `version.json` **должен точно совпадать** с versionCode собранного APK.
+> Расхождение приводит к петле обновлений.
+
+## Единственный источник версии — release.json
+
+Все версии берутся из `artifacts/messenger-android/release.json`:
+
+```json
+{
+  "version": "2.0.5",
+  "versionCode": 9,
+  "releaseNotes": "Что нового в этой версии"
+}
+```
+
+Перед каждым релизом:
+1. Поменять `version` и увеличить `versionCode` на 1.
+2. Обновить `releaseNotes`.
+
+`version.json` генерируется автоматически скриптом — вручную его не редактировать.
+
 ## Разовая настройка VPS
+
 ```bash
 # 1. Создать каталог для обновлений
-sudo mkdir -p ~/docker_containers/messenger/updates
+ssh user@<vps> mkdir -p ~/docker_containers/messenger/updates
 
-# 2. Обновить конфиги и перезапустить nginx (из каталога deploy/)
-git pull
-docker compose up -d nginx
+# 2. Настроить переменную окружения для push-update.sh
+echo 'VPS_HOST=user@<ip>' >> artifacts/messenger-android/.env
 ```
-nginx контейнер монтирует `~/docker_containers/messenger/updates` → `/var/www/updates` (read-only)
-и раздаёт его по `location /updates/`.
 
-## Выкладка каждого обновления
-1. В `artifacts/messenger-android/app.json` меняются только значения версии:
-   ```json
-   {
-     "expo": {
-       "version": "1.2.0",
-       "android": {
-         "versionCode": 3
-       }
-     }
-   }
-   ```
-   `version` и `android.versionCode` — единственный источник версии. Отдельно
-   редактировать эти значения в `version.json` не нужно.
-2. Запустить GitHub Actions → **Build Android APK** → **Run workflow**.
-   В поле **Что нового в этой версии** можно отдельно указать release notes.
-3. В артефакте `messenger-android-v<N>` будут автоматически собраны
-   `messenger-family.apk` и готовый `version.json`. Workflow сам переносит
-   `version` и `android.versionCode` из `app.json` в `version.json`.
-4. Скопировать на VPS:
+nginx монтирует `~/docker_containers/messenger/updates` → `/var/www/updates`
+и раздаёт по `location /updates/`.
+
+## Выкладка обновления одной командой
+
+Независимо от способа сборки (EAS или GitHub Actions) выкладка на VPS делается одним скриптом:
+
+```bash
+cd artifacts/messenger-android
+./scripts/push-update.sh ~/Downloads/messenger-preview.apk
+```
+
+Скрипт автоматически:
+- читает `release.json` (version + versionCode + releaseNotes)
+- генерирует `version.json`
+- загружает APK как `messenger.apk` на VPS
+- загружает `version.json` на VPS **последним** (пока не загружен — устройства не видят обновление)
+
+Проверить результат: `curl https://chat.naviry.xyz/updates/version.json`
+
+## Сборка через EAS Cloud
+
+```bash
+cd artifacts/messenger-android
+
+# 1. Обновить release.json (version, versionCode, releaseNotes)
+
+# 2. Запустить сборку в облаке
+./scripts/eas-build.sh              # profile: preview (APK)
+
+# 3. Дождаться завершения → скачать APK из EAS Dashboard
+
+# 4. Выложить на VPS
+./scripts/push-update.sh ~/Downloads/<скачанный>.apk
+```
+
+## Сборка через GitHub Actions
+
+1. Обновить `release.json` (version, versionCode, releaseNotes) → коммит → push.
+2. GitHub Actions → **Build Android APK** → **Run workflow**.
+3. В артефакте `messenger-android-v<N>` — `messenger-family.apk`.
+4. Выложить на VPS:
    ```bash
-   scp version.json vps:~/docker_containers/messenger/updates/
-   scp messenger-family.apk vps:~/docker_containers/messenger/updates/messenger.apk
+   cd artifacts/messenger-android
+   ./scripts/push-update.sh ~/Downloads/messenger-family.apk
    ```
-5. Проверить: `curl https://chat.naviry.xyz/updates/version.json`
 
 Клиенты увидят обновление при следующей проверке (≤24 ч) или сразу — по кнопке
 «Проверить обновления» на экране «О приложении».
-
-> `versionCode` должен увеличиваться на каждом APK-релизе. Если он не изменился,
-> Android не сможет корректно отличить новый APK от уже установленного.
