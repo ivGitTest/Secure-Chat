@@ -3,90 +3,103 @@
  *
  * ── Проблема ─────────────────────────────────────────────────────────────────
  *
- * react-native-firebase_messaging объявляет в своём AndroidManifest.xml:
+ * expo-notifications (с параметром color) добавляет в app-level манифест:
  *   <meta-data android:name="com.google.firebase.messaging.default_notification_color"
- *              android:resource="@color/white" />
+ *              android:resource="@color/notification_icon_color"/>   ← без tools:replace
  *
- * expo-notifications добавляет тот же ключ в app-level манифест:
+ * react-native-firebase_messaging поставляет в своём library-манифесте:
  *   <meta-data android:name="com.google.firebase.messaging.default_notification_color"
- *              android:resource="@color/notification_icon_color" />
+ *              android:resource="@color/white"/>
  *
- * Android Gradle Manifest Merger отказывается мёржить два значения одного
- * атрибута без `tools:replace="android:resource"` на записи высшего приоритета.
+ * Gradle Manifest Merger видит два разных значения одного атрибута и падает.
  *
- * ── Почему withAndroidManifest не подходил ───────────────────────────────────
+ * ── Решение ──────────────────────────────────────────────────────────────────
  *
- * expo-notifications добавляет эту запись через СВОЙ withAndroidManifest,
- * который может выполняться ПОСЛЕ нашего плагина. withAndroidManifest-моды
- * конкурируют за порядок, и мы не можем гарантировать, что наш запустится
- * последним.
+ * Плагин находится в plugins[] ПОСЛЕ expo-notifications, поэтому его
+ * withAndroidManifest-мод гарантированно запускается ПОСЛЕ мода expo-notifications.
+ * Мы удаляем запись, добавленную expo-notifications, и вставляем новую
+ * с tools:replace="android:resource" — это позволяет app-уровню победить.
  *
- * ── Решение: withDangerousMod ────────────────────────────────────────────────
- *
- * Dangerous-моды запускаются ПОСЛЕ того, как все withAndroidManifest-моды
- * уже применены и файлы записаны на диск. Мы читаем готовый
- * AndroidManifest.xml и добавляем tools:replace напрямую в файл.
- * Это гарантированно работает независимо от порядка остальных плагинов.
+ * Стратегия "удалить и добавить заново" надёжнее простого патча: работает
+ * независимо от формата атрибутов, добавленных expo-notifications.
  */
 
-const { withDangerousMod } = require('expo/config-plugins');
-const fs = require('fs');
-const path = require('path');
+const { withAndroidManifest } = require('expo/config-plugins');
+
+const FCM_COLOR_META = 'com.google.firebase.messaging.default_notification_color';
 
 /**
  * @param {import('@expo/config-plugins').ExpoConfig} config
  */
 module.exports = function withFirebaseColorFix(config) {
-  return withDangerousMod(config, [
-    'android',
-    (modConfig) => {
-      const manifestPath = path.join(
-        modConfig.modRequest.platformProjectRoot,
-        'app/src/main/AndroidManifest.xml',
-      );
+  return withAndroidManifest(config, (modConfig) => {
+    const manifest = modConfig.modResults.manifest;
 
-      if (!fs.existsSync(manifestPath)) {
-        // Файл ещё не создан на этом этапе — ничего не делаем.
-        console.warn('[withFirebaseColorFix] AndroidManifest.xml не найден, пропускаем.');
+    // Убеждаемся, что xmlns:tools объявлен на корневом <manifest>.
+    if (!manifest.$['xmlns:tools']) {
+      manifest.$['xmlns:tools'] = 'http://schemas.android.com/tools';
+    }
+
+    const application = manifest.application?.[0];
+    if (!application) {
+      console.warn('[withFirebaseColorFix] <application> не найден в манифесте.');
+      return modConfig;
+    }
+
+    if (!application['meta-data']) {
+      application['meta-data'] = [];
+    }
+
+    // Находим существующую запись от expo-notifications (или другого плагина).
+    const existing = application['meta-data'].find(
+      (m) => m.$?.['android:name'] === FCM_COLOR_META,
+    );
+
+    if (existing) {
+      // Уже добавлена tools:replace — ничего не делаем.
+      if (existing.$?.['tools:replace']) {
+        console.log('[withFirebaseColorFix] tools:replace уже присутствует, пропускаем.');
         return modConfig;
       }
 
-      let xml = fs.readFileSync(manifestPath, 'utf8');
+      // Читаем текущее значение ресурса цвета (как правило @color/notification_icon_color).
+      const resourceValue = existing.$?.['android:resource'] ?? '@color/notification_icon_color';
 
-      // Убеждаемся, что xmlns:tools объявлен на <manifest>.
-      if (!xml.includes('xmlns:tools=')) {
-        xml = xml.replace(
-          /(<manifest\b[^>]*?)>/,
-          '$1 xmlns:tools="http://schemas.android.com/tools">',
-        );
-        console.log('[withFirebaseColorFix] добавлен xmlns:tools на <manifest>');
-      }
-
-      const before = xml;
-
-      // Добавляем tools:replace к meta-data default_notification_color.
-      // Regex не зависит от порядка атрибутов.
-      xml = xml.replace(
-        /(<meta-data\b(?=[^>]*android:name="com\.google\.firebase\.messaging\.default_notification_color")[^>]*?)(\/?>)/g,
-        (match, attrs, close) => {
-          if (attrs.includes('tools:replace')) return match; // уже есть
-          return `${attrs} tools:replace="android:resource"${close}`;
-        },
+      // Удаляем старую запись (без tools:replace).
+      application['meta-data'] = application['meta-data'].filter(
+        (m) => m.$?.['android:name'] !== FCM_COLOR_META,
       );
 
-      if (xml === before) {
-        console.warn(
-          '[withFirebaseColorFix] meta-data default_notification_color не найден в манифесте.' +
-          ' Возможно, expo-notifications не добавил его. Конфликт может возникнуть при сборке.',
-        );
-      } else {
-        console.log(
-          '[withFirebaseColorFix] ✓ добавлен tools:replace="android:resource"',
-        );
-        fs.writeFileSync(manifestPath, xml, 'utf8');
-      }
+      // Добавляем новую запись с tools:replace.
+      application['meta-data'].push({
+        $: {
+          'android:name': FCM_COLOR_META,
+          'android:resource': resourceValue,
+          'tools:replace': 'android:resource',
+        },
+      });
 
-      return modConfig;
-    },
-  ]);
+      console.log(
+        `[withFirebaseColorFix] ✓ заменил default_notification_color: ` +
+        `resource=${resourceValue}, добавлен tools:replace="android:resource"`,
+      );
+    } else {
+      // expo-notifications ещё не добавил запись (или color не задан).
+      // Добавляем сами — на случай если expo-notifications запустится позже.
+      application['meta-data'].push({
+        $: {
+          'android:name': FCM_COLOR_META,
+          'android:resource': '@color/notification_icon_color',
+          'tools:replace': 'android:resource',
+        },
+      });
+
+      console.log(
+        '[withFirebaseColorFix] ✓ добавил default_notification_color с tools:replace ' +
+        '(запись expo-notifications не найдена — добавлена превентивно).',
+      );
+    }
+
+    return modConfig;
+  });
 };
