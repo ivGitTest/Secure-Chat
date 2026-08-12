@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Build Android APK — expo prebuild + Gradle (no EAS cloud)
 #
-# versionCode и version берутся из artifacts/messenger-android/version.json.
-# version.json ведётся вручную — workflow его не генерирует и не загружает.
+# version.json генерируется из полей ниже и сохраняется в артефакт вместе
+# с APK. apkUrl и releasedAt подставляются автоматически.
 #
 # Why not `eas build --local`?
 #   In a pnpm monorepo, EAS CLI calls `expo config --json` and expo CLI
@@ -23,6 +23,19 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Версия (versionName), например 2.0.6'
+        required: true
+        type: string
+      version_code:
+        description: 'Номер сборки (versionCode), целое число'
+        required: true
+        type: string
+      changelog:
+        description: 'Что нового (changelog)'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -48,18 +61,32 @@ jobs:
       - name: Install monorepo dependencies
         run: pnpm install --no-frozen-lockfile
 
-      # ── Version from version.json (для имени артефакта) ──────────────────
-      - name: Read version
+      # ── Генерируем version.json ────────────────────────────────────────────
+      # Значения передаются через env-переменные: Node.js сам экранирует строки
+      # при JSON.stringify, поэтому кавычки и спецсимволы в полях безопасны.
+      # apkUrl и releasedAt подставляются автоматически.
+      # Файл записывается до prebuild, чтобы app.config.js считал актуальную
+      # версию (versionCode → android.versionCode, versionName → version).
+      - name: Generate version.json
+        env:
+          INPUT_VERSION_NAME: ${{ inputs.version_name }}
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
+          INPUT_CHANGELOG:    ${{ inputs.changelog }}
         run: |
           node -e "
-            const r = require('./artifacts/messenger-android/version.json');
-            const fs = require('fs');
-            fs.appendFileSync(process.env.GITHUB_ENV,
-              'APP_VERSION=' + r.versionName + '\n' +
-              'APP_VERSION_CODE=' + r.versionCode + '\n'
-            );
-            console.log('version     :', r.versionName);
-            console.log('versionCode :', r.versionCode);
+            const fs   = require('fs');
+            const code = parseInt(process.env.INPUT_VERSION_CODE, 10);
+            if (!Number.isInteger(code) || code < 1)
+              throw new Error('versionCode должен быть положительным целым числом, получено: ' + process.env.INPUT_VERSION_CODE);
+            const info = {
+              versionCode : code,
+              versionName : process.env.INPUT_VERSION_NAME,
+              releasedAt  : new Date().toISOString(),
+              changelog   : process.env.INPUT_CHANGELOG,
+              apkUrl      : 'messenger.apk',
+            };
+            fs.writeFileSync('artifacts/messenger-android/version.json', JSON.stringify(info, null, 2));
+            console.log(JSON.stringify(info, null, 2));
           "
 
       # ── Java / Android SDK / NDK ───────────────────────────────────────────
@@ -153,11 +180,13 @@ jobs:
              "${{ github.workspace }}/messenger-family.apk"
 
       # ── Artifact ───────────────────────────────────────────────────────────
-      # Скачай APK из артефакта и положи его в /opt/messenger/updates/messenger.apk
-      # вместе с заполненным вручную version.json.
-      - name: Upload APK
+      # Скачай оба файла из артефакта и положи в /opt/messenger/updates/.
+      # APK переименовать в messenger.apk (apkUrl в version.json = 'messenger.apk').
+      - name: Upload APK + version.json
         uses: actions/upload-artifact@v4
         with:
-          name: messenger-android-v${{ env.APP_VERSION }}-${{ env.APP_VERSION_CODE }}
-          path: messenger-family.apk
+          name: messenger-android-v${{ inputs.version_name }}-${{ inputs.version_code }}
+          path: |
+            messenger-family.apk
+            artifacts/messenger-android/version.json
           retention-days: 30
