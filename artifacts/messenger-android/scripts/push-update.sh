@@ -3,7 +3,7 @@
 # push-update.sh — выложить APK и version.json на VPS.
 #
 # Работает независимо от способа сборки: EAS Cloud, GitHub Actions, локальная.
-# Единственный источник истины — release.json в корне messenger-android.
+# version.json заполняется вручную и лежит в корне messenger-android.
 #
 # Использование:
 #   ./scripts/push-update.sh <path/to/messenger.apk>
@@ -18,7 +18,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# ── Аргумент: APK-файл ───────────────────────────────────────────────────────
+# ── Входные файлы ─────────────────────────────────────────────────────────────
 APK_SRC="${1:-}"
 if [[ -z "$APK_SRC" ]]; then
   echo "❌  Укажи путь к APK:"
@@ -29,6 +29,39 @@ if [[ ! -f "$APK_SRC" ]]; then
   echo "❌  Файл не найден: $APK_SRC"
   exit 1
 fi
+
+VERSION_SRC="version.json"
+if [[ ! -f "$VERSION_SRC" ]]; then
+  echo "❌  Файл не найден: $VERSION_SRC"
+  echo "    Создай и заполни artifacts/messenger-android/version.json"
+  exit 1
+fi
+
+# Проверяем формат и обязательные поля, но не генерируем version.json.
+node -e "
+const fs = require('fs');
+let info;
+try {
+  info = JSON.parse(fs.readFileSync('version.json', 'utf8'));
+} catch (error) {
+  console.error('❌  version.json содержит некорректный JSON');
+  console.error('   ' + error.message);
+  process.exit(1);
+}
+if (!Number.isInteger(info.versionCode) || info.versionCode < 1) {
+  console.error('❌  version.json: versionCode должен быть положительным целым числом');
+  process.exit(1);
+}
+if (typeof info.versionName !== 'string' || !info.versionName.trim()) {
+  console.error('❌  version.json: отсутствует versionName');
+  process.exit(1);
+}
+if (typeof info.apkUrl !== 'string' || !info.apkUrl.trim()) {
+  console.error('❌  version.json: отсутствует apkUrl');
+  process.exit(1);
+}
+console.log('📦  version.json: ' + info.versionName + ' (' + info.versionCode + ')');
+"
 
 # ── Переменные окружения ─────────────────────────────────────────────────────
 # Подгружаем .env если он есть (не обязателен)
@@ -48,36 +81,6 @@ if [[ -z "$VPS_HOST" ]]; then
   exit 1
 fi
 
-# ── Читаем release.json ───────────────────────────────────────────────────────
-echo ""
-echo "📦  Читаю release.json…"
-node -e "
-const r = require('./release.json');
-if (!r.version)     { console.error('release.json: нет поля version');     process.exit(1); }
-if (!r.versionCode) { console.error('release.json: нет поля versionCode'); process.exit(1); }
-console.log('');
-console.log('   Версия    : ' + r.version + ' (' + r.versionCode + ')');
-console.log('   Заметки   : ' + (r.releaseNotes || '(не указаны)'));
-"
-
-# ── Генерируем version.json ───────────────────────────────────────────────────
-BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-node -e "
-const r   = require('./release.json');
-const fs  = require('fs');
-const info = {
-  versionCode : r.versionCode,
-  versionName : r.version,
-  releasedAt  : '$BUILD_DATE',
-  changelog   : r.releaseNotes || '',
-  apkUrl      : 'messenger.apk',
-};
-fs.writeFileSync('version.json', JSON.stringify(info, null, 2));
-console.log('');
-console.log('✅  version.json:');
-console.log(JSON.stringify(info, null, 2));
-"
-
 # ── Загружаем на VPS ──────────────────────────────────────────────────────────
 echo ""
 echo "🚀  Загружаю на ${VPS_HOST}:${VPS_PATH}…"
@@ -87,7 +90,7 @@ ssh "$VPS_HOST" "mkdir -p $VPS_PATH"
 
 # Сначала APK (он большой), потом version.json
 # version.json обновляется ПОСЛЕДНИМ — пока он не обновился, приложения
-# на устройствах не увидят новую версию и не начнут качать.
+# не увидят новую версию и не начнут скачивать APK.
 scp "$APK_SRC"     "${VPS_HOST}:${VPS_PATH}/messenger.apk"
 scp "version.json" "${VPS_HOST}:${VPS_PATH}/version.json"
 
