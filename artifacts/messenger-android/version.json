@@ -1,5 +1,7 @@
 {
-  "version": "2.0.5",
   "versionCode": 9,
-  "releaseNotes": "новый дизайн окна Контакты+новый механим обновления"
+  "versionName": "2.0.5",
+  "releasedAt": "2026-08-12T10:00:00Z",
+  "changelog": "Описание изменений",
+  "apkUrl": "messenger.apk"
 }

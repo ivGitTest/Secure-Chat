@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Build Android APK — expo prebuild + Gradle (no EAS cloud)
 #
-# versionCode и version берутся из artifacts/messenger-android/release.json.
+# versionCode и version берутся из artifacts/messenger-android/version.json.
 # version.json ведётся вручную — workflow его не генерирует и не загружает.
 #
 # Why not `eas build --local`?
@@ -48,17 +48,17 @@ jobs:
       - name: Install monorepo dependencies
         run: pnpm install --no-frozen-lockfile
 
-      # ── Version from release.json (для имени артефакта) ───────────────────
+      # ── Version from version.json (для имени артефакта) ──────────────────
       - name: Read version
         run: |
           node -e "
-            const r = require('./artifacts/messenger-android/release.json');
+            const r = require('./artifacts/messenger-android/version.json');
             const fs = require('fs');
             fs.appendFileSync(process.env.GITHUB_ENV,
-              'APP_VERSION=' + r.version + '\n' +
+              'APP_VERSION=' + r.versionName + '\n' +
               'APP_VERSION_CODE=' + r.versionCode + '\n'
             );
-            console.log('version     :', r.version);
+            console.log('version     :', r.versionName);
             console.log('versionCode :', r.versionCode);
           "
 
