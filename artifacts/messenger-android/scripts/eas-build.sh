@@ -17,14 +17,37 @@ cd "$(dirname "$0")/.."
 
 PROFILE=${1:-preview}
 
-# ── Интерактивный ввод ────────────────────────────────────────────────────────
+# ── Показываем текущий релиз ───────────────────────────────────────────────────
+# version.json уже может содержать данные предыдущей сборки. Выводим их до
+# вопросов, чтобы новые значения можно было сравнить с текущими.
 echo ""
-echo "📦  Заполни данные релиза (все поля обязательны)"
+if [[ -f version.json ]]; then
+  echo "📋  Текущие значения из version.json:"
+  node -e "
+    const fs = require('fs');
+    let info;
+    try {
+      info = JSON.parse(fs.readFileSync('version.json', 'utf8'));
+    } catch (error) {
+      console.error('❌  Не удалось прочитать version.json:', error.message);
+      process.exit(1);
+    }
+    console.log('   versionName: ' + (info.versionName ?? 'не указано'));
+    console.log('   versionCode: ' + (info.versionCode ?? 'не указано'));
+    console.log('   changelog:  ' + (info.changelog ?? 'не указано'));
+    console.log('   releasedAt: ' + (info.releasedAt ?? 'не указано'));
+    console.log('   apkUrl:     ' + (info.apkUrl ?? 'не указано'));
+  "
+else
+  echo "ℹ️   version.json не найден — текущие значения отсутствуют"
+fi
+echo ""
+echo "📦  Заполни новые данные релиза (все поля обязательны)"
 echo ""
 
 # versionName
 while true; do
-  read -rp "   Версия (versionName, например 2.0.6): " VERSION_NAME
+  read -rp "   Новая версия (versionName, например 2.0.6): " VERSION_NAME
   VERSION_NAME="${VERSION_NAME#"${VERSION_NAME%%[![:space:]]*}"}" # ltrim
   VERSION_NAME="${VERSION_NAME%"${VERSION_NAME##*[![:space:]]}"}" # rtrim
   if [[ -n "$VERSION_NAME" ]]; then break; fi
@@ -33,7 +56,7 @@ done
 
 # versionCode
 while true; do
-  read -rp "   Номер сборки (versionCode, целое число): " VERSION_CODE
+  read -rp "   Новый номер сборки (versionCode, целое число): " VERSION_CODE
   VERSION_CODE="${VERSION_CODE//[[:space:]]/}"
   if [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then break; fi
   echo "   ❌  versionCode должен быть положительным целым числом"
@@ -41,7 +64,7 @@ done
 
 # changelog
 while true; do
-  read -rp "   Что нового (changelog): " CHANGELOG
+  read -rp "   Новый changelog: " CHANGELOG
   CHANGELOG="${CHANGELOG#"${CHANGELOG%%[![:space:]]*}"}"
   CHANGELOG="${CHANGELOG%"${CHANGELOG##*[![:space:]]}"}"
   if [[ -n "$CHANGELOG" ]]; then break; fi
