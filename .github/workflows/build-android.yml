@@ -67,6 +67,30 @@ jobs:
       # apkUrl и releasedAt подставляются автоматически.
       # Файл записывается до prebuild, чтобы app.config.js считал актуальную
       # версию (versionCode → android.versionCode, versionName → version).
+      - name: Show current version.json
+        run: |
+          if [ ! -f artifacts/messenger-android/version.json ]; then
+            echo "ℹ️ version.json не найден — текущие значения отсутствуют"
+            exit 0
+          fi
+
+          node - <<'NODE'
+          const fs = require('fs');
+          let info;
+          try {
+            info = JSON.parse(fs.readFileSync('artifacts/messenger-android/version.json', 'utf8'));
+          } catch (error) {
+            console.error('❌ Не удалось прочитать version.json:', error.message);
+            process.exit(1);
+          }
+          console.log('📋 Текущие значения из version.json:');
+          console.log('   versionName: ' + (info.versionName ?? 'не указано'));
+          console.log('   versionCode: ' + (info.versionCode ?? 'не указано'));
+          console.log('   changelog:  ' + (info.changelog ?? 'не указано'));
+          console.log('   releasedAt: ' + (info.releasedAt ?? 'не указано'));
+          console.log('   apkUrl:     ' + (info.apkUrl ?? 'не указано'));
+          NODE
+
       - name: Generate version.json
         env:
           INPUT_VERSION_NAME: ${{ inputs.version_name }}
