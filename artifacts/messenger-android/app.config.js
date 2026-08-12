@@ -1,7 +1,7 @@
 // app.config.js — единственный источник Expo-конфига.
 // app.json удалён; этот файл содержит весь конфиг целиком.
 //
-// Версия и номер сборки берутся из release.json.
+// Версия и номер сборки берутся из version.json.
 // GOOGLE_SERVICES_JSON  — env-переменная (GitHub Actions secret / EAS secret):
 //   задайте её один раз командой:
 //     eas secret:create --scope project --name GOOGLE_SERVICES_JSON \
@@ -10,7 +10,7 @@
 const fs   = require('fs');
 const path = require('path');
 
-const release = require('./release.json');
+const versionInfo = require('./version.json');
 
 // ── Записать google-services.json из env-переменной ──────────────────────────
 // Это нужно для EAS Cloud и GitHub Actions, где файл не коммитится в репо.
@@ -30,7 +30,7 @@ module.exports = {
   expo: {
     name:               'Семейный мессенджер',
     slug:               'messenger-android',
-    version:            release.version,
+    version:            versionInfo.versionName,
     orientation:        'portrait',
     icon:               './assets/images/icon.png',
     scheme:             'messenger-android',
@@ -52,7 +52,7 @@ module.exports = {
 
     android: {
       package:                    'com.ivaexpi.messengerandroid',
-      versionCode:                release.versionCode,
+      versionCode:                versionInfo.versionCode,
       softwareKeyboardLayoutMode: 'resize',
       // Путь к файлу — требуется плагином @react-native-firebase/app.
       // Файл создаётся выше из env-переменной GOOGLE_SERVICES_JSON.
