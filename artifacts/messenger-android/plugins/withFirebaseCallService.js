@@ -59,7 +59,7 @@
  * Both resolve to the same location on Android.
  */
 
-const { withAndroidManifest, withDangerousMod } = require('expo/config-plugins');
+const { withAndroidManifest, withAppBuildGradle, withDangerousMod } = require('expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 
@@ -842,6 +842,23 @@ public class CallAnswerListenerService extends Service {
 `;
 
 module.exports = function withFirebaseCallService(config) {
+
+  // ── Step 0: ensure firebase-messaging is in app/build.gradle ──────────────
+  // expo prebuild regenerates android/app/build.gradle from scratch.
+  // RNFB v21+ declares firebase-messaging as `implementation` (not `api`),
+  // so it is NOT exposed to `:app`'s compilation classpath.
+  // CallFirebaseMessagingService.java directly extends FirebaseMessagingService,
+  // which lives in firebase-messaging — we must add it explicitly.
+  config = withAppBuildGradle(config, (modConfig) => {
+    const contents = modConfig.modResults.contents;
+    if (!contents.includes('com.google.firebase:firebase-messaging')) {
+      modConfig.modResults.contents = contents.replace(
+        /(\s*dependencies\s*\{)/,
+        `$1\n    // firebase-messaging added by withFirebaseCallService: CallFirebaseMessagingService\n    // extends FirebaseMessagingService directly; RNFB declares it as implementation\n    // (not api) so it does not leak onto :app's compile classpath automatically.\n    implementation(platform("com.google.firebase:firebase-bom:33.12.0"))\n    implementation("com.google.firebase:firebase-messaging")`,
+      );
+    }
+    return modConfig;
+  });
 
   // ── Step 1: write Java source files during EAS native build ───────────────
   config = withDangerousMod(config, [
