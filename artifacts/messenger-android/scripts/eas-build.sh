@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# Сборка APK через EAS CLI.
+# eas-build.sh — запустить сборку APK в EAS Cloud.
 # Версия, номер сборки и release notes берутся из release.json.
+#
+# После завершения сборки:
+#   1. Скачай APK из EAS Dashboard (или через `eas build:list`)
+#   2. Выложи на VPS одной командой:
+#        ./scripts/push-update.sh ~/Downloads/messenger-preview.apk
 #
 # Использование:
 #   ./scripts/eas-build.sh [profile]
@@ -14,7 +19,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PROFILE=${1:-preview}
-RELEASE_NOTES=$(node -p "require('./release.json').releaseNotes || ''")
 
 # Показать что собираем
 node -e "
@@ -26,31 +30,25 @@ console.log('🔧  Профиль: $PROFILE');
 console.log('');
 "
 
+RELEASE_NOTES=$(node -p "require('./release.json').releaseNotes || ''")
 EAS_ARGS=(build --profile "$PROFILE" --platform android)
 if [[ -n "$RELEASE_NOTES" ]]; then
   EAS_ARGS+=(--message "$RELEASE_NOTES")
 fi
 
-# Use an ephemeral local CLI so a global `eas` installation is not required.
 pnpm dlx eas-cli@latest "${EAS_ARGS[@]}"
 
-# Генерируем version.json для выгрузки на VPS
-node -e "
-const r = require('./release.json');
-const fs = require('fs');
-const info = {
-  versionCode: r.versionCode,
-  versionName: r.version,
-  releasedAt: new Date().toISOString(),
-  changelog: r.releaseNotes || '',
-  apkUrl: 'messenger.apk',
-};
-fs.writeFileSync('version.json', JSON.stringify(info, null, 2));
-console.log('✅ version.json создан:');
-console.log(JSON.stringify(info, null, 2));
-"
-
 echo ""
-echo "Следующий шаг — выложить на VPS:"
-echo "  scp <скачанный.apk> vps:~/docker_containers/messenger/updates/messenger.apk"
-echo "  scp version.json    vps:~/docker_containers/messenger/updates/"
+echo "✅  Сборка запущена в EAS Cloud."
+echo ""
+echo "Следующие шаги:"
+echo "  1. Дождись завершения сборки (EAS Dashboard или письмо на email)"
+echo "  2. Скачай APK из EAS Dashboard"
+echo "  3. Выложи на VPS:"
+echo "       export VPS_HOST=user@<ip>"
+echo "       ./scripts/push-update.sh ~/Downloads/<скачанный>.apk"
+echo ""
+echo "  push-update.sh автоматически:"
+echo "    • прочитает release.json (version + versionCode + releaseNotes)"
+echo "    • сгенерирует version.json"
+echo "    • загрузит APK и version.json на VPS"
