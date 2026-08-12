@@ -1,8 +1,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Build Android APK — expo prebuild + Gradle (no EAS cloud)
 #
-# Версия и номер сборки берутся из artifacts/messenger-android/release.json.
-# Release notes — тоже оттуда, но можно переопределить через поле ниже.
+# versionCode и version берутся из artifacts/messenger-android/release.json.
+# version.json ведётся вручную — workflow его не генерирует и не загружает.
 #
 # Why not `eas build --local`?
 #   In a pnpm monorepo, EAS CLI calls `expo config --json` and expo CLI
@@ -23,12 +23,6 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
-    inputs:
-      release_notes_override:
-        description: 'Заметки к релизу (оставьте пустым — возьмётся из release.json)'
-        required: false
-        default: ''
-        type: string
 
 jobs:
   build:
@@ -54,27 +48,19 @@ jobs:
       - name: Install monorepo dependencies
         run: pnpm install --no-frozen-lockfile
 
-      # ── Release metadata from release.json ────────────────────────────────
-      # Читаем версию, versionCode и release notes из единого файла.
-      # UI-поле release_notes_override имеет приоритет над release.json.
-      - name: Read release metadata
+      # ── Version from release.json (для имени артефакта) ───────────────────
+      - name: Read version
         run: |
           node -e "
             const r = require('./artifacts/messenger-android/release.json');
-            const override = process.env.NOTES_OVERRIDE || '';
-            const notes    = override || r.releaseNotes || '';
-            const fs       = require('fs');
-            fs.appendFileSync(process.env.GITHUB_ENV, [
-              'APP_VERSION='   + r.version,
-              'APP_VERSION_CODE=' + r.versionCode,
-              'RELEASE_NOTES=' + notes,
-            ].join('\n') + '\n');
+            const fs = require('fs');
+            fs.appendFileSync(process.env.GITHUB_ENV,
+              'APP_VERSION=' + r.version + '\n' +
+              'APP_VERSION_CODE=' + r.versionCode + '\n'
+            );
             console.log('version     :', r.version);
             console.log('versionCode :', r.versionCode);
-            console.log('releaseNotes:', notes || '(не указаны)');
           "
-        env:
-          NOTES_OVERRIDE: ${{ inputs.release_notes_override }}
 
       # ── Java / Android SDK / NDK ───────────────────────────────────────────
       - name: Setup Java 17
@@ -90,10 +76,6 @@ jobs:
         # react-native-webrtc and other native modules require NDK 27.1
         run: sdkmanager --install "ndk;27.1.12297006"
 
-      # ── Build date ─────────────────────────────────────────────────────────
-      - name: Set build date
-        run: echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
-
       # ── Expo prebuild ──────────────────────────────────────────────────────
       # Generates android/ native directory from Expo config plugins.
       # Runs entirely locally — no Expo account or EXPO_TOKEN required.
@@ -102,7 +84,6 @@ jobs:
         working-directory: artifacts/messenger-android
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-          BUILD_DATE: ${{ env.BUILD_DATE }}
         run: |
           pnpm exec expo prebuild --platform android --no-install --clean
 
@@ -119,13 +100,12 @@ jobs:
           echo "$KS_BASE64" | base64 --decode > keystore.jks
 
           python3 - << 'PYEOF'
-          import re, sys
+          import sys
 
           path = 'android/app/build.gradle'
           txt = open(path).read()
 
           # 1. Insert release signingConfig block after the debug block.
-          #    We look for the exact end of the debug signing block.
           release_block = """\n        release {
                       storeFile file(System.getenv("KEYSTORE_FILE") ?: "debug.keystore")
                       storePassword System.getenv("KS_PASS") ?: ""
@@ -140,9 +120,7 @@ jobs:
           else:
               print("WARNING: debug signingConfig end-marker not found — check build.gradle format", file=sys.stderr)
 
-          # 2. Change the release buildType to use signingConfigs.release
-          #    (replace the LAST occurrence of signingConfig signingConfigs.debug,
-          #    which is the one inside the release { } buildType block).
+          # 2. Change the release buildType to use signingConfigs.release.
           marker = 'signingConfig signingConfigs.debug'
           last = txt.rfind(marker)
           if last != -1:
@@ -151,9 +129,8 @@ jobs:
           else:
               print("WARNING: release signingConfig assignment not found", file=sys.stderr)
 
-          # Note: firebase-messaging dependency is now injected by the
-          # withFirebaseCallService config plugin (withAppBuildGradle step),
-          # so no manual patching needed here.
+          # Note: firebase-messaging dependency is injected by the
+          # withFirebaseCallService config plugin (withAppBuildGradle step).
 
           open(path, 'w').write(txt)
           print("build.gradle patched for release signing")
@@ -175,35 +152,12 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk \
              "${{ github.workspace }}/messenger-family.apk"
 
-      # ── version.json for the In-App Updater ───────────────────────────────
-      # После сборки выложить оба файла на VPS:
-      #   scp messenger-family.apk vps:~/docker_containers/messenger/updates/messenger.apk
-      #   scp version.json vps:~/docker_containers/messenger/updates/
-      - name: Generate version.json
-        env:
-          BUILD_DATE: ${{ env.BUILD_DATE }}
-          APP_VERSION: ${{ env.APP_VERSION }}
-          APP_VERSION_CODE: ${{ env.APP_VERSION_CODE }}
-          RELEASE_NOTES: ${{ env.RELEASE_NOTES }}
-        run: |
-          node -e "
-            const info = {
-              versionCode:  parseInt(process.env.APP_VERSION_CODE, 10),
-              versionName:  process.env.APP_VERSION,
-              releasedAt:   process.env.BUILD_DATE,
-              changelog:    process.env.RELEASE_NOTES || '',
-              apkUrl:       'messenger.apk',
-            };
-            require('fs').writeFileSync('version.json', JSON.stringify(info, null, 2));
-            console.log(JSON.stringify(info, null, 2));
-          "
-
       # ── Artifact ───────────────────────────────────────────────────────────
-      - name: Upload APK + version.json
+      # Скачай APK из артефакта и положи его в /opt/messenger/updates/messenger.apk
+      # вместе с заполненным вручную version.json.
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: messenger-android-v${{ github.run_number }}
-          path: |
-            messenger-family.apk
-            version.json
+          name: messenger-android-v${{ env.APP_VERSION }}-${{ env.APP_VERSION_CODE }}
+          path: messenger-family.apk
           retention-days: 30
