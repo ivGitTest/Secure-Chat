@@ -2,8 +2,9 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # eas-build.sh — запустить сборку APK в EAS Cloud.
 #
-# Перед запуском интерактивно запрашивает versionName, versionCode и changelog,
-# генерирует version.json (apkUrl и releasedAt подставляются автоматически).
+# Перед запуском интерактивно запрашивает versionName и changelog.
+# versionCode автоматически увеличивается на 1 относительно version.json.
+# Генерирует version.json (apkUrl и releasedAt подставляются автоматически).
 #
 # Использование:
 #   ./scripts/eas-build.sh [profile]
@@ -42,7 +43,7 @@ else
   echo "ℹ️   version.json не найден — текущие значения отсутствуют"
 fi
 echo ""
-echo "📦  Заполни новые данные релиза (все поля обязательны)"
+echo "📦  Заполни новые данные релиза"
 echo ""
 
 # versionName
@@ -54,13 +55,21 @@ while true; do
   echo "   ❌  Поле не может быть пустым"
 done
 
-# versionCode
-while true; do
-  read -rp "   Новый номер сборки (versionCode, целое число): " VERSION_CODE
-  VERSION_CODE="${VERSION_CODE//[[:space:]]/}"
-  if [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then break; fi
-  echo "   ❌  versionCode должен быть положительным целым числом"
-done
+# versionCode — увеличиваем автоматически относительно предыдущей сборки.
+VERSION_CODE=$(node -e "
+  const fs = require('fs');
+  let current = 0;
+  if (fs.existsSync('version.json')) {
+    const info = JSON.parse(fs.readFileSync('version.json', 'utf8'));
+    const code = Number(info.versionCode ?? 0);
+    if (!Number.isInteger(code) || code < 0) {
+      throw new Error('versionCode в version.json должен быть целым неотрицательным числом');
+    }
+    current = code;
+  }
+  process.stdout.write(String(current + 1));
+")
+echo "   Новый номер сборки (versionCode): $VERSION_CODE (автоматически)"
 
 # changelog
 while true; do
