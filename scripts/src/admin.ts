@@ -9,13 +9,18 @@
  *   block-user --id <userId>
  *   unblock-user --id <userId>
  *   list-users
+ *   link-users --a <userId> --b <userId>       # make mutually visible
+ *   unlink-users --a <userId> --b <userId>     # hide mutually
+ *   list-visibility
+ *   show-contacts --id <userId>
+ *   reset-visibility --id <userId>
  */
 
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import argon2 from "argon2";
 import * as schema from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { and, asc, eq, inArray, lt, ne, notExists, or } from "drizzle-orm";
 
 const { Pool } = pg;
 
@@ -173,6 +178,177 @@ async function listUsers(): Promise<void> {
   }
 }
 
+async function requireUser(db: ReturnType<typeof drizzle>, id: string, label = "User") {
+  const [user] = await db
+    .select({ id: schema.users.id, name: schema.users.name })
+    .from(schema.users)
+    .where(eq(schema.users.id, id))
+    .limit(1);
+
+  if (!user) {
+    throw new Error(`${label} '${id}' not found.`);
+  }
+
+  return user;
+}
+
+function getVisibilityPair(
+  args: Map<string, string>,
+  command: "link-users" | "unlink-users",
+): { a: string; b: string } {
+  const a = args.get("a");
+  const b = args.get("b");
+
+  if (!a || !b) {
+    throw new Error(`Usage: ${command} --a <userId> --b <userId>`);
+  }
+  if (a === b) {
+    throw new Error("A user cannot be linked to themselves.");
+  }
+
+  return { a, b };
+}
+
+async function linkUsers(args: Map<string, string>): Promise<void> {
+  const { a, b } = getVisibilityPair(args, "link-users");
+  const db = getDb();
+  await requireUser(db, a, "User A");
+  await requireUser(db, b, "User B");
+
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(schema.contactVisibility)
+      .where(
+        or(
+          and(eq(schema.contactVisibility.userId, a), eq(schema.contactVisibility.visibleUserId, b)),
+          and(eq(schema.contactVisibility.userId, b), eq(schema.contactVisibility.visibleUserId, a)),
+        ),
+      );
+  });
+
+  console.log(`Users '${a}' and '${b}' are now mutually visible.`);
+}
+
+async function unlinkUsers(args: Map<string, string>): Promise<void> {
+  const { a, b } = getVisibilityPair(args, "unlink-users");
+  const db = getDb();
+  await requireUser(db, a, "User A");
+  await requireUser(db, b, "User B");
+
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(schema.contactVisibility)
+      .values([
+        { userId: a, visibleUserId: b },
+        { userId: b, visibleUserId: a },
+      ])
+      .onConflictDoNothing();
+  });
+
+  console.log(`Users '${a}' and '${b}' are now hidden from each other.`);
+}
+
+async function listVisibility(): Promise<void> {
+  const db = getDb();
+  const pairs = await db
+    .select({
+      userId: schema.contactVisibility.userId,
+      visibleUserId: schema.contactVisibility.visibleUserId,
+    })
+    .from(schema.contactVisibility)
+    .where(lt(schema.contactVisibility.userId, schema.contactVisibility.visibleUserId))
+    .orderBy(asc(schema.contactVisibility.userId), asc(schema.contactVisibility.visibleUserId));
+
+  if (pairs.length === 0) {
+    console.log("No hidden pairs configured. All users see everyone.");
+    return;
+  }
+
+  const ids = [...new Set(pairs.flatMap((pair) => [pair.userId, pair.visibleUserId]))];
+  const usersById = new Map(
+    (
+      await db
+        .select({ id: schema.users.id, name: schema.users.name })
+        .from(schema.users)
+        .where(inArray(schema.users.id, ids))
+    ).map((user) => [user.id, user]),
+  );
+
+  console.log("Hidden pairs (hidden in both directions):");
+  for (const pair of pairs) {
+    const userA = usersById.get(pair.userId);
+    const userB = usersById.get(pair.visibleUserId);
+    console.log(
+      `  ${pair.userId} (${userA?.name ?? "unknown"}) ↔ ${pair.visibleUserId} (${userB?.name ?? "unknown"})`,
+    );
+  }
+}
+
+async function showContacts(args: Map<string, string>): Promise<void> {
+  const id = args.get("id");
+  if (!id) {
+    throw new Error("Usage: show-contacts --id <userId>");
+  }
+
+  const db = getDb();
+  const user = await requireUser(db, id);
+  const hiddenPair = db
+    .select({ userId: schema.contactVisibility.userId })
+    .from(schema.contactVisibility)
+    .where(
+      or(
+        and(
+          eq(schema.contactVisibility.userId, id),
+          eq(schema.contactVisibility.visibleUserId, schema.users.id),
+        ),
+        and(
+          eq(schema.contactVisibility.userId, schema.users.id),
+          eq(schema.contactVisibility.visibleUserId, id),
+        ),
+      ),
+    );
+  const contacts = await db
+    .select({ id: schema.users.id, name: schema.users.name })
+    .from(schema.users)
+    .where(and(ne(schema.users.id, id), notExists(hiddenPair)))
+    .orderBy(asc(schema.users.id));
+
+  if (contacts.length === 0) {
+    console.log(`${user.id} (${user.name}) has no visible contacts.`);
+    return;
+  }
+
+  console.log(`${user.id} (${user.name}) sees:`);
+  for (const contact of contacts.filter((contact) => contact.id !== id)) {
+    console.log(`  ${contact.id} (${contact.name})`);
+  }
+}
+
+async function resetVisibility(args: Map<string, string>): Promise<void> {
+  const id = args.get("id");
+  if (!id) {
+    throw new Error("Usage: reset-visibility --id <userId>");
+  }
+
+  const db = getDb();
+  await requireUser(db, id);
+  const deleted = await db
+    .delete(schema.contactVisibility)
+    .where(
+      or(
+        eq(schema.contactVisibility.userId, id),
+        eq(schema.contactVisibility.visibleUserId, id),
+      ),
+    )
+    .returning({ userId: schema.contactVisibility.userId });
+
+  console.log(
+    deleted.length === 0
+      ? `No visibility restrictions found for '${id}'.`
+      : `Removed ${deleted.length} visibility direction(s) involving '${id}'. '${id}' now sees all users.`,
+  );
+}
+
 async function main(): Promise<void> {
   // Skip the '--' separator that pnpm injects when passing args via `run script -- args`
   const argv = process.argv.slice(2).filter((a) => a !== "--");
@@ -195,15 +371,32 @@ async function main(): Promise<void> {
     case "change-pin":
       await changePin(args);
       break;
+    case "link-users":
+      await linkUsers(args);
+      break;
+    case "unlink-users":
+      await unlinkUsers(args);
+      break;
+    case "list-visibility":
+      await listVisibility();
+      break;
+    case "show-contacts":
+      await showContacts(args);
+      break;
+    case "reset-visibility":
+      await resetVisibility(args);
+      break;
     default:
       console.error(`Unknown command: '${command ?? ""}'`);
-      console.error("Available commands: create-user, block-user, unblock-user, list-users");
+      console.error(
+        "Available commands: create-user, block-user, unblock-user, change-pin, list-users, link-users, unlink-users, list-visibility, show-contacts, reset-visibility",
+      );
       process.exit(1);
   }
   process.exit(0);
 }
 
 main().catch((err: unknown) => {
-  console.error("Fatal error:", err);
+  console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
 });

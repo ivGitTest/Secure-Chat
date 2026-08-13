@@ -27,6 +27,15 @@ CREATE TABLE IF NOT EXISTS users (
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS contact_visibility (
+  user_id         VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  visible_user_id VARCHAR(64) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  PRIMARY KEY (user_id, visible_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS contact_visibility_visible_user_id_idx
+  ON contact_visibility(visible_user_id);
+
 CREATE TABLE IF NOT EXISTS devices (
   id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id       VARCHAR(64)  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
