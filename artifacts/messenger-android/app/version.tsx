@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '@/constants/colors';
 import {
@@ -19,8 +18,6 @@ import {
   getCurrentVersionName,
   type UpdateInfo,
 } from '@/services/updateService';
-
-const INSTALLED_VERSION_KEY = 'update_installed_versioncode';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
@@ -35,13 +32,6 @@ export default function VersionScreen() {
   const [checked, setChecked] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [installedCode, setInstalledCode] = useState<number | null>(null);
-
-  useEffect(() => {
-    AsyncStorage.getItem(INSTALLED_VERSION_KEY)
-      .then((v) => setInstalledCode(v ? (parseInt(v, 10) || 0) : 0))
-      .catch(() => setInstalledCode(0));
-  }, []);
 
   async function handleCheck() {
     setChecking(true);
@@ -83,7 +73,7 @@ export default function VersionScreen() {
         <Text style={styles.headerTitle}>О приложении</Text>
       </View>
 
-      {/* Version info — card with internal separator */}
+      {/* Version info — two rows only */}
       <View style={styles.infoCard}>
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Версия</Text>
@@ -96,24 +86,6 @@ export default function VersionScreen() {
           <Text style={styles.infoLabel}>Дата сборки</Text>
           <Text style={styles.infoValue}>{formatDate(getBuildDate())}</Text>
         </View>
-        <View style={styles.infoSep} />
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>versionCode (APK)</Text>
-          <Text style={styles.infoValue}>{getCurrentVersionCode()}</Text>
-        </View>
-        {installedCode !== null && installedCode > 0 ? (
-          <>
-            <View style={styles.infoSep} />
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>versionCode (updater)</Text>
-              <Text style={[styles.infoValue,
-                installedCode > getCurrentVersionCode() ? styles.infoWarn : null]}>
-                {installedCode}
-                {installedCode > getCurrentVersionCode() ? ' ⚠' : ''}
-              </Text>
-            </View>
-          </>
-        ) : null}
       </View>
 
       {/* Update available */}
