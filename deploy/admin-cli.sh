@@ -68,6 +68,7 @@ show_menu() {
   printf "  ${BOLD}3.${RESET} Заблокировать пользователя\n"
   printf "  ${BOLD}4.${RESET} Разблокировать пользователя\n"
   printf "  ${BOLD}5.${RESET} Сменить PIN пользователю\n"
+  printf "  ${BOLD}6.${RESET} Видимость контактов\n"
   printf "  ${BOLD}0.${RESET} Выход\n"
   printf "${CYAN}──────────────────────────────────────${RESET}\n"
 }
@@ -148,19 +149,71 @@ do_change_pin() {
   fi
 }
 
+do_visibility() {
+  while true; do
+    printf "\n${BOLD}${CYAN}══════════════════════════════════════${RESET}\n"
+    printf "${BOLD}  Видимость контактов${RESET}\n"
+    printf "${BOLD}${CYAN}══════════════════════════════════════${RESET}\n"
+    printf "  ${BOLD}1.${RESET} Показать все связи\n"
+    printf "  ${BOLD}2.${RESET} Показать контакты пользователя\n"
+    printf "  ${BOLD}3.${RESET} Связать двух пользователей\n"
+    printf "  ${BOLD}4.${RESET} Разорвать связь двух пользователей\n"
+    printf "  ${BOLD}5.${RESET} Сбросить ограничения пользователя\n"
+    printf "  ${BOLD}0.${RESET} Назад\n"
+    printf "${CYAN}──────────────────────────────────────${RESET}\n"
+    ask "  Выберите действие [0-5]: " VISIBILITY_CHOICE
+
+    case "$VISIBILITY_CHOICE" in
+      1)
+        printf "\n${YELLOW}Текущие связи:${RESET}\n"
+        run_admin list-visibility
+        ;;
+      2)
+        printf "\n${YELLOW}Контакты пользователя:${RESET}\n"
+        do_list
+        ask "  ID пользователя: " USER_ID
+        [ -z "$USER_ID" ] || run_admin show-contacts --id "$USER_ID"
+        ;;
+      3)
+        printf "\n${YELLOW}Связать пользователей (видят друг друга):${RESET}\n"
+        do_list
+        ask "  ID первого пользователя: " USER_A
+        ask "  ID второго пользователя: " USER_B
+        [ -z "$USER_A" ] || [ -z "$USER_B" ] || run_admin link-users --a "$USER_A" --b "$USER_B"
+        ;;
+      4)
+        printf "\n${YELLOW}Разорвать связь (перестанут видеть друг друга):${RESET}\n"
+        do_list
+        ask "  ID первого пользователя: " USER_A
+        ask "  ID второго пользователя: " USER_B
+        [ -z "$USER_A" ] || [ -z "$USER_B" ] || run_admin unlink-users --a "$USER_A" --b "$USER_B"
+        ;;
+      5)
+        printf "\n${YELLOW}Сбросить ограничения пользователя:${RESET}\n"
+        do_list
+        ask "  ID пользователя: " USER_ID
+        [ -z "$USER_ID" ] || run_admin reset-visibility --id "$USER_ID"
+        ;;
+      0) return ;;
+      *) printf "${RED}Неверный выбор. Введите цифру от 0 до 5.${RESET}\n" ;;
+    esac
+  done
+}
+
 # ── Точка входа ───────────────────────────────────────────────────────────────
 check_container
 
 while true; do
   show_menu
-  ask "  Выберите действие [0-5]: " CHOICE
+  ask "  Выберите действие [0-6]: " CHOICE
   case "$CHOICE" in
     1) do_list ;;
     2) do_create ;;
     3) do_block ;;
     4) do_unblock ;;
     5) do_change_pin ;;
+    6) do_visibility ;;
     0) printf "\nПока!\n"; exit 0 ;;
-    *) printf "${RED}Неверный выбор. Введите цифру от 0 до 5.${RESET}\n" ;;
+    *) printf "${RED}Неверный выбор. Введите цифру от 0 до 6.${RESET}\n" ;;
   esac
 done

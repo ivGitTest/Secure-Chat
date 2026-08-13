@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { users } from "@workspace/db";
-import { ne, eq } from "drizzle-orm";
+import { contactVisibility, users } from "@workspace/db";
+import { and, eq, ne, notExists, or } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -34,10 +34,26 @@ router.get("/", (req: Request, res: Response): void => {
   void (async () => {
     try {
       const { userId } = req.user!;
+      const hiddenPair = db
+        .select({ userId: contactVisibility.userId })
+        .from(contactVisibility)
+        .where(
+          or(
+            and(
+              eq(contactVisibility.userId, userId),
+              eq(contactVisibility.visibleUserId, users.id),
+            ),
+            and(
+              eq(contactVisibility.userId, users.id),
+              eq(contactVisibility.visibleUserId, userId),
+            ),
+          ),
+        );
+
       const allUsers = await db
         .select({ id: users.id, name: users.name })
         .from(users)
-        .where(ne(users.id, userId));
+        .where(and(ne(users.id, userId), notExists(hiddenPair)));
 
       res.json(allUsers);
     } catch (err: unknown) {

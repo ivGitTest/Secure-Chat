@@ -261,7 +261,8 @@ cd /opt/messenger
 ./deploy/admin-cli.sh
 ```
 
-Скрипт показывает меню: создать пользователя, сменить PIN, заблокировать/разблокировать, показать список.
+Скрипт показывает меню: создать пользователя, сменить PIN, заблокировать/разблокировать,
+показать список и настроить видимость контактов.
 
 Или напрямую:
 
@@ -274,6 +275,46 @@ docker compose -f deploy/docker-compose.yml exec api \
 
 docker compose -f deploy/docker-compose.yml exec api \
   node /app/dist/admin.mjs block-user --id vasya
+```
+
+### Видимость контактов
+
+По умолчанию каждый пользователь видит всех остальных. Администратор может скрыть
+пару пользователей через пункт **«Видимость контактов»** в `./deploy/admin-cli.sh`.
+Настройка всегда симметрична: если скрыть A и B, они оба перестанут видеть друг друга;
+нельзя настроить одностороннюю видимость.
+
+Доступные действия:
+
+- показать все скрытые пары;
+- показать, кого видит выбранный пользователь;
+- связать двух пользователей — показать их друг другу;
+- разорвать связь — скрыть их друг от друга;
+- сбросить ограничения пользователя — он снова видит всех, а его связь с другими
+  пользователями удаляется с обеих сторон.
+
+В таблице хранятся только скрытые пары. Отсутствие записи означает, что пользователь
+видит всех, включая новых пользователей. После изменения новый список применяется
+при следующем открытии экрана контактов.
+Уже открытый диалог не является частью этой настройки.
+
+При необходимости те же операции можно вызвать напрямую:
+
+```bash
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs link-users --a alice --b bob
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs unlink-users --a alice --b bob
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs list-visibility
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs show-contacts --id alice
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs reset-visibility --id alice
 ```
 
 ---
