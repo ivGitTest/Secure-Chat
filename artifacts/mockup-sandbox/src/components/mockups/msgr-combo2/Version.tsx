@@ -45,16 +45,16 @@ export default function Version() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-6 space-y-5">
-        {/* Version info card */}
+        {/* Version info card — only two rows */}
         <div className="c2-card overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4">
             <span className="text-[15px]" style={{ color: 'var(--text-secondary)' }}>Версия</span>
-            <span className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>1.1.0 (42)</span>
+            <span className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>2.0.5 (9)</span>
           </div>
-          <div className="h-[1.5px] mx-5" style={{ backgroundColor: 'var(--border)' }} />
+          <div className="h-[1.5px]" style={{ backgroundColor: 'var(--border)' }} />
           <div className="flex items-center justify-between px-5 py-4">
             <span className="text-[15px]" style={{ color: 'var(--text-secondary)' }}>Дата сборки</span>
-            <span className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>12 января 2025</span>
+            <span className="text-[15px] font-bold" style={{ color: 'var(--text-primary)' }}>12 авг. 2026</span>
           </div>
         </div>
 
