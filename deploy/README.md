@@ -31,7 +31,7 @@
   - [Универсальная инструкция после изменений](#универсальная-инструкция-после-изменений)
     - [Какой контейнер обновлять](#какой-контейнер-обновлять)
     - [Полный перезапуск](#полный-перезапуск)
-    - [Если обновились только файлы APK](#если-обновились-только-файлы-apk)
+    - [Публикация APK через deploy-update.sh](#публикация-apk-через-deploy-updatesh)
 - [Полезные команды](#полезные-команды)
 - [Обзор архитектуры](#обзор-архитектуры)
 - [Уведомления об окончании действия сертификата](#уведомления-об-окончании-действия-сертификата)
@@ -411,18 +411,51 @@ curl https://chat.naviry.xyz/api/v1/health
 в volume. В текущей конфигурации резервные копии находятся отдельно на хосте,
 но это не заменяет проверку базы и бэкапов.
 
-#### Если обновились только файлы APK
+#### Публикация APK через deploy-update.sh
 
-Для выкладки APK контейнеры перезапускать не нужно. Достаточно скопировать
-сгенерированные GitHub Actions `version.json` и APK в
-`/opt/messenger/updates/`; nginx увидит файлы через
-смонтированный каталог:
+Для выкладки APK контейнеры перезапускать не нужно. Nginx раздаёт файлы из
+`/opt/messenger/updates/`, поэтому достаточно обновить APK в этой папке.
+
+Скрипт `deploy/deploy-update.sh` запускается **непосредственно на VPS** и
+принимает ссылку на APK из EAS Cloud или GitHub Actions:
 
 ```bash
-scp version.json vps:/opt/messenger/updates/
-scp messenger-family.apk vps:/opt/messenger/updates/messenger.apk
-curl https://chat.naviry.xyz/updates/version.json
+cd /opt/messenger/deploy
+./deploy-update.sh "https://ссылка-на-apk"
 ```
+
+Если запустить скрипт без параметра, он запросит ссылку интерактивно:
+
+```bash
+./deploy-update.sh
+Укажи URL APK:
+```
+
+Поведение скрипта:
+
+1. Проверяет, что ссылка начинается с `http://` или `https://`.
+2. Если параметр отсутствует или не является URL, запрашивает ссылку повторно.
+3. Скачивает APK через `curl` в
+   `/opt/messenger/updates/messenger.apk`.
+4. Показывает текущий `version.json` и сообщает об успешной замене APK.
+
+`version.json` скрипт не изменяет. Перед публикацией он должен уже содержать
+данные той же сборки: `versionName`, `versionCode`, `releasedAt`, `changelog`
+и `apkUrl`. Например, после EAS-сборки его можно отдельно скопировать на VPS:
+
+```bash
+scp artifacts/messenger-android/version.json \
+  root@YOUR_VPS:/opt/messenger/updates/version.json
+```
+
+После этого на VPS запускается `deploy-update.sh`. Для проверки:
+
+```bash
+curl https://chat.naviry.xyz/updates/version.json
+curl -I https://chat.naviry.xyz/updates/messenger.apk
+```
+
+Перезапуск Docker-контейнеров после публикации APK не требуется.
 
 ---
 
