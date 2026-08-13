@@ -83,7 +83,7 @@
 | Сервис | Зачем нужен |
 |--------|-------------|
 | **Firebase / FCM** | Пуш-уведомления о входящих звонках на убитое приложение. Требует Google-аккаунт, Firebase-проект и `google-services.json`. Сервер использует Service Account JSON для отправки прямых FCM data-push. |
-| **GitHub Actions** | CI-сборка подписанного APK (`.github/workflows/build-android.yml`). Запускается вручную или по тегу. Артефакт (APK) публикуется в GitHub Releases и подтягивается клиентом при авто-обновлении. |
+| **GitHub Actions** | Ручная CI-сборка подписанного APK (`.github/workflows/build-android.yml`). APK и `version.json` сохраняются как артефакты workflow. |
 | **Let's Encrypt / Certbot** | TLS-сертификат для домена. Получается один раз и обновляется через `certbot renew`. |
 | **Expo CLI** | Сборка нативного Android-проекта через `expo prebuild`. CI не использует EAS cloud — только локальный Gradle. |
 
@@ -280,13 +280,63 @@ docker compose -f deploy/docker-compose.yml exec api \
 
 ## Сборка Android APK
 
-### Автоматически — GitHub Actions
+### Рекомендуемый вариант — EAS Cloud
 
-При пуше тега или ручном запуске `Build Android APK` GitHub Actions:
+Для запуска сборки APK через EAS используйте скрипт:
+
+```bash
+cd artifacts/messenger-android
+./build_apk.sh
+```
+
+Скрипт показывает текущие значения из `version.json`, затем запрашивает только
+два значения:
+
+| Поле | Что указать |
+|------|------------|
+| `versionName` | Версия приложения, например `2.0.8` |
+| `changelog` | Краткое описание изменений, например `Исправлены уведомления` |
+
+`versionCode` вводить не нужно. Скрипт автоматически берёт текущий
+`versionCode` из `version.json` и увеличивает его на `1`. Например, после
+`11` будет создан `12`.
+
+После ввода данных скрипт:
+
+1. Записывает новый `version.json` с `versionName`, `versionCode`, `releasedAt`,
+   `changelog` и `apkUrl`.
+2. Запускает сборку APK в EAS Cloud с профилем `preview`.
+3. После завершения сборки выводит инструкции для скачивания APK.
+
+Для запуска другого профиля:
+
+```bash
+cd artifacts/messenger-android
+./scripts/eas-build.sh production
+```
+
+Для работы EAS необходим доступ к проекту и авторизация EAS CLI.
+
+### GitHub Actions
+
+В GitHub откройте **Actions → Build Android APK → Run workflow**. Форма
+запрашивает три обязательных значения:
+
+| Поле | Что указать |
+|------|------------|
+| `version_name` | Версия приложения, например `2.0.8` |
+| `version_code` | Положительное целое число для Android-сборки |
+| `changelog` | Краткое описание изменений |
+
+GitHub Actions:
 
 1. Запускает `expo prebuild` на Ubuntu-раннере.
 2. Собирает подписанный APK через Gradle.
-3. Публикует APK как артефакт сборки.
+3. Публикует APK и `version.json` как артефакты workflow.
+
+Эта workflow-сборка сама не выкладывает APK на VPS. После её завершения
+скачайте APK, загрузите `version.json` на VPS и используйте скрипт деплоя,
+описанный в [`deploy/README.md`](deploy/README.md#публикация-apk-через-deploy-updatesh).
 
 **Необходимые GitHub Secrets:**
 
