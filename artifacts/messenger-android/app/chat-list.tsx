@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getConversations } from '@/api/client';
 import colors from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
@@ -34,14 +35,7 @@ function formatTime(iso: string | null): string {
 }
 
 /** Noble, muted avatar palette — deterministic by initial letter */
-const AVATAR_COLORS = [
-  '#7B6FA0', // приглушённый сиреневый
-  '#5E8C7A', // матовый нефрит
-  '#A07A5E', // тёплый терракот
-  '#5E7A9C', // стальной синий
-  '#8A6F6F', // пыльная роза
-  '#6B8A6B', // шалфей
-];
+const AVATAR_COLORS = colors.light.contactsAvatarColors;
 function avatarColor(name: string): string {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
@@ -49,7 +43,8 @@ function avatarColor(name: string): string {
 export default function ChatListScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { users, userId, userName, clearAuth, refreshUsers } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { users, userId, clearAuth, refreshUsers } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -81,31 +76,6 @@ export default function ChatListScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation]);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: 'Контакты',
-      headerRight: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 8 }}>
-          <TouchableOpacity
-            onPress={handleInfo}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ padding: 6 }}
-          >
-            <Ionicons name="information-circle-outline" size={24} color={C.mutedForeground} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => void handleLogout()}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ padding: 6 }}
-          >
-            <Ionicons name="log-out-outline" size={24} color={C.destructive} />
-          </TouchableOpacity>
-        </View>
-      ),
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, userName]);
-
   async function handleLogout() {
     await clearAuth();
     router.replace('/login');
@@ -134,28 +104,63 @@ export default function ChatListScreen() {
       conversation: conversations.find((c) => c.participantId === user.id) ?? null,
     }));
 
+  function renderHeader() {
+    return (
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Контакты</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={handleInfo}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.headerIconButton}
+            accessibilityRole="button"
+            accessibilityLabel="О приложении"
+          >
+            <Ionicons name="information-circle-outline" size={26} color={C.contactsSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => void handleLogout()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.headerIconButton}
+            accessibilityRole="button"
+            accessibilityLabel="Выйти"
+          >
+            <Ionicons name="log-out-outline" size={26} color={C.contactsLogout} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={C.primary} />
+      <View style={[styles.root, { paddingTop: insets.top }]}>
+        {renderHeader()}
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={C.primary} />
+        </View>
       </View>
     );
   }
 
   if (rows.length === 0) {
     return (
-      <View style={styles.center}>
-        <Ionicons name="people-outline" size={56} color={C.mutedForeground} />
-        <Text style={styles.emptyText}>Нет других пользователей</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => void loadData()}>
-          <Text style={styles.retryText}>Обновить</Text>
-        </TouchableOpacity>
+      <View style={[styles.root, { paddingTop: insets.top }]}>
+        {renderHeader()}
+        <View style={styles.center}>
+          <Ionicons name="people-outline" size={56} color={C.contactsMuted} />
+          <Text style={styles.emptyText}>Нет других пользователей</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => void loadData()}>
+            <Text style={styles.retryText}>Обновить</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.background }}>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      {renderHeader()}
       {update && (
         <TouchableOpacity
           style={styles.updateBanner}
@@ -229,26 +234,58 @@ export default function ChatListScreen() {
 
 const C = colors.light;
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: C.contactsBackground,
+  },
+  header: {
+    height: 80,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: C.contactsBorder,
+    flexShrink: 0,
+  },
+  headerTitle: {
+    color: C.text,
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: -0.5,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  headerIconButton: {
+    padding: 8,
+  },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: C.background,
+    backgroundColor: C.contactsBackground,
     gap: 12,
   },
-  emptyText: { fontSize: 16, color: C.mutedForeground, fontFamily: 'Inter_400Regular' },
+  emptyText: { fontSize: 16, color: C.contactsMuted, fontFamily: 'Inter_400Regular' },
   retryBtn: { marginTop: 8, minHeight: 48, justifyContent: 'center' },
   retryText: { color: C.primary, fontSize: 16, fontFamily: 'Inter_700Bold' },
-  list: { paddingVertical: 8 },
+  list: { paddingHorizontal: 16, paddingVertical: 8 },
   updateBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    backgroundColor: `${C.primary}0D`, // 5% opacity
-    borderBottomWidth: 2,
-    borderBottomColor: `${C.primary}20`,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: C.contactsBackground,
+    borderBottomWidth: 1,
+    borderBottomColor: C.contactsBorder,
   },
   updateBannerText: {
     flex: 1,
@@ -256,38 +293,30 @@ const styles = StyleSheet.create({
     color: C.primary,
     fontFamily: 'Inter_700Bold',
   },
-  // Card-style rows — white glass card with border, gap between items
+  // Flat rows from ContactsV2 — no card background, border, shadow, or gaps.
   separator: {
-    height: 12, // gap between cards instead of thin line
+    height: 1,
+    marginHorizontal: 70,
+    backgroundColor: C.contactsBorder,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: C.card,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 16,
-    marginHorizontal: 16,
-    gap: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+    gap: 16,
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 20, // rounded square, not full circle
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
   avatarText: {
-    color: '#fff',
-    fontSize: 24,
+    color: C.primaryForeground,
+    fontSize: 22,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },
@@ -296,7 +325,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   rowBottom: {
     flexDirection: 'row',
@@ -305,7 +334,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   userName: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: C.text,
     fontFamily: 'Inter_700Bold',
@@ -320,8 +349,8 @@ const styles = StyleSheet.create({
   timeUnread: { color: C.primary },
   lastMsg: {
     flex: 1,
-    fontSize: 16,
-    color: C.mutedForeground,
+    fontSize: 15,
+    color: C.contactsSecondary,
     fontFamily: 'Inter_400Regular',
   },
   lastMsgUnread: {
@@ -329,8 +358,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
   },
   badge: {
-    minWidth: 24,
-    height: 24,
+    minWidth: 22,
+    height: 22,
     borderRadius: 12,
     backgroundColor: C.primary,
     alignItems: 'center',
@@ -338,8 +367,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   badgeText: {
-    color: '#fff',
-    fontSize: 13,
+    color: C.primaryForeground,
+    fontSize: 12,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
   },

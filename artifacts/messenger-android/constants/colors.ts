@@ -52,6 +52,22 @@ const colors = {
     acceptGlow: 'rgba(16,185,129,0.4)',
     reject: '#DC2626',      // red-600
     rejectGlow: 'rgba(220,38,38,0.4)',
+
+    // Contacts screen — combo 2 approved mockup
+    contactsBackground: '#F0F4FF',
+    contactsSecondary: '#52525B',
+    contactsMuted: '#A1A1AA',
+    contactsBorder: 'rgba(0,68,255,0.14)',
+    contactsLogout: '#EF4444',
+    contactsOnline: '#10B981',
+    contactsAvatarColors: [
+      '#7B6FA0',
+      '#5E8C7A',
+      '#A07A5E',
+      '#5E7A9C',
+      '#8A6F6F',
+      '#6B8A6B',
+    ],
   },
 
   radius: 16,

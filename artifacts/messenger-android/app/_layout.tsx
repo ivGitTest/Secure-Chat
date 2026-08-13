@@ -101,7 +101,7 @@ function RootLayoutNav() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen
           name="chat-list"
-          options={{ title: 'Контакты', headerBackVisible: false }}
+          options={{ headerShown: false }}
         />
         <Stack.Screen
           name="chat/[id]"
@@ -158,7 +158,18 @@ export default function RootLayout() {
               { text: 'Позже', style: 'cancel' },
               {
                 text: 'Открыть настройки',
-                onPress: () => RNCallKeep.openPhoneAccountSettings(),
+                onPress: () => {
+                  // RNCallKeep exposes this native method internally but does
+                  // not include it in its TypeScript API. Use the public Expo
+                  // intent launcher instead.
+                  void IntentLauncher.startActivityAsync(
+                    'android.telecom.action.CHANGE_PHONE_ACCOUNT_SETTINGS',
+                  ).catch(() => {
+                    void IntentLauncher.startActivityAsync(
+                      'android.settings.MANAGE_DEFAULT_APPS_SETTINGS',
+                    );
+                  });
+                },
               },
             ],
           );
