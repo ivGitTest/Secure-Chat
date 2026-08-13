@@ -34,10 +34,10 @@ function formatTime(iso: string | null): string {
   return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
 
-/** Noble, muted avatar palette — deterministic by initial letter */
+/** Noble, muted avatar palette — one distinct color per visible contact */
 const AVATAR_COLORS = colors.light.contactsAvatarColors;
-function avatarColor(name: string): string {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+function avatarColor(index: number): string {
+  return AVATAR_COLORS[index % AVATAR_COLORS.length];
 }
 
 export default function ChatListScreen() {
@@ -188,7 +188,7 @@ export default function ChatListScreen() {
             tintColor={C.primary}
           />
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const unread = 0; // unreadCount not yet in API
           return (
             <TouchableOpacity
@@ -197,7 +197,7 @@ export default function ChatListScreen() {
               activeOpacity={0.7}
             >
               {/* Avatar */}
-              <View style={[styles.avatar, { backgroundColor: avatarColor(item.user.name) }]}>
+              <View style={[styles.avatar, { backgroundColor: avatarColor(index) }]}>
                 <Text style={styles.avatarText}>
                   {item.user.name.charAt(0).toUpperCase()}
                 </Text>

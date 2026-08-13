@@ -105,6 +105,7 @@ module.exports = {
     },
 
     extra: {
+      buildDate: versionInfo.releasedAt,
       eas: {
         projectId: '31cfd34c-5e09-47a2-8e45-8fab241f3c71',
       },
