@@ -21,15 +21,14 @@
 
 name: Build Android APK
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
     inputs:
       version_name:
         description: 'Версия (versionName), например 2.0.6'
-        required: true
-        type: string
-      version_code:
-        description: 'Номер сборки (versionCode), целое число'
         required: true
         type: string
       changelog:
@@ -64,6 +63,7 @@ jobs:
       # ── Генерируем version.json ────────────────────────────────────────────
       # Значения передаются через env-переменные: Node.js сам экранирует строки
       # при JSON.stringify, поэтому кавычки и спецсимволы в полях безопасны.
+      # versionCode увеличивается на 1 относительно текущего version.json.
       # apkUrl и releasedAt подставляются автоматически.
       # Файл записывается до prebuild, чтобы app.config.js считал актуальную
       # версию (versionCode → android.versionCode, versionName → version).
@@ -92,24 +92,40 @@ jobs:
           NODE
 
       - name: Generate version.json
+        id: generate-version
         env:
           INPUT_VERSION_NAME: ${{ inputs.version_name }}
-          INPUT_VERSION_CODE: ${{ inputs.version_code }}
           INPUT_CHANGELOG:    ${{ inputs.changelog }}
         run: |
           node -e "
             const fs   = require('fs');
-            const code = parseInt(process.env.INPUT_VERSION_CODE, 10);
-            if (!Number.isInteger(code) || code < 1)
-              throw new Error('versionCode должен быть положительным целым числом, получено: ' + process.env.INPUT_VERSION_CODE);
+            const versionPath = 'artifacts/messenger-android/version.json';
+            let currentCode = 0;
+            if (fs.existsSync(versionPath)) {
+              let current;
+              try {
+                current = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
+              } catch (error) {
+                throw new Error('Не удалось прочитать version.json: ' + error.message);
+              }
+              currentCode = Number(current.versionCode ?? 0);
+              if (!Number.isInteger(currentCode) || currentCode < 0)
+                throw new Error('versionCode в version.json должен быть целым неотрицательным числом');
+            }
+            const code = currentCode + 1;
+            const versionName = process.env.INPUT_VERSION_NAME.trim();
+            const changelog = process.env.INPUT_CHANGELOG.trim();
+            if (!versionName || !changelog)
+              throw new Error('versionName и changelog не должны быть пустыми');
             const info = {
               versionCode : code,
-              versionName : process.env.INPUT_VERSION_NAME,
+              versionName,
               releasedAt  : new Date().toISOString(),
-              changelog   : process.env.INPUT_CHANGELOG,
+              changelog,
               apkUrl      : 'messenger.apk',
             };
-            fs.writeFileSync('artifacts/messenger-android/version.json', JSON.stringify(info, null, 2));
+            fs.writeFileSync(versionPath, JSON.stringify(info, null, 2));
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version_code=' + code + '\n');
             console.log(JSON.stringify(info, null, 2));
           "
 
@@ -203,13 +219,26 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk \
              "${{ github.workspace }}/messenger-family.apk"
 
+      # ── Сохраняем номер сборки ───────────────────────────────────────────────
+      # Без этого следующий ручной запуск снова прочитает старый versionCode
+      # из репозитория и не сможет автоматически увеличить его дальше.
+      - name: Commit updated version.json
+        env:
+          VERSION_CODE: ${{ steps.generate-version.outputs.version_code }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add artifacts/messenger-android/version.json
+          git commit -m "chore: bump Android version to ${VERSION_CODE} [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
       # ── Artifact ───────────────────────────────────────────────────────────
       # Скачай оба файла из артефакта и положи в /opt/messenger/updates/.
       # APK переименовать в messenger.apk (apkUrl в version.json = 'messenger.apk').
       - name: Upload APK + version.json
         uses: actions/upload-artifact@v4
         with:
-          name: messenger-android-v${{ inputs.version_name }}-${{ inputs.version_code }}
+          name: messenger-android-v${{ inputs.version_name }}-${{ steps.generate-version.outputs.version_code }}
           path: |
             messenger-family.apk
             artifacts/messenger-android/version.json
