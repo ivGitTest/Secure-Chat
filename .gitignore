@@ -74,3 +74,4 @@ eas-credentials.json
 .secrets
 *.secret
 *.credentials
+*.pem

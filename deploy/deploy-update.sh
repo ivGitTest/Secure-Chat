@@ -29,4 +29,8 @@ UPDATES_DIR="${UPDATES_DIR:-/opt/messenger/updates}"
 echo "Скачиваю APK..."
 curl -fL --progress-bar "$APK_URL" -o "$UPDATES_DIR/messenger.apk"
 
-echo "✓ Готово. APK обновлён, version.json без изменений."
+echo "✓ Готово. Change log: "
+cat /opt/messenger/updates/version.json
+
+echo ""
+echo "✓ Готово. APK обновлён."
