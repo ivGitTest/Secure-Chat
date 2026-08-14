@@ -154,7 +154,7 @@ do_visibility() {
     printf "\n${BOLD}${CYAN}══════════════════════════════════════${RESET}\n"
     printf "${BOLD}  Видимость контактов${RESET}\n"
     printf "${BOLD}${CYAN}══════════════════════════════════════${RESET}\n"
-    printf "  ${BOLD}1.${RESET} Показать все связи\n"
+    printf "  ${BOLD}1.${RESET} Показать все видимые пары\n"
     printf "  ${BOLD}2.${RESET} Показать контакты пользователя\n"
     printf "  ${BOLD}3.${RESET} Связать двух пользователей\n"
     printf "  ${BOLD}4.${RESET} Разорвать связь двух пользователей\n"
@@ -165,7 +165,7 @@ do_visibility() {
 
     case "$VISIBILITY_CHOICE" in
       1)
-        printf "\n${YELLOW}Текущие связи:${RESET}\n"
+        printf "\n${YELLOW}Текущие видимые пары:${RESET}\n"
         run_admin list-visibility
         ;;
       2)

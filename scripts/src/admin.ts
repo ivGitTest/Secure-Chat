@@ -20,7 +20,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import argon2 from "argon2";
 import * as schema from "@workspace/db/schema";
-import { and, asc, eq, inArray, lt, ne, notExists, or } from "drizzle-orm";
+import { and, asc, eq, ne, notExists, or } from "drizzle-orm";
 
 const { Pool } = pg;
 
@@ -250,37 +250,50 @@ async function unlinkUsers(args: Map<string, string>): Promise<void> {
 
 async function listVisibility(): Promise<void> {
   const db = getDb();
-  const pairs = await db
+  const allUsers = await db
+    .select({
+      id: schema.users.id,
+      name: schema.users.name,
+    })
+    .from(schema.users)
+    .orderBy(asc(schema.users.id));
+  const hiddenPairs = await db
     .select({
       userId: schema.contactVisibility.userId,
       visibleUserId: schema.contactVisibility.visibleUserId,
     })
-    .from(schema.contactVisibility)
-    .where(lt(schema.contactVisibility.userId, schema.contactVisibility.visibleUserId))
-    .orderBy(asc(schema.contactVisibility.userId), asc(schema.contactVisibility.visibleUserId));
+    .from(schema.contactVisibility);
+  const hiddenPairKeys = new Set(
+    hiddenPairs.map((pair) => [pair.userId, pair.visibleUserId].sort().join("\u0000")),
+  );
+  const visiblePairs: Array<{
+    userA: { id: string; name: string };
+    userB: { id: string; name: string };
+  }> = [];
 
-  if (pairs.length === 0) {
-    console.log("No hidden pairs configured. All users see everyone.");
+  for (let i = 0; i < allUsers.length; i++) {
+    const userA = allUsers[i];
+    if (!userA) continue;
+
+    for (let j = i + 1; j < allUsers.length; j++) {
+      const userB = allUsers[j];
+      if (!userB) continue;
+
+      const pairKey = [userA.id, userB.id].sort().join("\u0000");
+      if (!hiddenPairKeys.has(pairKey)) {
+        visiblePairs.push({ userA, userB });
+      }
+    }
+  }
+
+  if (visiblePairs.length === 0) {
+    console.log("No visible pairs found.");
     return;
   }
 
-  const ids = [...new Set(pairs.flatMap((pair) => [pair.userId, pair.visibleUserId]))];
-  const usersById = new Map(
-    (
-      await db
-        .select({ id: schema.users.id, name: schema.users.name })
-        .from(schema.users)
-        .where(inArray(schema.users.id, ids))
-    ).map((user) => [user.id, user]),
-  );
-
-  console.log("Hidden pairs (hidden in both directions):");
-  for (const pair of pairs) {
-    const userA = usersById.get(pair.userId);
-    const userB = usersById.get(pair.visibleUserId);
-    console.log(
-      `  ${pair.userId} (${userA?.name ?? "unknown"}) ↔ ${pair.visibleUserId} (${userB?.name ?? "unknown"})`,
-    );
+  console.log("Visible pairs (users who see each other):");
+  for (const pair of visiblePairs) {
+    console.log(`  ${pair.userA.id} (${pair.userA.name}) ↔ ${pair.userB.id} (${pair.userB.name})`);
   }
 }
 
