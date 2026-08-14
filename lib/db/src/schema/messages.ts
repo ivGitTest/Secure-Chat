@@ -18,6 +18,11 @@ export const messages = pgTable("messages", {
    */
   clientId: text("client_id").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  /**
+   * Set when the recipient's device acknowledges receipt via message.ack WS event.
+   * Null means the message has not yet been delivered to the recipient's device.
+   */
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
 });
 
 export type Message = typeof messages.$inferSelect;

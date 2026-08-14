@@ -15,6 +15,8 @@ export interface Message {
   senderId: string;
   text: string;
   createdAt: string;
+  /** ISO timestamp set by the server when the recipient's device ACKed the message. Null = not yet delivered. */
+  deliveredAt?: string | null;
 }
 
 export interface ApiConfig {
