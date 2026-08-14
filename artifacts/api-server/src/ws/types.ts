@@ -12,4 +12,6 @@ export interface ExtendedWebSocket extends WebSocket {
   userId: string;
   isAlive: boolean;
   heartbeatTimer?: ReturnType<typeof setTimeout>;
+  /** Server-driven protocol-level ping interval (survives frozen client JS timers). */
+  pingInterval?: ReturnType<typeof setInterval>;
 }
