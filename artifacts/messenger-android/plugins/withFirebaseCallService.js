@@ -59,7 +59,7 @@
  * Both resolve to the same location on Android.
  */
 
-const { withAndroidManifest, withAppBuildGradle, withDangerousMod } = require('expo/config-plugins');
+const { withAndroidManifest, withAppBuildGradle, withDangerousMod, withMainApplication } = require('expo/config-plugins');
 const path = require('path');
 const fs = require('fs');
 
@@ -105,6 +105,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.invertase.firebase.common.SharedUtils;
@@ -146,6 +147,32 @@ public class CallFirebaseMessagingService extends FirebaseMessagingService {
     // from handleCallCancelled() and from the auto-unregister TTL handler.
     // Volatile: written on the Firebase worker thread, read on the main thread.
     private static volatile BroadcastReceiver sPreAnswerReceiver;
+
+    // ── Atomic call-ownership map ─────────────────────────────────────────────
+    // Used by BOTH the native FCM path (handleIncomingCall) and the JS WS path
+    // (CallClaimModule.claimCall() from CallContext.tsx) to ensure only ONE path
+    // calls TelecomManager.addNewIncomingCall() for a given call ID.
+    //
+    // ConcurrentHashMap.putIfAbsent is an atomic compare-and-swap operation
+    // within the JVM process, so there is no TOCTOU window between the check and
+    // the insertion — whichever thread calls it first wins the claim.
+    private static final ConcurrentHashMap<String, Boolean> sClaimedCallIds =
+            new ConcurrentHashMap<>();
+
+    /**
+     * Atomically claim ownership of a call ID. Returns true if this caller is the
+     * first to claim it (should proceed with addNewIncomingCall / displayIncomingCall).
+     * Returns false if another path already claimed it (should skip Telecom dispatch).
+     * Called from handleIncomingCall (FCM thread) and CallClaimModule (JS bridge thread).
+     */
+    public static boolean claimCallId(String callId) {
+        return sClaimedCallIds.putIfAbsent(callId, Boolean.TRUE) == null;
+    }
+
+    /** Release a claimed call ID (called when the call ends or is cancelled). */
+    public static void releaseCallId(String callId) {
+        if (callId != null) sClaimedCallIds.remove(callId);
+    }
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
@@ -189,21 +216,15 @@ public class CallFirebaseMessagingService extends FirebaseMessagingService {
             return;
         }
 
-        // ── Idempotency guard ──────────────────────────────────────────────────
-        // Prevents a duplicate system call screen when the callee is offline,
-        // receives the FCM push, but then reconnects via WebSocket before the FCM
-        // is processed.  In that case handleUserConnect delivers call.incoming over
-        // WS → JS calls displayIncomingCall() and writes callkeep_pending.json
-        // → FCM arrives late and would call addNewIncomingCall() a second time.
-        //
-        // Two checks (either is sufficient to skip):
-        //   1. Pending file already has this callId (written by JS WS path or a
-        //      prior FCM delivery for the same call).
-        //   2. VoiceConnectionService already has a live connection for this callId
-        //      (JS displayIncomingCall went through addNewIncomingCall via CallKeep).
-        if (isCallAlreadyHandled(callId)) {
+        // ── Atomic claim — single entry point for Telecom ─────────────────────
+        // claimCallId uses ConcurrentHashMap.putIfAbsent, which is an atomic
+        // compare-and-swap inside the JVM.  The JS WS path calls the same method
+        // via CallClaimModule before calling displayIncomingCall().  Whichever
+        // path arrives first wins; the other path sees false and returns early,
+        // preventing two concurrent TelecomManager.addNewIncomingCall() calls.
+        if (!claimCallId(callId)) {
             Log.d(TAG, "handleIncomingCall: callId=" + callId
-                    + " already registered — skipping duplicate addNewIncomingCall");
+                    + " already claimed by WS path — skipping duplicate addNewIncomingCall");
             return;
         }
 
@@ -516,6 +537,10 @@ public class CallFirebaseMessagingService extends FirebaseMessagingService {
         String callId = data.get("callId");
         if (callId == null) return;
 
+        // Release the atomic claim so that a future call with a recycled ID can
+        // be claimed again (unlikely but correct).
+        releaseCallId(callId);
+
         // Terminate the live VoiceConnection so the system call screen is dismissed.
         // VoiceConnectionService.currentConnections is a public static Map<String,
         // VoiceConnection> keyed by EXTRA_CALL_UUID value (= the server callId).
@@ -563,69 +588,6 @@ public class CallFirebaseMessagingService extends FirebaseMessagingService {
         // Dismiss the full-screen call notification (cancels both on Android < API 26
         // where TelecomManager may not have shown anything, and on all newer versions).
         cancelCallNotification();
-    }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Idempotency helper
-    // ──────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Returns true if this call ID has already been handed to TelecomManager,
-     * so a duplicate addNewIncomingCall() can be skipped.
-     *
-     * Two complementary checks:
-     *
-     * 1. VoiceConnectionService.currentConnections — populated after either
-     *    the native FCM path (a previous onMessageReceived call for the same
-     *    callId) or the JS WS path (RNCallKeep.displayIncomingCall →
-     *    TelecomManager.addNewIncomingCall → VoiceConnectionService.
-     *    onCreateIncomingConnection) completes its Telecom round-trip.
-     *    This is the definitive signal but has a short unavoidable window
-     *    while Telecom is dispatching asynchronously.
-     *
-     * 2. callkeep_pending.json — written BEFORE addNewIncomingCall by the
-     *    native path, and written by the JS WS path (CallContext.tsx,
-     *    writePendingCallFileFromWS) before calling displayIncomingCall.
-     *    Reading this file covers the window where Telecom has not yet
-     *    registered the connection.
-     *
-     * Using both checks together makes the guard effective across all timings.
-     */
-    private boolean isCallAlreadyHandled(String callId) {
-        // 1. Live connection check (definitive, but async Telecom round-trip may
-        //    not have completed yet).
-        try {
-            Connection conn = VoiceConnectionService.getConnection(callId);
-            if (conn != null) {
-                Log.d(TAG, "isCallAlreadyHandled: live connection exists for callId=" + callId);
-                return true;
-            }
-        } catch (Exception e) {
-            Log.d(TAG, "isCallAlreadyHandled: getConnection check failed: " + e.getMessage());
-        }
-
-        // 2. Pending file check (fast, synchronous, covers the Telecom window).
-        //    The file is written by both the native path (writePendingCallFile)
-        //    and the JS WS path (writePendingCallFileFromWS in CallContext.tsx).
-        try {
-            File f = new File(getFilesDir(), PENDING_CALL_FILE);
-            if (f.exists()) {
-                StringBuilder sb = new StringBuilder();
-                try (BufferedReader br = new BufferedReader(new FileReader(f))) {
-                    String ln;
-                    while ((ln = br.readLine()) != null) sb.append(ln);
-                }
-                String existingId = new JSONObject(sb.toString()).optString("callId");
-                if (callId.equals(existingId)) {
-                    Log.d(TAG, "isCallAlreadyHandled: pending file already has callId=" + callId);
-                    return true;
-                }
-            }
-        } catch (Exception e) {
-            Log.d(TAG, "isCallAlreadyHandled: file check failed: " + e.getMessage());
-        }
-
-        return false;
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -922,6 +884,90 @@ public class CallAnswerListenerService extends Service {
 }
 `;
 
+// ── Java source: CallClaimModule ──────────────────────────────────────────────
+// React Native module that exposes CallFirebaseMessagingService.claimCallId /
+// releaseCallId to JS so the WS path can atomically claim a call before calling
+// RNCallKeep.displayIncomingCall(), preventing a duplicate system call screen
+// when FCM arrives late in the same process (callee offline→reconnect race).
+
+const CLAIM_MODULE_SOURCE = `\
+package ${PACKAGE_NAME};
+
+import com.facebook.react.bridge.Promise;
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.ReactContextBaseJavaModule;
+import com.facebook.react.bridge.ReactMethod;
+
+import javax.annotation.Nonnull;
+
+/**
+ * Exposes CallFirebaseMessagingService.claimCallId / releaseCallId to JavaScript.
+ *
+ * Usage in CallContext.tsx:
+ *   const claimed = await NativeModules.CallClaimModule.claimCall(callId);
+ *   if (!claimed) return; // FCM path already owns this call — skip displayIncomingCall
+ *   ...
+ *   NativeModules.CallClaimModule.releaseCall(callId); // in cleanupCall()
+ */
+public class CallClaimModule extends ReactContextBaseJavaModule {
+
+    CallClaimModule(ReactApplicationContext context) {
+        super(context);
+    }
+
+    @Nonnull
+    @Override
+    public String getName() {
+        return "CallClaimModule";
+    }
+
+    /**
+     * Atomically claim a call ID.
+     * Resolves true  — this caller won the claim; proceed with displayIncomingCall / addNewIncomingCall.
+     * Resolves false — another path (FCM or WS) already claimed it; skip Telecom dispatch.
+     */
+    @ReactMethod
+    public void claimCall(String callId, Promise promise) {
+        promise.resolve(CallFirebaseMessagingService.claimCallId(callId));
+    }
+
+    /** Release a previously claimed call ID (call when the call ends or is cancelled). */
+    @ReactMethod
+    public void releaseCall(String callId) {
+        CallFirebaseMessagingService.releaseCallId(callId);
+    }
+}
+`;
+
+// ── Java source: CallClaimPackage ─────────────────────────────────────────────
+
+const CLAIM_PACKAGE_SOURCE = `\
+package ${PACKAGE_NAME};
+
+import com.facebook.react.ReactPackage;
+import com.facebook.react.bridge.NativeModule;
+import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.uimanager.ViewManager;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+public class CallClaimPackage implements ReactPackage {
+    @Override
+    public List<NativeModule> createNativeModules(ReactApplicationContext context) {
+        List<NativeModule> modules = new ArrayList<>();
+        modules.add(new CallClaimModule(context));
+        return modules;
+    }
+
+    @Override
+    public List<ViewManager> createViewManagers(ReactApplicationContext context) {
+        return Collections.emptyList();
+    }
+}
+`;
+
 module.exports = function withFirebaseCallService(config) {
 
   // ── Step 0: ensure firebase-messaging is in app/build.gradle ──────────────
@@ -962,6 +1008,16 @@ module.exports = function withFirebaseCallService(config) {
         LISTENER_SERVICE_SOURCE,
         'utf8',
       );
+      fs.writeFileSync(
+        path.join(packageDir, 'CallClaimModule.java'),
+        CLAIM_MODULE_SOURCE,
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(packageDir, 'CallClaimPackage.java'),
+        CLAIM_PACKAGE_SOURCE,
+        'utf8',
+      );
       // Remove CallFCMReceiver.java if it exists from a previous prebuild that
       // generated it. The receiver was removed from the architecture; leaving a
       // stale .java file would cause a compile error (unresolved references).
@@ -972,6 +1028,43 @@ module.exports = function withFirebaseCallService(config) {
       return modConfig;
     },
   ]);
+
+  // ── Step 1b: register CallClaimPackage in MainApplication ─────────────────
+  // Follow the same pattern as withMicrophoneCallService: add an import and
+  // inject the package registration into the packages list so the JS bridge
+  // can resolve NativeModules.CallClaimModule.
+  config = withMainApplication(config, (modConfig) => {
+    const { modResults } = modConfig;
+    const { contents, language } = modResults;
+
+    if (contents.includes('CallClaimPackage')) {
+      return modConfig; // already patched
+    }
+
+    if (language === 'kt') {
+      modResults.contents = contents
+        .replace(
+          /(import com\.facebook\.react\.PackageList\n)/,
+          `$1import ${PACKAGE_NAME}.CallClaimPackage\n`,
+        )
+        .replace(
+          /PackageList\(this\)\.packages\.apply \{/,
+          `PackageList(this).packages.apply {\n                    add(CallClaimPackage())`,
+        );
+    } else {
+      modResults.contents = contents
+        .replace(
+          /(import com\.facebook\.react\.PackageList;\n)/,
+          `$1import ${PACKAGE_NAME}.CallClaimPackage;\n`,
+        )
+        .replace(
+          /(List<ReactPackage> packages = new PackageList\(this\)\.getPackages\(\);)/,
+          `$1\n        packages.add(new CallClaimPackage());`,
+        );
+    }
+
+    return modConfig;
+  });
 
   // ── Step 2: declare the service + telephony features in AndroidManifest ────
   config = withAndroidManifest(config, (modConfig) => {

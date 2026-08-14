@@ -135,39 +135,6 @@ async function readPendingCallFile(): Promise<PendingCallInfo | null> {
 }
 
 /**
- * Write the pending call file from the JS WS path.
- *
- * Normally this file is written by CallFirebaseMessagingService (native) for
- * the killed-app FCM path.  Writing it from the WS path too allows the native
- * service to detect, via an early idempotency check, that this call ID is
- * already being handled — preventing a duplicate system call screen when FCM
- * arrives late after the callee has already reconnected and received the WS
- * event.
- *
- * The file is identical in schema to the native version so that the subsequent
- * readPendingCallFile() call in the reconnect/mount path works correctly.
- */
-async function writePendingCallFileFromWS(
-  callId: string,
-  callerId: string,
-  callerName: string,
-): Promise<void> {
-  try {
-    const uri = FileSystem.documentDirectory + PENDING_CALL_FILE;
-    const data: PendingCallInfo = {
-      callId,
-      callerId,
-      callerName,
-      arrivedAt: Date.now(),
-    };
-    await FileSystem.writeAsStringAsync(uri, JSON.stringify(data));
-  } catch {
-    // Non-fatal — if the write fails, the native idempotency check simply
-    // won't find the file, and the call still proceeds normally via WS.
-  }
-}
-
-/**
  * Delete the pending call file only if it belongs to the given callId.
  * This prevents a newer incoming call's file from being removed when an older
  * accept/reject/timeout path finishes cleaning up.
@@ -256,6 +223,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [isMuted, setIsMuted] = useState(false);
 
   const cleanupCall = useCallback(() => {
+    // Release the atomic call-ID claim so a future call with the same ID
+    // (unlikely but possible if the server recycles UUIDs) can be claimed again.
+    // Must be called before nulling activeCallIdRef so we still have the callId.
+    const releasingCallId = activeCallIdRef.current;
+    if (releasingCallId) {
+      (NativeModules['CallClaimModule'] as { releaseCall?: (id: string) => void } | undefined)
+        ?.releaseCall?.(releasingCallId);
+    }
     // Stop the microphone foreground service — must happen before stopping
     // local tracks so Android can gracefully release the microphone resource.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -449,37 +424,45 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
         // Guard against two simultaneous system call screens.
         //
-        // The server sends FCM only when the callee is offline/killed, so in the
-        // normal foreground/background case this WS event is the sole trigger and
-        // displayIncomingCall() should always run.
+        // The server sends FCM only when the callee is offline/killed, so in
+        // the normal foreground/background case this WS event is the sole
+        // trigger and displayIncomingCall() should always run.
         //
-        // However a reconnect race exists: callee was offline → server sent FCM
-        // → callee reconnects before FCM is processed → handleUserConnect sends
-        // WS call.incoming → this handler fires → FCM arrives shortly after and
-        // CallFirebaseMessagingService also calls addNewIncomingCall.
+        // Reconnect race: callee was offline → server sent FCM → callee
+        // reconnects before FCM is processed → handleUserConnect sends WS
+        // call.incoming → this handler fires → FCM arrives shortly after in
+        // the same process and CallFirebaseMessagingService also tries to call
+        // addNewIncomingCall.
         //
-        // Defence strategy (two layers):
-        //   1. Write the pending file HERE (JS WS path) before calling
-        //      displayIncomingCall so that when FCM arrives, the native
-        //      isCallAlreadyHandled() check finds this callId in the file and
-        //      skips addNewIncomingCall.
-        //   2. Check the file FIRST: if the native FCM path has already written
-        //      it (FCM arrived before WS delivery, e.g. callee reconnects after
-        //      FCM is processed), skip displayIncomingCall to avoid the reverse
-        //      race direction.
-        void readPendingCallFile().then(async (pending) => {
-          if (pending?.callId === callId) {
-            // Native FCM path already showed the system call screen — skip.
-            // Still set incomingCall state (already done above) so the in-app
-            // UI reflects the call.
-            return;
-          }
-          // Write the file before displayIncomingCall so the native service can
-          // detect this WS-originated call if FCM arrives late.
-          await writePendingCallFileFromWS(callId, callerId, callerName);
-          // Normal path: app is foreground/background with active WS.
+        // Both this path and CallFirebaseMessagingService.handleIncomingCall
+        // call the same ConcurrentHashMap.putIfAbsent via CallClaimModule /
+        // the static method.  putIfAbsent is an atomic JVM operation — no
+        // TOCTOU window.  Whichever path claims first proceeds; the other
+        // returns immediately without touching Telecom.
+        //
+        // Fallback: in dev builds where the native module is not yet compiled
+        // (Expo Go) CallClaimModule is undefined.  In that scenario FCM is
+        // also not operative, so the duplicate-screen race cannot occur and
+        // we call displayIncomingCall unconditionally.
+        const claimMod = NativeModules['CallClaimModule'] as
+          | { claimCall: (id: string) => Promise<boolean>; releaseCall: (id: string) => void }
+          | undefined;
+
+        if (claimMod) {
+          void claimMod.claimCall(callId).then((claimed) => {
+            if (!claimed) {
+              // FCM native path already claimed — its addNewIncomingCall
+              // is already running; skip displayIncomingCall to avoid a
+              // second system call screen.
+              return;
+            }
+            displayIncomingCall(callId, callerName);
+          });
+        } else {
+          // Dev / module-not-available path: FCM is also absent here so
+          // no duplicate risk.
           displayIncomingCall(callId, callerName);
-        });
+        }
       }),
 
       // ── Caller accepted our call (we are the caller) ───────────────────────
