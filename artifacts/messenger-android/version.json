@@ -1,7 +1,7 @@
 {
-  "versionCode": 12,
-  "versionName": "2.0.8",
-  "releasedAt": "2026-08-13T19:20:31Z",
-  "changelog": "исправления иконок окна Контакты и окна О приложении",
+  "versionCode": 13,
+  "versionName": "2.1.0",
+  "releasedAt": "2026-08-14T13:21:45Z",
+  "changelog": "галки о прочтении сообщений",
   "apkUrl": "messenger.apk"
 }
