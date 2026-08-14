@@ -11,8 +11,21 @@ import { handleMessage } from "./handlers";
 import { handleUserDisconnect, handleUserConnect } from "./signaling";
 import type { ExtendedWebSocket } from "./types";
 
-/** Inactivity timeout: close connections with no traffic for 60 seconds. */
-const HEARTBEAT_TIMEOUT_MS = 60_000;
+/**
+ * Inactivity timeout: close connections that show no signs of life.
+ *
+ * Liveness is primarily protocol-level: the server sends a WebSocket ping frame
+ * every PING_INTERVAL_MS and the client's native network stack (OkHttp on
+ * Android) answers with a pong automatically — even when Android freezes the
+ * app's JS timers in background/doze. Application traffic (including the
+ * client's JS-level {type:"ping"}) also counts as liveness.
+ *
+ * The timeout must comfortably exceed the ping interval so a single delayed
+ * pong (doze network batching) does not kill a healthy connection.
+ */
+const HEARTBEAT_TIMEOUT_MS = 90_000;
+/** How often the server sends protocol-level ping frames. */
+const PING_INTERVAL_MS = 30_000;
 
 function getJwtSecret(): string {
   const secret = process.env["JWT_SECRET"] ?? process.env["SESSION_SECRET"];
@@ -26,6 +39,25 @@ function resetHeartbeat(ws: ExtendedWebSocket): void {
     logger.info({ userId: ws.userId }, "WS: closing inactive connection (heartbeat timeout)");
     ws.terminate();
   }, HEARTBEAT_TIMEOUT_MS);
+}
+
+/**
+ * Start server-driven protocol pings. The client's native WebSocket stack
+ * replies with pong frames automatically, so liveness no longer depends on the
+ * client's (freezable) JS timers.
+ */
+function startProtocolPing(ws: ExtendedWebSocket): void {
+  clearInterval(ws.pingInterval);
+  ws.pingInterval = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.ping();
+    }
+  }, PING_INTERVAL_MS);
+
+  ws.on("pong", () => {
+    ws.isAlive = true;
+    resetHeartbeat(ws);
+  });
 }
 
 export function setupWebSocketServer(httpServer: http.Server): WebSocketServer {
@@ -125,6 +157,7 @@ export function setupWebSocketServer(httpServer: http.Server): WebSocketServer {
         // 6. Auth complete — flush buffered messages, then start heartbeat
         authComplete = true;
         resetHeartbeat(ws);
+        startProtocolPing(ws);
 
         for (const msg of pendingMessages) {
           ws.isAlive = true;
@@ -135,12 +168,20 @@ export function setupWebSocketServer(httpServer: http.Server): WebSocketServer {
 
         ws.on("close", (code, reason) => {
           clearTimeout(ws.heartbeatTimer);
-          // Remove from online map only if this is still the registered connection
-          if (onlineUsers.get(userId) === ws) {
+          clearInterval(ws.pingInterval);
+          // Only treat this as a real user disconnect if this socket is still
+          // the registered connection. When a client reconnects, the old socket
+          // is evicted (code 4000) AFTER the new one registered — running
+          // handleUserDisconnect for the evicted socket would wrongly end an
+          // active call while the user is actually online.
+          const wasRegistered = onlineUsers.get(userId) === ws;
+          if (wasRegistered) {
             onlineUsers.delete(userId);
           }
-          logger.info({ userId, code, reason: reason.toString() }, "WS: disconnected");
-          void handleUserDisconnect(userId);
+          logger.info({ userId, code, reason: reason.toString(), wasRegistered }, "WS: disconnected");
+          if (wasRegistered) {
+            void handleUserDisconnect(userId);
+          }
         });
 
         ws.on("error", (err) => {

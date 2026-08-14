@@ -63,6 +63,7 @@ import React, {
 } from 'react';
 import {
   Alert,
+  AppState,
   Modal,
   NativeModules,
   PermissionsAndroid,
@@ -224,12 +225,24 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
    * calls).  Nulled once the claim is released.
    */
   const claimedCallIdRef = useRef<string | null>(null);
+  // Mirrors incomingCall for use inside WS handlers, whose subscription effect
+  // does not re-run on every incomingCall change (deps: [users, cleanupCall]) —
+  // reading state directly there would capture a stale (usually null) value.
+  const incomingCallRef = useRef<IncomingCallState | null>(null);
 
   const [callState, setCallState] = useState<CallState>('idle');
   const [callPeer, setCallPeer] = useState<{ id: string; name: string } | null>(null);
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
   const [incomingCall, setIncomingCall] = useState<IncomingCallState | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  // Call for which the SYSTEM Telecom screen is the incoming-call surface —
+  // the RN modal is suppressed for it so only one accept/decline UI exists.
+  const [nativeUiCallId, setNativeUiCallId] = useState<string | null>(null);
+
+  // Keep the ref in sync with state (see incomingCallRef declaration).
+  useEffect(() => {
+    incomingCallRef.current = incomingCall;
+  }, [incomingCall]);
 
   const cleanupCall = useCallback(() => {
     // Release the atomic call-ID claim.  claimedCallIdRef tracks the ID that the
@@ -255,6 +268,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setCallStartTime(null);
     setIncomingCall(null);
     setIsMuted(false);
+    setNativeUiCallId(null);
     activeCallIdRef.current = null;
     acceptingCallIdRef.current = null;
     // Dismiss the full-screen incoming-call notification posted by
@@ -379,7 +393,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     // dropped and the caller never receives the signal to create an SDP offer.
     // waitForConnect() waits up to 10 s for authentication to complete first.
     try {
-      await wsService.waitForConnect(10_000);
+      // 30 s: a cold-start from a locked/dozing phone needs to launch the app,
+      // restore the session and establish the socket over a network that doze
+      // may bring up slowly. 10 s proved too short in the field — the accept
+      // from the system call screen failed and the user had to open the app.
+      await wsService.waitForConnect(30_000);
       wsService.send({ type: 'call.accept', payload: {} });
     } catch (err) {
       acceptingCallIdRef.current = null;
@@ -422,6 +440,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     wsService.send({ type: 'call.reject', payload: {} });
     if (callId) reportCallUnanswered(callId);
     setIncomingCall(null);
+    setNativeUiCallId(null);
     // Delete the pending call file only for this specific call.
     if (callId) void deletePendingCallFile(callId);
     // Dismiss the full-screen incoming-call notification (posted by the Java service).
@@ -441,49 +460,57 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
         setIncomingCall(callInfo);
 
-        // Guard against two simultaneous system call screens.
+        // ── Single incoming-call surface via the atomic claim ────────────────
+        // The server sends BOTH the WS event and a high-priority FCM push (the
+        // push doubles as a doze wake-up even for online users), so this JS
+        // path and CallFirebaseMessagingService.handleIncomingCall can race in
+        // any order. Both call the same ConcurrentHashMap.putIfAbsent (via
+        // CallClaimModule / the static method) — an atomic JVM operation with
+        // no TOCTOU window. Whoever claims first OWNS the incoming-call UI for
+        // this callId; the loser shows nothing:
         //
-        // The server sends FCM only when the callee is offline/killed, so in
-        // the normal foreground/background case this WS event is the sole
-        // trigger and displayIncomingCall() should always run.
+        //   • JS wins  → foreground: RN modal only (no Telecom screen);
+        //                background/locked: system Telecom screen only.
+        //   • FCM wins → native full-screen notification + Telecom screen;
+        //                the RN modal is suppressed via nativeUiCallId.
         //
-        // Reconnect race: callee was offline → server sent FCM → callee
-        // reconnects before FCM is processed → handleUserConnect sends WS
-        // call.incoming → this handler fires → FCM arrives shortly after in
-        // the same process and CallFirebaseMessagingService also tries to call
-        // addNewIncomingCall.
-        //
-        // Both this path and CallFirebaseMessagingService.handleIncomingCall
-        // call the same ConcurrentHashMap.putIfAbsent via CallClaimModule /
-        // the static method.  putIfAbsent is an atomic JVM operation — no
-        // TOCTOU window.  Whichever path claims first proceeds; the other
-        // returns immediately without touching Telecom.
-        //
-        // Fallback: in dev builds where the native module is not yet compiled
-        // (Expo Go) CallClaimModule is undefined.  In that scenario FCM is
-        // also not operative, so the duplicate-screen race cannot occur and
-        // we call displayIncomingCall unconditionally.
+        // Fallback: in dev builds where the native module is not compiled
+        // (Expo Go) CallClaimModule is undefined. FCM is also not operative
+        // there, so no race exists — show the appropriate single surface.
         const claimMod = NativeModules['CallClaimModule'] as
           | { claimCall: (id: string) => Promise<boolean>; releaseCall: (id: string) => void }
           | undefined;
+        const foreground = AppState.currentState === 'active';
 
         if (claimMod) {
           void claimMod.claimCall(callId).then((claimed) => {
             if (!claimed) {
-              // FCM native path already claimed — its addNewIncomingCall
-              // is already running; skip displayIncomingCall to avoid a
-              // second system call screen.
+              // FCM native path already claimed — its Telecom screen and
+              // full-screen notification are the surface. Suppress the RN
+              // modal so only one accept/decline UI exists.
+              setNativeUiCallId(callId);
               return;
             }
             // Track the claim so rejectCall / cleanupCall can release it
             // even if acceptCall (which sets activeCallIdRef) never runs.
             claimedCallIdRef.current = callId;
+            if (foreground) {
+              // Foreground: the RN modal (already armed via setIncomingCall)
+              // is the only surface — do not open the system Telecom screen.
+              return;
+            }
+            // Background/locked: system Telecom screen is the surface;
+            // suppress the RN modal for this call (it would flash if the
+            // user opens the app while it is ringing).
+            setNativeUiCallId(callId);
             displayIncomingCall(callId, callerName);
           });
         } else {
-          // Dev / module-not-available path: FCM is also absent here so
-          // no duplicate risk.  No claim to release.
-          displayIncomingCall(callId, callerName);
+          // Dev / module-not-available path: no FCM, no duplicate risk.
+          if (!foreground) {
+            setNativeUiCallId(callId);
+            displayIncomingCall(callId, callerName);
+          }
         }
       }),
 
@@ -512,10 +539,19 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         cleanupCall();
       }),
 
-      wsService.on('call.end', () => {
-        // Remote party ended the call — dismiss CallKeep UI using the server callId.
-        // activeCallIdRef tracks the correct UUID regardless of who is caller/callee.
-        const callId = activeCallIdRef.current ?? incomingCall?.callId;
+      wsService.on('call.end', (payload) => {
+        const payloadCallId = payload['callId'] as string | undefined;
+        const currentCallId = activeCallIdRef.current ?? incomingCallRef.current?.callId;
+        // Stale-event guard: a delayed call.end from an evicted socket or an
+        // earlier call must not tear down a NEWER call/ring. If the server
+        // included a callId and we know our current call's id, they must match.
+        if (payloadCallId && currentCallId && payloadCallId !== currentCallId) {
+          console.log('[Call] ignoring stale call.end for', payloadCallId);
+          return;
+        }
+        // Dismiss CallKeep UI. Prefer the payload callId (new server), falling
+        // back to the current call id (old-server {} payload compatibility).
+        const callId = payloadCallId ?? currentCallId;
         if (callId) reportCallEnded(callId);
         cleanupCall();
       }),
@@ -644,6 +680,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           callerName: info.callerName,
         };
         setIncomingCall(callInfo);
+        // The system Telecom screen created by the native FCM path owns this
+        // call's incoming UI — suppress the RN modal so opening the app while
+        // it is still ringing doesn't show a second accept/decline surface.
+        setNativeUiCallId(callInfo.callId);
 
         if (info.answered) {
           // Path A: user already accepted in system UI — auto-accept without
@@ -728,7 +768,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   //   • app opens from the full-screen notification tap (pending file unread, answered=false)
   // NOT shown when the system call screen answered path fires (pending file answered=true →
   // acceptCall() is called directly and setIncomingCall stays null).
-  const showIncomingModal = incomingCall !== null && callState === 'idle';
+  const showIncomingModal =
+    incomingCall !== null && callState === 'idle' && nativeUiCallId !== incomingCall.callId;
 
   return (
     <CallContext.Provider value={{ callState, callPeer, incomingCall, makeCall, endCall }}>

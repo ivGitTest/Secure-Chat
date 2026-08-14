@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import type { WsEnvelope } from '@/types';
@@ -34,6 +35,24 @@ class WsService {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private active = false;
+
+  constructor() {
+    // When the app returns to the foreground, Android may have frozen JS timers
+    // (including the reconnect backoff timer) for minutes. Reconnect immediately
+    // instead of waiting for a stale backoff to fire — this is what makes an
+    // in-call signaling drop recover within the server's grace window.
+    AppState.addEventListener('change', (state) => {
+      if (state === 'active' && this.active && !this.isConnected()) {
+        console.log('[WS] app active and socket down — reconnecting now');
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
+        this.reconnectDelay = 1000;
+        void this.doConnect();
+      }
+    });
+  }
 
   on(event: WsEventType, handler: Handler): () => void {
     let set = this.handlers.get(event);

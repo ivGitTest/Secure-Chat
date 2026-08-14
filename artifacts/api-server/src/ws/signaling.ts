@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { callLogs, users, pushTokens } from "@workspace/db";
 import { logger } from "../lib/logger";
-import { send, sendToUser } from "./connections";
+import { onlineUsers, send, sendToUser } from "./connections";
 import { sendPushNotification, sendFcmCallPush } from "../lib/pushService";
 import type { ExtendedWebSocket, WsEnvelope } from "./types";
 import { randomUUID } from "node:crypto";
@@ -31,6 +31,19 @@ const pendingCallDeliveries = new Map<string, { callId: string; timer: ReturnTyp
 
 /** How long to wait for an offline callee to reconnect before expiring the call. */
 const PENDING_CALL_TTL_MS = 60_000;
+
+/**
+ * Participants of a CONNECTED call whose WebSocket dropped, waiting for them to
+ * reconnect. userId → { callId, timer }
+ *
+ * WebRTC media flows peer-to-peer, so a brief signaling-socket drop (network
+ * blip, doze reconnect) must not kill an ongoing call. Only if the participant
+ * fails to reconnect within CALL_RECONNECT_GRACE_MS do we end the call.
+ */
+const pendingDisconnectEnds = new Map<string, { callId: string; timer: ReturnType<typeof setTimeout> }>();
+
+/** How long a connected-call participant may stay disconnected before the call is ended. */
+const CALL_RECONNECT_GRACE_MS = 30_000;
 
 function getCallForUser(userId: string): CallState | null {
   const callId = userToCallId.get(userId);
@@ -74,6 +87,15 @@ function removeCall(call: CallState): void {
   userToCallId.delete(call.calleeId);
   // Also clean up any pending delivery for this call
   removePendingDelivery(call.calleeId, call.callId);
+  // And any disconnect-grace timers for either participant — the call is gone,
+  // so a later timer firing must not try to end a newer call.
+  for (const participant of [call.callerId, call.calleeId]) {
+    const pending = pendingDisconnectEnds.get(participant);
+    if (pending && pending.callId === call.callId) {
+      clearTimeout(pending.timer);
+      pendingDisconnectEnds.delete(participant);
+    }
+  }
 }
 
 /**
@@ -85,34 +107,83 @@ function removeCall(call: CallState): void {
  * call.end before answer, and TTL expiry — so the callee's lock screen never
  * gets stuck ringing after the caller has already given up.
  */
-async function removeCallAndCancelIfNeeded(call: CallState): Promise<void> {
+async function removeCallAndCancelIfNeeded(call: CallState, alsoNotifyUserId?: string): Promise<void> {
   removeCall(call);
   if (call.startedAt === null) {
     // Call was never answered — callee may still have a CallKeep screen showing
     await sendCallCancelPush(call.calleeId, call.callId);
+  } else if (alsoNotifyUserId) {
+    // Connected call ended — the other party may have the app backgrounded with
+    // a frozen JS thread, so the WS call.end alone may never be processed.
+    // The FCM cancel push tears down the native Telecom UI / ongoing-call state
+    // even when JS is frozen, preventing a stuck call screen.
+    await sendCallCancelPush(alsoNotifyUserId, call.callId);
   }
 }
 
-/** Called when a user disconnects — ends any active call they were in. */
-export async function handleUserDisconnect(userId: string): Promise<void> {
-  const call = getCallForUser(userId);
-  if (!call) return;
+/** Cancel a pending disconnect-end timer for a user (they reconnected in time). */
+function cancelPendingDisconnectEnd(userId: string): void {
+  const pending = pendingDisconnectEnds.get(userId);
+  if (pending) {
+    clearTimeout(pending.timer);
+    pendingDisconnectEnds.delete(userId);
+    logger.info({ userId, callId: pending.callId }, "WS: call participant reconnected within grace period");
+  }
+}
 
+/** Definitively end a call because `userId` went away. Notifies the other party on every channel. */
+function endCallByDisconnect(userId: string, call: CallState): void {
   logger.info({ userId, callId: call.callId }, "WS: call ended by disconnect");
   const other = getOtherParty(call, userId);
 
   // Send WebSocket termination FIRST — before any async DB/FCM work — so the
-  // other party receives call.end immediately on disconnect.
+  // other party receives call.end immediately.
   sendToUser(other, {
     type: "call.end",
-    payload: {},
+    payload: { callId: call.callId },
     timestamp: new Date().toISOString(),
   });
 
   // FCM cancel push and call log are best-effort; fire-and-forget so a slow
   // database or FCM network call cannot delay the WS termination above.
-  void removeCallAndCancelIfNeeded(call);
+  void removeCallAndCancelIfNeeded(call, other);
   void writeCallLog(call);
+}
+
+/** Called when a user disconnects — ends (or schedules ending of) any active call they were in. */
+export async function handleUserDisconnect(userId: string): Promise<void> {
+  const call = getCallForUser(userId);
+  if (!call) return;
+
+  if (call.startedAt !== null) {
+    // Connected call: media flows peer-to-peer, so give the participant a
+    // grace window to re-establish the signaling socket (background reconnect,
+    // brief network blip) before killing the call.
+    const existing = pendingDisconnectEnds.get(userId);
+    if (existing) clearTimeout(existing.timer);
+    const timer = setTimeout(() => {
+      pendingDisconnectEnds.delete(userId);
+      // Re-check: the call may have ended by other means during the grace period.
+      const current = activeCalls.get(call.callId);
+      if (!current) return;
+      // Safety net: if the user is somehow back online, do not kill the call.
+      if (onlineUsers.has(userId)) {
+        logger.info({ userId, callId: call.callId }, "WS: grace timer fired but user is online — keeping call");
+        return;
+      }
+      endCallByDisconnect(userId, current);
+    }, CALL_RECONNECT_GRACE_MS);
+    pendingDisconnectEnds.set(userId, { callId: call.callId, timer });
+    logger.info(
+      { userId, callId: call.callId, graceMs: CALL_RECONNECT_GRACE_MS },
+      "WS: call participant disconnected, starting reconnect grace period",
+    );
+    return;
+  }
+
+  // Unanswered call (ringing): end immediately — the caller vanishing must
+  // dismiss the callee's ringing screen right away, and vice versa.
+  endCallByDisconnect(userId, call);
 }
 
 /**
@@ -121,6 +192,10 @@ export async function handleUserDisconnect(userId: string): Promise<void> {
  * buffered while this user was offline.
  */
 export function handleUserConnect(userId: string): void {
+  // If this user is a connected-call participant who dropped and came back
+  // within the grace window, cancel the scheduled call termination.
+  cancelPendingDisconnectEnd(userId);
+
   const pending = pendingCallDeliveries.get(userId);
   if (!pending) return;
 
@@ -264,7 +339,7 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
             void removeCallAndCancelIfNeeded(state);
             sendToUser(userId, {
               type: "call.end",
-              payload: {},
+              payload: { callId },
               timestamp: new Date().toISOString(),
             });
             logger.info({ callId, callerId: userId, calleeId }, "WS: pending call expired (callee never reconnected)");
@@ -340,13 +415,14 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
         return;
       }
       const other = getOtherParty(call, userId);
-      // If the caller ends before the callee answers (startedAt === null), send an
-      // FCM cancel push so the callee's CallKeep screen is dismissed immediately
-      // rather than waiting for the system-level call timeout.
-      void removeCallAndCancelIfNeeded(call);
+      // Always send the FCM cancel push alongside the WS event:
+      // - unanswered call: dismisses the callee's CallKeep ringing screen;
+      // - connected call: tears down the other party's native call UI even if
+      //   their app is backgrounded with frozen JS (stuck-screen prevention).
+      void removeCallAndCancelIfNeeded(call, other);
       sendToUser(other, {
         type: "call.end",
-        payload: {},
+        payload: { callId: call.callId },
         timestamp: new Date().toISOString(),
       });
       logger.info({ callId: call.callId, endedBy: userId }, "WS: call.end");
