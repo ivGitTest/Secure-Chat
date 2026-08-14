@@ -1,7 +1,7 @@
 {
-  "versionCode": 13,
-  "versionName": "2.1.0",
-  "releasedAt": "2026-08-14T13:21:45Z",
-  "changelog": "галки о прочтении сообщений",
+  "versionCode": 14,
+  "versionName": "2.1.1",
+  "releasedAt": "2026-08-14T15:01:05Z",
+  "changelog": "фикс событий о звонке",
   "apkUrl": "messenger.apk"
 }
