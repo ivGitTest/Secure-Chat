@@ -38,8 +38,8 @@ const colors = {
     input: '#F4F4F5',       // zinc-100 — flat input background
 
     // Messenger-specific
-    bubbleMe: '#0044FF',
-    bubbleMeText: '#FFFFFF',
+    bubbleMe: '#C6E0F5',     // soft sky blue — lower contrast for outgoing bubbles
+    bubbleMeText: '#1F3A52', // deep blue-grey for readable text on the light bubble
     bubbleThem: '#FFFFFF',
     bubbleThemText: '#09090b',
 
