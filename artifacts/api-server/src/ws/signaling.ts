@@ -274,9 +274,11 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
         pendingCallDeliveries.set(calleeId, { callId, timer });
         logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite (callee offline — push sent, call state kept)");
       } else {
-        // Callee is online — belt-and-suspenders push to wake the screen
-        void sendCallPush(calleeId, userId, callId);
-        logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite");
+        // Callee is online — WS delivery is sufficient; no push needed.
+        // Sending an FCM push here in addition to the WS event caused two
+        // independent paths (WS and FCM) to both call TelecomManager.addNewIncomingCall,
+        // resulting in two concurrent system call screens on the device.
+        logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite (callee online — no push)");
       }
       break;
     }

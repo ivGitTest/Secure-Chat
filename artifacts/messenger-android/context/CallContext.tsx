@@ -415,16 +415,18 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         setIncomingCall(callInfo);
 
         // Only call displayIncomingCall() if the native FCM path hasn't already
-        // done it.  When the callee was offline/killed, CallFirebaseMessagingService
-        // already called TelecomManager.addNewIncomingCall() via the FCM data push;
-        // calling displayIncomingCall() again creates a SECOND system call screen
-        // (visible as two concurrent "incoming call" windows on the device).
+        // done it.  The server now sends FCM only when the callee is offline/killed
+        // (no active WS connection), so in the normal foreground/background case
+        // this WS event is the sole trigger and displayIncomingCall() should always
+        // run.  The pending-file check is kept as a safety net: if for any reason
+        // CallFirebaseMessagingService already wrote the file (e.g. race on reconnect),
+        // we skip the duplicate call to avoid two concurrent system call screens.
         void readPendingCallFile().then((pending) => {
           if (pending?.callId === callId) {
-            // Native path already showed the system call screen — skip.
+            // Native FCM path already showed the system call screen — skip.
             return;
           }
-          // App was in foreground / WS was connected — native path did not fire.
+          // Normal path: app is in foreground/background with active WS — show call UI.
           displayIncomingCall(callId, callerName);
         });
       }),
