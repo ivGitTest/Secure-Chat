@@ -215,6 +215,15 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
    * Set by call.initiated (outgoing) and acceptCall (incoming); cleared by cleanupCall.
    */
   const activeCallIdRef = useRef<string | null>(null);
+  /**
+   * Tracks the callId for which the JS WS path successfully acquired the
+   * ConcurrentHashMap claim via CallClaimModule.claimCall().  Used to release
+   * the claim on ALL JS termination paths (cleanupCall, rejectCall, stale-call
+   * cancellation from the mount path) regardless of whether activeCallIdRef
+   * was ever set (it is only set in acceptCall, which may not run for rejected
+   * calls).  Nulled once the claim is released.
+   */
+  const claimedCallIdRef = useRef<string | null>(null);
 
   const [callState, setCallState] = useState<CallState>('idle');
   const [callPeer, setCallPeer] = useState<{ id: string; name: string } | null>(null);
@@ -223,14 +232,16 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [isMuted, setIsMuted] = useState(false);
 
   const cleanupCall = useCallback(() => {
-    // Release the atomic call-ID claim so a future call with the same ID
-    // (unlikely but possible if the server recycles UUIDs) can be claimed again.
-    // Must be called before nulling activeCallIdRef so we still have the callId.
-    const releasingCallId = activeCallIdRef.current;
+    // Release the atomic call-ID claim.  claimedCallIdRef tracks the ID that the
+    // JS WS path claimed via CallClaimModule.claimCall(); it is set even before
+    // acceptCall() sets activeCallIdRef.  Fall back to activeCallIdRef to cover
+    // the accepted / outgoing-call case where claimedCallIdRef may be null.
+    const releasingCallId = claimedCallIdRef.current ?? activeCallIdRef.current;
     if (releasingCallId) {
       (NativeModules['CallClaimModule'] as { releaseCall?: (id: string) => void } | undefined)
         ?.releaseCall?.(releasingCallId);
     }
+    claimedCallIdRef.current = null;
     // Stop the microphone foreground service — must happen before stopping
     // local tracks so Android can gracefully release the microphone resource.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
@@ -400,6 +411,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [buildPeerConnection]);
 
   const rejectCall = useCallback((callId?: string) => {
+    // Release any JS WS-path claim — rejectCall does not go through cleanupCall,
+    // so the release must happen here to prevent the claim from leaking.
+    const releaseId = claimedCallIdRef.current;
+    if (releaseId) {
+      (NativeModules['CallClaimModule'] as { releaseCall?: (id: string) => void } | undefined)
+        ?.releaseCall?.(releaseId);
+      claimedCallIdRef.current = null;
+    }
     wsService.send({ type: 'call.reject', payload: {} });
     if (callId) reportCallUnanswered(callId);
     setIncomingCall(null);
@@ -456,11 +475,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
               // second system call screen.
               return;
             }
+            // Track the claim so rejectCall / cleanupCall can release it
+            // even if acceptCall (which sets activeCallIdRef) never runs.
+            claimedCallIdRef.current = callId;
             displayIncomingCall(callId, callerName);
           });
         } else {
           // Dev / module-not-available path: FCM is also absent here so
-          // no duplicate risk.
+          // no duplicate risk.  No claim to release.
           displayIncomingCall(callId, callerName);
         }
       }),

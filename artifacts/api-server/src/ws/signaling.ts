@@ -274,11 +274,15 @@ export function handleSignaling(ws: ExtendedWebSocket, envelope: WsEnvelope): vo
         pendingCallDeliveries.set(calleeId, { callId, timer });
         logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite (callee offline — push sent, call state kept)");
       } else {
-        // Callee is online — WS delivery is sufficient; no push needed.
-        // Sending an FCM push here in addition to the WS event caused two
-        // independent paths (WS and FCM) to both call TelecomManager.addNewIncomingCall,
-        // resulting in two concurrent system call screens on the device.
-        logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite (callee online — no push)");
+        // Callee is online but the app's JS runtime may still be backgrounded,
+        // paused under Doze, or temporarily unscheduled.  The high-priority FCM
+        // push acts as a wake path that works even when the JS thread is not
+        // actively processing messages.  The atomic ConcurrentHashMap claim in
+        // CallFirebaseMessagingService / CallClaimModule ensures only one of the
+        // FCM or WS paths calls TelecomManager.addNewIncomingCall — whichever
+        // path arrives first wins the claim; the other returns without touching Telecom.
+        void sendCallPush(calleeId, userId, callId);
+        logger.info({ callId, callerId: userId, calleeId }, "WS: call.invite (callee online — WS + FCM, atomic claim deduplicates)");
       }
       break;
     }
