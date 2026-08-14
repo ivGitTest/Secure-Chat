@@ -292,8 +292,13 @@ async function listVisibility(): Promise<void> {
   }
 
   console.log("Visible pairs (users who see each other):");
+  let previousUserId: string | undefined;
   for (const pair of visiblePairs) {
+    if (previousUserId !== undefined && previousUserId !== pair.userA.id) {
+      console.log("------------------------------");
+    }
     console.log(`  ${pair.userA.id} (${pair.userA.name}) ↔ ${pair.userB.id} (${pair.userB.name})`);
+    previousUserId = pair.userA.id;
   }
 }
 
