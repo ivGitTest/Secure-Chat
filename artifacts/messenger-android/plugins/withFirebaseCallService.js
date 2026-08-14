@@ -189,6 +189,24 @@ public class CallFirebaseMessagingService extends FirebaseMessagingService {
             return;
         }
 
+        // ── Idempotency guard ──────────────────────────────────────────────────
+        // Prevents a duplicate system call screen when the callee is offline,
+        // receives the FCM push, but then reconnects via WebSocket before the FCM
+        // is processed.  In that case handleUserConnect delivers call.incoming over
+        // WS → JS calls displayIncomingCall() and writes callkeep_pending.json
+        // → FCM arrives late and would call addNewIncomingCall() a second time.
+        //
+        // Two checks (either is sufficient to skip):
+        //   1. Pending file already has this callId (written by JS WS path or a
+        //      prior FCM delivery for the same call).
+        //   2. VoiceConnectionService already has a live connection for this callId
+        //      (JS displayIncomingCall went through addNewIncomingCall via CallKeep).
+        if (isCallAlreadyHandled(callId)) {
+            Log.d(TAG, "handleIncomingCall: callId=" + callId
+                    + " already registered — skipping duplicate addNewIncomingCall");
+            return;
+        }
+
         try {
             // Build PhoneAccountHandle from ApplicationContext.
             // ApplicationContext is always available even in a headless process where
@@ -545,6 +563,69 @@ public class CallFirebaseMessagingService extends FirebaseMessagingService {
         // Dismiss the full-screen call notification (cancels both on Android < API 26
         // where TelecomManager may not have shown anything, and on all newer versions).
         cancelCallNotification();
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Idempotency helper
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Returns true if this call ID has already been handed to TelecomManager,
+     * so a duplicate addNewIncomingCall() can be skipped.
+     *
+     * Two complementary checks:
+     *
+     * 1. VoiceConnectionService.currentConnections — populated after either
+     *    the native FCM path (a previous onMessageReceived call for the same
+     *    callId) or the JS WS path (RNCallKeep.displayIncomingCall →
+     *    TelecomManager.addNewIncomingCall → VoiceConnectionService.
+     *    onCreateIncomingConnection) completes its Telecom round-trip.
+     *    This is the definitive signal but has a short unavoidable window
+     *    while Telecom is dispatching asynchronously.
+     *
+     * 2. callkeep_pending.json — written BEFORE addNewIncomingCall by the
+     *    native path, and written by the JS WS path (CallContext.tsx,
+     *    writePendingCallFileFromWS) before calling displayIncomingCall.
+     *    Reading this file covers the window where Telecom has not yet
+     *    registered the connection.
+     *
+     * Using both checks together makes the guard effective across all timings.
+     */
+    private boolean isCallAlreadyHandled(String callId) {
+        // 1. Live connection check (definitive, but async Telecom round-trip may
+        //    not have completed yet).
+        try {
+            Connection conn = VoiceConnectionService.getConnection(callId);
+            if (conn != null) {
+                Log.d(TAG, "isCallAlreadyHandled: live connection exists for callId=" + callId);
+                return true;
+            }
+        } catch (Exception e) {
+            Log.d(TAG, "isCallAlreadyHandled: getConnection check failed: " + e.getMessage());
+        }
+
+        // 2. Pending file check (fast, synchronous, covers the Telecom window).
+        //    The file is written by both the native path (writePendingCallFile)
+        //    and the JS WS path (writePendingCallFileFromWS in CallContext.tsx).
+        try {
+            File f = new File(getFilesDir(), PENDING_CALL_FILE);
+            if (f.exists()) {
+                StringBuilder sb = new StringBuilder();
+                try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+                    String ln;
+                    while ((ln = br.readLine()) != null) sb.append(ln);
+                }
+                String existingId = new JSONObject(sb.toString()).optString("callId");
+                if (callId.equals(existingId)) {
+                    Log.d(TAG, "isCallAlreadyHandled: pending file already has callId=" + callId);
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            Log.d(TAG, "isCallAlreadyHandled: file check failed: " + e.getMessage());
+        }
+
+        return false;
     }
 
     // ──────────────────────────────────────────────────────────────────────────

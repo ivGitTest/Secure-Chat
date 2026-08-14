@@ -135,6 +135,39 @@ async function readPendingCallFile(): Promise<PendingCallInfo | null> {
 }
 
 /**
+ * Write the pending call file from the JS WS path.
+ *
+ * Normally this file is written by CallFirebaseMessagingService (native) for
+ * the killed-app FCM path.  Writing it from the WS path too allows the native
+ * service to detect, via an early idempotency check, that this call ID is
+ * already being handled — preventing a duplicate system call screen when FCM
+ * arrives late after the callee has already reconnected and received the WS
+ * event.
+ *
+ * The file is identical in schema to the native version so that the subsequent
+ * readPendingCallFile() call in the reconnect/mount path works correctly.
+ */
+async function writePendingCallFileFromWS(
+  callId: string,
+  callerId: string,
+  callerName: string,
+): Promise<void> {
+  try {
+    const uri = FileSystem.documentDirectory + PENDING_CALL_FILE;
+    const data: PendingCallInfo = {
+      callId,
+      callerId,
+      callerName,
+      arrivedAt: Date.now(),
+    };
+    await FileSystem.writeAsStringAsync(uri, JSON.stringify(data));
+  } catch {
+    // Non-fatal — if the write fails, the native idempotency check simply
+    // won't find the file, and the call still proceeds normally via WS.
+  }
+}
+
+/**
  * Delete the pending call file only if it belongs to the given callId.
  * This prevents a newer incoming call's file from being removed when an older
  * accept/reject/timeout path finishes cleaning up.
@@ -414,19 +447,37 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
         setIncomingCall(callInfo);
 
-        // Only call displayIncomingCall() if the native FCM path hasn't already
-        // done it.  The server now sends FCM only when the callee is offline/killed
-        // (no active WS connection), so in the normal foreground/background case
-        // this WS event is the sole trigger and displayIncomingCall() should always
-        // run.  The pending-file check is kept as a safety net: if for any reason
-        // CallFirebaseMessagingService already wrote the file (e.g. race on reconnect),
-        // we skip the duplicate call to avoid two concurrent system call screens.
-        void readPendingCallFile().then((pending) => {
+        // Guard against two simultaneous system call screens.
+        //
+        // The server sends FCM only when the callee is offline/killed, so in the
+        // normal foreground/background case this WS event is the sole trigger and
+        // displayIncomingCall() should always run.
+        //
+        // However a reconnect race exists: callee was offline → server sent FCM
+        // → callee reconnects before FCM is processed → handleUserConnect sends
+        // WS call.incoming → this handler fires → FCM arrives shortly after and
+        // CallFirebaseMessagingService also calls addNewIncomingCall.
+        //
+        // Defence strategy (two layers):
+        //   1. Write the pending file HERE (JS WS path) before calling
+        //      displayIncomingCall so that when FCM arrives, the native
+        //      isCallAlreadyHandled() check finds this callId in the file and
+        //      skips addNewIncomingCall.
+        //   2. Check the file FIRST: if the native FCM path has already written
+        //      it (FCM arrived before WS delivery, e.g. callee reconnects after
+        //      FCM is processed), skip displayIncomingCall to avoid the reverse
+        //      race direction.
+        void readPendingCallFile().then(async (pending) => {
           if (pending?.callId === callId) {
             // Native FCM path already showed the system call screen — skip.
+            // Still set incomingCall state (already done above) so the in-app
+            // UI reflects the call.
             return;
           }
-          // Normal path: app is in foreground/background with active WS — show call UI.
+          // Write the file before displayIncomingCall so the native service can
+          // detect this WS-originated call if FCM arrives late.
+          await writePendingCallFileFromWS(callId, callerId, callerName);
+          // Normal path: app is foreground/background with active WS.
           displayIncomingCall(callId, callerName);
         });
       }),
