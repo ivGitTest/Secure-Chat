@@ -283,6 +283,61 @@ pnpm dlx eas-cli@latest credentials
 - `google-services.json` **не содержит секретов**. Его можно безопасно добавить в репозиторий, если вы не хотите использовать секрет GitHub. Для этого добавьте исключение `!artifacts/messenger-android/google-services.json` в `.gitignore`.
 - Если полностью пропустить этот шаг, приложение будет работать обычно, но push-уведомления не будут доставляться в автономном режиме.
 
+### 6e — Архитектура FCM-пушей для входящих звонков
+
+Для звонков используется **прямой FCM** через Firebase Admin SDK (не Expo Push Service).
+Это позволяет точно контролировать payload и приоритет сообщения.
+
+#### Когда сервер отправляет FCM-пуш
+
+| Состояние получателя | Действие сервера |
+|---|---|
+| Онлайн (активный WebSocket) | Доставка через WS (`call.incoming`), пуш **не отправляется** |
+| Офлайн / приложение убито | Отправляется FCM data-push с `priority=high` |
+
+Такое разделение гарантирует ровно один системный экран входящего звонка: WS и FCM никогда не запускают `TelecomManager.addNewIncomingCall()` одновременно.
+
+#### Структура FCM-сообщения для звонка
+
+```json
+{
+  "token": "<FCM device token>",
+  "data": {
+    "type": "call",
+    "callId": "<uuid>",
+    "callerId": "<userId>",
+    "callerName": "<display name>"
+  },
+  "notification": {
+    "title": "Входящий звонок",
+    "body": "<callerName>"
+  },
+  "android": {
+    "priority": "high",
+    "ttl": 30000,
+    "notification": {
+      "channelId": "incoming_calls",
+      "sound": "default"
+    }
+  }
+}
+```
+
+**Почему используется `notification`-блок:**
+Чисто data-only пуш (без `notification`) убивается менеджером батареи на OEM-оболочках
+(Xiaomi, Huawei, OPPO) до того, как приложение успевает вызвать
+`TelecomManager.addNewIncomingCall()`. Добавление `notification`-блока переводит
+сообщение в категорию «уведомление с данными» — Android доставляет его с высоким
+приоритетом даже на OEM-устройствах.
+
+`CallFirebaseMessagingService.onMessageReceived()` перехватывает сообщение **первым**
+и строит системный экран звонка через Telecom API. Системный баннер из
+`notification`-блока при этом **не отображается**, поскольку сервис обрабатывает
+сообщение раньше, чем ОС успевает его показать.
+
+**`channelId: "incoming_calls"`** должен совпадать с `CALL_CHANNEL_ID` в
+`CallFirebaseMessagingService.java`. Изменение этого значения потребует пересборки APK.
+
 ---
 
 ## Шаг 7 — Создание пользователей

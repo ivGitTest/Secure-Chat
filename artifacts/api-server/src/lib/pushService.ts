@@ -199,12 +199,33 @@ export async function sendFcmCallPush(
 
   try {
     // getMessaging() is imported from "firebase-admin/messaging" (modular API).
+    //
+    // We include a `notification` block alongside the data payload.
+    // A pure data-only push (no notification block) is killed by the battery
+    // manager on OEM firmware (Xiaomi, Huawei, OPPO) before the app process
+    // can call TelecomManager.addNewIncomingCall().  Adding a notification block
+    // elevates the message to a "notification message with data", which Android
+    // treats as high-priority and delivers reliably on OEM devices.
+    // CallFirebaseMessagingService intercepts it first via onMessageReceived()
+    // and builds the Telecom UI — the system banner from the notification block
+    // is never displayed because the service handles the message before the OS
+    // would show it.  android.channelId must match the channel created in
+    // CallFirebaseMessagingService (CALL_CHANNEL_ID = "incoming_calls").
+    const callerName = data["callerName"] ?? data["callerId"] ?? "Входящий звонок";
     const messageId = await getMessaging(app).send({
       token: fcmToken,
-      data, // data-only: no notification block → won't show a banner, just wakes the app
+      data, // data payload for CallFirebaseMessagingService.onMessageReceived()
+      notification: {
+        title: "Входящий звонок",
+        body: callerName,
+      },
       android: {
         priority: "high", // wakes the device even in Doze mode
         ttl: 30_000,      // 30s — call should be answered by then or it expires
+        notification: {
+          channelId: "incoming_calls", // must match CALL_CHANNEL_ID in CallFirebaseMessagingService
+          sound: "default",
+        },
       },
     });
     logger.info({ messageId, callId: data["callId"], type: data["type"] }, "push/fcm: call push sent");
