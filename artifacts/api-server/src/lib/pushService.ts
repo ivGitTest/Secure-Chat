@@ -200,32 +200,25 @@ export async function sendFcmCallPush(
   try {
     // getMessaging() is imported from "firebase-admin/messaging" (modular API).
     //
-    // We include a `notification` block alongside the data payload.
-    // A pure data-only push (no notification block) is killed by the battery
-    // manager on OEM firmware (Xiaomi, Huawei, OPPO) before the app process
-    // can call TelecomManager.addNewIncomingCall().  Adding a notification block
-    // elevates the message to a "notification message with data", which Android
-    // treats as high-priority and delivers reliably on OEM devices.
-    // CallFirebaseMessagingService intercepts it first via onMessageReceived()
-    // and builds the Telecom UI — the system banner from the notification block
-    // is never displayed because the service handles the message before the OS
-    // would show it.  android.channelId must match the channel created in
-    // CallFirebaseMessagingService (CALL_CHANNEL_ID = "incoming_calls").
-    const callerName = data["callerName"] ?? data["callerId"] ?? "Входящий звонок";
+    // IMPORTANT: this MUST remain a data-only message (no `notification` block).
+    //
+    // Firebase treats messages that include a `notification` block as "notification
+    // messages".  When a notification message arrives while the app is in the
+    // background or force-stopped, Android handles it entirely in the system tray
+    // and does NOT invoke FirebaseMessagingService.onMessageReceived().
+    // CallFirebaseMessagingService therefore never runs, TelecomManager.addNewIncomingCall()
+    // is never called, and the system call screen never appears.
+    //
+    // A pure data-only message with android.priority="high" always invokes
+    // onMessageReceived() in the app process, even from a force-stopped state,
+    // which is the behaviour we rely on.  `priority: "high"` also exempts the
+    // push from standard Android Doze deferral.
     const messageId = await getMessaging(app).send({
       token: fcmToken,
-      data, // data payload for CallFirebaseMessagingService.onMessageReceived()
-      notification: {
-        title: "Входящий звонок",
-        body: callerName,
-      },
+      data, // data-only: no notification block — must reach onMessageReceived() when killed
       android: {
         priority: "high", // wakes the device even in Doze mode
         ttl: 30_000,      // 30s — call should be answered by then or it expires
-        notification: {
-          channelId: "incoming_calls", // must match CALL_CHANNEL_ID in CallFirebaseMessagingService
-          sound: "default",
-        },
       },
     });
     logger.info({ messageId, callId: data["callId"], type: data["type"] }, "push/fcm: call push sent");

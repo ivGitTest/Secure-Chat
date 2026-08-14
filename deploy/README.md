@@ -308,35 +308,34 @@ pnpm dlx eas-cli@latest credentials
     "callerId": "<userId>",
     "callerName": "<display name>"
   },
-  "notification": {
-    "title": "Входящий звонок",
-    "body": "<callerName>"
-  },
   "android": {
     "priority": "high",
-    "ttl": 30000,
-    "notification": {
-      "channelId": "incoming_calls",
-      "sound": "default"
-    }
+    "ttl": 30000
   }
 }
 ```
 
-**Почему используется `notification`-блок:**
-Чисто data-only пуш (без `notification`) убивается менеджером батареи на OEM-оболочках
-(Xiaomi, Huawei, OPPO) до того, как приложение успевает вызвать
-`TelecomManager.addNewIncomingCall()`. Добавление `notification`-блока переводит
-сообщение в категорию «уведомление с данными» — Android доставляет его с высоким
-приоритетом даже на OEM-устройствах.
+**Почему сообщение data-only (без `notification`-блока):**
+Android Firebase различает два типа FCM-сообщений:
 
-`CallFirebaseMessagingService.onMessageReceived()` перехватывает сообщение **первым**
-и строит системный экран звонка через Telecom API. Системный баннер из
-`notification`-блока при этом **не отображается**, поскольку сервис обрабатывает
-сообщение раньше, чем ОС успевает его показать.
+- **Data-only** (только `data`, без `notification`): всегда вызывает
+  `FirebaseMessagingService.onMessageReceived()` — даже когда приложение убито.
+  Именно это нужно для входящего звонка: `CallFirebaseMessagingService` получает
+  сообщение и вызывает `TelecomManager.addNewIncomingCall()`.
 
-**`channelId: "incoming_calls"`** должен совпадать с `CALL_CHANNEL_ID` в
-`CallFirebaseMessagingService.java`. Изменение этого значения потребует пересборки APK.
+- **Notification message** (есть `notification`-блок): когда приложение в фоне
+  или убито, Android обрабатывает уведомление самостоятельно в системном трее и
+  **не вызывает** `onMessageReceived()`. `CallFirebaseMessagingService` не получит
+  управление, и системный экран звонка не откроется.
+
+**`android.priority: "high"`** освобождает пуш от стандартного режима Doze:
+Android разбудит устройство и немедленно доставит сообщение в `onMessageReceived()`
+даже при заблокированном экране.
+
+> **Примечание по OEM-устройствам (Xiaomi, Huawei, OPPO):** Менеджеры батареи
+> этих производителей могут дополнительно ограничивать фоновые процессы. Если
+> звонок не приходит на конкретном устройстве с убитым приложением, добавьте
+> приложение в исключения оптимизации батареи в настройках устройства.
 
 ---
 
