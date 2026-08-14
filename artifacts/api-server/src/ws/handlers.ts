@@ -56,7 +56,7 @@ export function handleMessage(ws: ExtendedWebSocket, data: RawData): void {
       void handleMessageSend(ws, envelope);
       break;
     case "message.ack":
-      handleMessageAck(ws, envelope);
+      void handleMessageAck(ws, envelope);
       break;
     case "ping":
       send(ws, { type: "pong", timestamp: new Date().toISOString() });
@@ -266,12 +266,73 @@ async function handleMessageSend(ws: ExtendedWebSocket, envelope: WsEnvelope): P
 // message.ack
 // ---------------------------------------------------------------------------
 
-function handleMessageAck(ws: ExtendedWebSocket, envelope: WsEnvelope): void {
+async function handleMessageAck(ws: ExtendedWebSocket, envelope: WsEnvelope): Promise<void> {
   const messageId = envelope.payload?.["messageId"];
   if (typeof messageId !== "string") {
     send(ws, { type: "error", payload: { code: "INVALID_MESSAGE", message: "messageId is required." } });
     return;
   }
-  // MVP: ack is logged; no read-receipt persistence in schema
-  logger.info({ userId: ws.userId, messageId }, "WS: message.ack");
+
+  try {
+    // Fetch the message so we can authorise the ACK.
+    const [msg] = await db
+      .select({
+        senderId: messages.senderId,
+        conversationId: messages.conversationId,
+        deliveredAt: messages.deliveredAt,
+      })
+      .from(messages)
+      .where(eq(messages.id, messageId))
+      .limit(1);
+
+    if (!msg) {
+      // Do not reveal existence to unauthorised callers.
+      logger.warn({ userId: ws.userId, messageId }, "WS: message.ack — message not found");
+      return;
+    }
+
+    // Only the recipient (not the sender) may ACK a message.
+    if (msg.senderId === ws.userId) {
+      logger.warn({ userId: ws.userId, messageId }, "WS: message.ack — sender cannot ACK own message");
+      return;
+    }
+
+    // Verify the authenticated user is a conversation participant.
+    const [membership] = await db
+      .select({ conversationId: participants.conversationId })
+      .from(participants)
+      .where(and(eq(participants.conversationId, msg.conversationId), eq(participants.userId, ws.userId)))
+      .limit(1);
+
+    if (!membership) {
+      logger.warn({ userId: ws.userId, messageId }, "WS: message.ack — not a participant");
+      return;
+    }
+
+    // Idempotent: if already delivered just relay so a reconnected sender gets the status.
+    if (msg.deliveredAt) {
+      sendToUser(msg.senderId, {
+        type: "message.delivered",
+        payload: { messageId },
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    await db
+      .update(messages)
+      .set({ deliveredAt: new Date() })
+      .where(eq(messages.id, messageId));
+
+    // Relay delivery confirmation to the original sender (best-effort — they may be offline).
+    sendToUser(msg.senderId, {
+      type: "message.delivered",
+      payload: { messageId },
+      timestamp: new Date().toISOString(),
+    });
+
+    logger.info({ userId: ws.userId, messageId, senderId: msg.senderId }, "WS: message.ack — delivered");
+  } catch (err: unknown) {
+    logger.error({ err, userId: ws.userId, messageId }, "WS: handleMessageAck error");
+  }
 }

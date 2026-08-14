@@ -73,6 +73,9 @@ CREATE TABLE IF NOT EXISTS messages (
 -- Idempotent backfill: add client_id to existing tables created before this column existed
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS client_id TEXT UNIQUE;
 
+-- Delivery receipts: timestamp set when recipient's device ACKs via message.ack WS event
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS call_logs (
   id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
   caller_id   VARCHAR(64)  NOT NULL REFERENCES users(id),

@@ -108,6 +108,7 @@ router.get("/:conversationId/messages", (req: Request, res: Response): void => {
           senderId: messages.senderId,
           text: messages.text,
           createdAt: messages.createdAt,
+          deliveredAt: messages.deliveredAt,
         })
         .from(messages)
         .where(

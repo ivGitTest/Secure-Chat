@@ -45,18 +45,29 @@ function formatTime(iso: string): string {
 interface MessageBubbleProps {
   message: Message;
   isMe: boolean;
+  delivered: boolean;
 }
 
-function MessageBubble({ message, isMe }: MessageBubbleProps) {
+function MessageBubble({ message, isMe, delivered }: MessageBubbleProps) {
+  const isTemp = message.id.startsWith('temp-');
   return (
     <View style={[styles.bubbleWrap, isMe ? styles.bubbleWrapMe : styles.bubbleWrapThem]}>
       <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
         <Text style={[styles.bubbleText, isMe ? styles.bubbleTextMe : styles.bubbleTextThem]}>
           {message.text}
         </Text>
-        <Text style={[styles.bubbleTime, isMe ? styles.bubbleTimeMe : styles.bubbleTimeThem]}>
-          {formatTime(message.createdAt)}
-        </Text>
+        <View style={styles.bubbleFooter}>
+          <Text style={[styles.bubbleTime, isMe ? styles.bubbleTimeMe : styles.bubbleTimeThem]}>
+            {formatTime(message.createdAt)}
+          </Text>
+          {isMe && !isTemp && (
+            <Ionicons
+              name="checkmark"
+              size={13}
+              color={delivered ? C.accept : 'rgba(255,255,255,0.55)'}
+            />
+          )}
+        </View>
       </View>
     </View>
   );
@@ -89,6 +100,9 @@ export default function ChatScreen() {
   );
 
   const pendingRef = useRef<Map<string, string>>(new Map());
+  /** IDs of incoming messages that need an ACK but haven't been confirmed yet. */
+  const pendingAckRef = useRef<Set<string>>(new Set());
+  const [deliveredIds, setDeliveredIds] = useState<Set<string>>(() => new Set());
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -116,7 +130,28 @@ export default function ChatScreen() {
     void (async () => {
       try {
         const msgs = await getMessages(id);
-        setMessages([...msgs].reverse());
+        const reversed = [...msgs].reverse();
+        setMessages(reversed);
+        setDeliveredIds(new Set(reversed.filter((m) => m.deliveredAt != null).map((m) => m.id)));
+        // Enqueue ACKs for incoming messages that have no delivery confirmation yet.
+        // We await the socket connection because send() silently drops when not OPEN.
+        // The 'connect' listener below retries if the socket drops and reconnects.
+        const unacked = reversed.filter(
+          (m) => m.senderId !== userId && m.deliveredAt == null,
+        );
+        if (unacked.length > 0) {
+          pendingAckRef.current = new Set(unacked.map((m) => m.id));
+          void (async () => {
+            try {
+              await wsService.waitForConnect(15_000);
+            } catch {
+              return; // timed out — 'connect' listener will retry
+            }
+            for (const id of pendingAckRef.current) {
+              wsService.send({ type: 'message.ack', payload: { messageId: id } });
+            }
+          })();
+        }
       } catch {
         // ignore
       } finally {
@@ -129,13 +164,31 @@ export default function ChatScreen() {
     const unsub = wsService.on('message.delivered', (payload) => {
       const messageId = payload['messageId'] as string | undefined;
       const clientId = payload['clientId'] as string | undefined;
-      if (!messageId || !clientId) return;
-      const tempId = pendingRef.current.get(clientId);
-      if (!tempId) return;
-      pendingRef.current.delete(clientId);
-      setMessages((prev) =>
-        prev.map((m) => m.id === tempId ? { ...m, id: messageId } : m),
-      );
+      if (!messageId) return;
+
+      if (clientId) {
+        // Server storage ack: swap optimistic temp ID → real server ID
+        const tempId = pendingRef.current.get(clientId);
+        if (!tempId) return;
+        pendingRef.current.delete(clientId);
+        setMessages((prev) =>
+          prev.map((m) => m.id === tempId ? { ...m, id: messageId } : m),
+        );
+      } else {
+        // Delivery ack relayed from recipient device → green checkmark
+        pendingAckRef.current.delete(messageId);
+        setDeliveredIds((prev) => new Set(prev).add(messageId));
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Retry pending history ACKs whenever the socket reconnects (covers dropped-then-restored connections).
+  useEffect(() => {
+    const unsub = wsService.on('connect', () => {
+      for (const id of pendingAckRef.current) {
+        wsService.send({ type: 'message.ack', payload: { messageId: id } });
+      }
     });
     return unsub;
   }, []);
@@ -158,6 +211,10 @@ export default function ChatScreen() {
         if (prev.some((m) => m.id === msgId)) return prev;
         return [newMsg, ...prev];
       });
+      // Auto-ACK incoming messages so the sender gets a delivery confirmation.
+      if (senderId && senderId !== userId) {
+        wsService.send({ type: 'message.ack', payload: { messageId: msgId } });
+      }
     });
     return unsub;
   }, [currentConvId, isNew, recipientId]);
@@ -217,7 +274,11 @@ export default function ChatScreen() {
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => (
-            <MessageBubble message={item} isMe={item.senderId === userId} />
+            <MessageBubble
+              message={item}
+              isMe={item.senderId === userId}
+              delivered={deliveredIds.has(item.id)}
+            />
           )}
         />
       )}
@@ -298,8 +359,15 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 18, fontFamily: 'Inter_400Regular', lineHeight: 25 },
   bubbleTextMe: { color: C.bubbleMeText },
   bubbleTextThem: { color: C.bubbleThemText },
-  bubbleTime: { fontSize: 12, marginTop: 4, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  bubbleTimeMe: { color: 'rgba(255,255,255,0.6)', textAlign: 'right' },
+  bubbleFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 2,
+    marginTop: 4,
+  },
+  bubbleTime: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  bubbleTimeMe: { color: 'rgba(255,255,255,0.6)' },
   bubbleTimeThem: { color: C.mutedForeground },
 
   // Input bar — pill-shaped container, no top border
