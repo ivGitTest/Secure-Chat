@@ -266,39 +266,33 @@ async function listVisibility(): Promise<void> {
   const hiddenPairKeys = new Set(
     hiddenPairs.map((pair) => [pair.userId, pair.visibleUserId].sort().join("\u0000")),
   );
-  const visiblePairs: Array<{
-    userA: { id: string; name: string };
-    userB: { id: string; name: string };
-  }> = [];
-
-  for (let i = 0; i < allUsers.length; i++) {
-    const userA = allUsers[i];
-    if (!userA) continue;
-
-    for (let j = i + 1; j < allUsers.length; j++) {
-      const userB = allUsers[j];
-      if (!userB) continue;
-
-      const pairKey = [userA.id, userB.id].sort().join("\u0000");
-      if (!hiddenPairKeys.has(pairKey)) {
-        visiblePairs.push({ userA, userB });
-      }
-    }
-  }
-
-  if (visiblePairs.length === 0) {
-    console.log("No visible pairs found.");
-    return;
-  }
-
   console.log("Visible pairs (users who see each other):");
-  let previousUserId: string | undefined;
-  for (const pair of visiblePairs) {
-    if (previousUserId !== undefined && previousUserId !== pair.userA.id) {
+  let hasVisiblePairs = false;
+  let hasPrintedUserGroup = false;
+
+  for (const userA of allUsers) {
+    const visibleContacts = allUsers.filter(
+      (userB) =>
+        userB.id !== userA.id &&
+        !hiddenPairKeys.has([userA.id, userB.id].sort().join("\u0000")),
+    );
+
+    if (visibleContacts.length === 0) continue;
+
+    if (hasPrintedUserGroup) {
       console.log("------------------------------");
     }
-    console.log(`  ${pair.userA.id} (${pair.userA.name}) ↔ ${pair.userB.id} (${pair.userB.name})`);
-    previousUserId = pair.userA.id;
+
+    for (const userB of visibleContacts) {
+      console.log(`  ${userA.id} (${userA.name}) ↔ ${userB.id} (${userB.name})`);
+    }
+
+    hasPrintedUserGroup = true;
+    hasVisiblePairs = true;
+  }
+
+  if (!hasVisiblePairs) {
+    console.log("No visible pairs found.");
   }
 }
 
