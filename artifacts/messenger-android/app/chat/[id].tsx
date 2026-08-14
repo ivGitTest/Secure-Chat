@@ -63,8 +63,8 @@ function MessageBubble({ message, isMe, delivered }: MessageBubbleProps) {
           {isMe && !isTemp && (
             <Ionicons
               name="checkmark"
-              size={13}
-              color={delivered ? C.accept : 'rgba(255,255,255,0.55)'}
+              size={16}
+              color={delivered ? '#059669' : 'rgba(31,58,82,0.62)'}
             />
           )}
         </View>
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.background },
   msgList: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 12,
     flexGrow: 1,
     justifyContent: 'flex-end',
     gap: 4,
@@ -332,14 +332,14 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, color: C.mutedForeground, fontFamily: 'Inter_400Regular' },
 
   // Bubbles — Minimal: large rounded, sharp tail corner
-  bubbleWrap: { flexDirection: 'row', marginVertical: 2 },
+  bubbleWrap: { flexDirection: 'row', marginVertical: 1 },
   bubbleWrapMe: { justifyContent: 'flex-end' },
   bubbleWrapThem: { justifyContent: 'flex-start' },
   bubble: {
     maxWidth: '82%',
     borderRadius: 24,
     paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingVertical: 10,
   },
   bubbleMe: {
     backgroundColor: C.bubbleMe,
@@ -364,10 +364,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 2,
-    marginTop: 4,
+    marginTop: 3,
   },
   bubbleTime: { fontSize: 12, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  bubbleTimeMe: { color: 'rgba(255,255,255,0.6)' },
+  bubbleTimeMe: { color: 'rgba(31,58,82,0.62)' },
   bubbleTimeThem: { color: C.mutedForeground },
 
   // Input bar — pill-shaped container, no top border
