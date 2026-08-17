@@ -51,6 +51,7 @@ Thumbs.db
 # Local scripts with real user data — never commit these
 scripts/create-users.sh
 deploy/.env
+attached_assets/
 
 # Android signing / service credentials (often accidentally added to app.json or project root)
 *.jks
