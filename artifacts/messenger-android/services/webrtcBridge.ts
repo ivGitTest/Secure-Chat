@@ -8,6 +8,8 @@ export class RTCPeerConnection {
   onicecandidate: ((event: { candidate: { toJSON(): object } | null }) => void) | null =
     null;
   ontrack: ((event: { streams: object[] }) => void) | null = null;
+  oniceconnectionstatechange: (() => void) | null = null;
+  iceConnectionState: string = 'new';
   constructor(_config?: object) {}
   createOffer(_options?: object): Promise<{ type: string; sdp: string }> {
     return Promise.resolve({ type: '', sdp: '' });

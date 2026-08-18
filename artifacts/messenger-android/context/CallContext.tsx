@@ -239,6 +239,19 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   // the RN modal is suppressed for it so only one accept/decline UI exists.
   const [nativeUiCallId, setNativeUiCallId] = useState<string | null>(null);
 
+  // ── ICE restart state ─────────────────────────────────────────────────────
+  /** True when this side created the original WebRTC offer (caller role).
+   *  Only the caller initiates ICE restart to avoid offer/answer glare. */
+  const isCallerRef = useRef<boolean>(false);
+  /** How many consecutive ICE restarts have been attempted this call. */
+  const iceRestartCountRef = useRef<number>(0);
+  /** setTimeout handle for the 2-second disconnected → restart delay. */
+  const iceReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** True while an ICE restart offer is in flight (prevents overlap). */
+  const isIceRestartingRef = useRef<boolean>(false);
+  /** Drives the "Восстановление связи…" banner in the call UI. */
+  const [isReconnecting, setIsReconnecting] = useState<boolean>(false);
+
   // Keep the ref in sync with state (see incomingCallRef declaration).
   useEffect(() => {
     incomingCallRef.current = incomingCall;
@@ -271,6 +284,15 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setNativeUiCallId(null);
     activeCallIdRef.current = null;
     acceptingCallIdRef.current = null;
+    // Reset ICE restart tracking.
+    if (iceReconnectTimerRef.current) {
+      clearTimeout(iceReconnectTimerRef.current);
+      iceReconnectTimerRef.current = null;
+    }
+    isCallerRef.current = false;
+    iceRestartCountRef.current = 0;
+    isIceRestartingRef.current = false;
+    setIsReconnecting(false);
     // Dismiss the full-screen incoming-call notification posted by
     // CallFirebaseMessagingService so it doesn't linger in the notification drawer
     // after the call is answered, ended, or rejected from the in-app UI.
@@ -310,6 +332,93 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           type: 'webrtc.iceCandidate',
           payload: { candidate: event.candidate.toJSON() },
         });
+      }
+    };
+
+    // ── ICE connection-state monitor & automatic restart ──────────────────────
+    // react-native-webrtc fires oniceconnectionstatechange; the event carries
+    // no arguments — read pc.iceConnectionState directly.
+    pc.oniceconnectionstatechange = () => {
+      const state = pc.iceConnectionState;
+      console.log('[ICE] connectionState →', state);
+
+      /** Initiate a new ICE negotiation round.  Only the caller (offerer) sends
+       *  the new offer to avoid simultaneous-offer glare.  The callee simply
+       *  waits; the incoming offer arrives via the existing webrtc.offer handler. */
+      async function doIceRestart() {
+        const currentPc = peerConnectionRef.current;
+        if (!currentPc || isIceRestartingRef.current) return;
+
+        const MAX_RESTARTS = 3;
+        if (iceRestartCountRef.current >= MAX_RESTARTS) {
+          console.warn('[ICE] max restarts reached — ending call');
+          setIsReconnecting(false);
+          wsService.send({ type: 'call.end', payload: {} });
+          cleanupCall();
+          return;
+        }
+
+        if (!isCallerRef.current) {
+          // Callee: mark reconnecting and wait for the caller's new offer.
+          setIsReconnecting(true);
+          return;
+        }
+
+        isIceRestartingRef.current = true;
+        iceRestartCountRef.current += 1;
+        setIsReconnecting(true);
+        console.log(`[ICE] restart attempt ${iceRestartCountRef.current}/${MAX_RESTARTS}`);
+
+        try {
+          const offer = await currentPc.createOffer({ iceRestart: true });
+          await currentPc.setLocalDescription(offer);
+          wsService.send({
+            type: 'webrtc.offer',
+            payload: { sdp: offer.sdp, type: offer.type },
+          });
+        } catch (e) {
+          console.error('[ICE] restart offer failed', e);
+        } finally {
+          isIceRestartingRef.current = false;
+        }
+      }
+
+      if (state === 'connected' || state === 'completed') {
+        // (Re-)connected successfully — reset counter and hide the banner.
+        if (iceReconnectTimerRef.current) {
+          clearTimeout(iceReconnectTimerRef.current);
+          iceReconnectTimerRef.current = null;
+        }
+        iceRestartCountRef.current = 0;
+        isIceRestartingRef.current = false;
+        setIsReconnecting(false);
+        return;
+      }
+
+      if (state === 'disconnected') {
+        // Path may heal on its own — wait 2 s before intervening.
+        setIsReconnecting(true);
+        if (iceReconnectTimerRef.current) return; // timer already running
+        iceReconnectTimerRef.current = setTimeout(() => {
+          iceReconnectTimerRef.current = null;
+          void doIceRestart();
+        }, 2000);
+        return;
+      }
+
+      if (state === 'failed') {
+        // Unrecoverable without a new offer — restart immediately.
+        if (iceReconnectTimerRef.current) {
+          clearTimeout(iceReconnectTimerRef.current);
+          iceReconnectTimerRef.current = null;
+        }
+        void doIceRestart();
+        return;
+      }
+
+      if (state === 'closed') {
+        // Remote side closed the connection.
+        cleanupCall();
       }
     };
 
@@ -520,6 +629,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         if (!pc) return;
         void (async () => {
           try {
+            // Mark this side as the ICE offerer so ICE restart offers originate here.
+            isCallerRef.current = true;
             const offer = await pc.createOffer({});
             await pc.setLocalDescription(offer);
             wsService.send({
@@ -569,6 +680,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         if (!pc) return;
         void (async () => {
           try {
+            // Mark this side as the answerer (callee / ICE restart responder).
+            isCallerRef.current = false;
             await pc.setRemoteDescription({ type: 'offer', sdp: payload['sdp'] as string });
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
@@ -826,6 +939,12 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             ) : (
               <Text style={callStyles.waitingText}>Ожидание ответа…</Text>
             )}
+            {isReconnecting && (
+              <View style={callStyles.reconnectingBanner}>
+                <Ionicons name="wifi" size={14} color="#fbbf24" />
+                <Text style={callStyles.reconnectingText}>Восстановление связи…</Text>
+              </View>
+            )}
           </View>
           <View style={callStyles.centerArea}>
             <AvatarTile name={callPeer?.name ?? '?'} size={160} />
@@ -894,6 +1013,22 @@ const callStyles = StyleSheet.create({
   statusText: { fontSize: 17, color: '#71717a', fontFamily: 'Inter_400Regular' },
   statusConnected: { color: C.accept, fontFamily: 'Inter_700Bold' },
   waitingText: { fontSize: 17, color: '#71717a', fontFamily: 'Inter_400Regular' },
+  reconnectingBanner: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    marginTop: 4,
+  },
+  reconnectingText: {
+    fontSize: 13,
+    color: '#fbbf24',
+    fontWeight: '700' as const,
+    fontFamily: 'Inter_700Bold',
+  },
   timer: {
     fontSize: 32, fontWeight: '700', color: '#FFFFFF',
     fontVariant: ['tabular-nums'], fontFamily: 'Inter_700Bold',
