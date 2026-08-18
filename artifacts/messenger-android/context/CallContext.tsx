@@ -177,6 +177,70 @@ async function requestMicPermission(): Promise<boolean> {
   }
 }
 
+/**
+ * Apply Opus audio-quality parameters to an SDP string (offer or answer).
+ *
+ * Changes made to the Opus fmtp line:
+ *   useinbandfec=1  — in-band FEC: receiver reconstructs a lost packet from
+ *                     redundancy in the NEXT packet (no retransmit, no extra RTT).
+ *   usedtx=1        — discontinuous transmission: encoder goes silent during
+ *                     pauses, saving ~30 % bandwidth.
+ *
+ * ptime:40 — 40 ms packet time instead of the 20 ms default.  Larger frames
+ * tolerate jitter spikes better; the latency cost (+20 ms one-way) is
+ * imperceptible in voice calls.
+ *
+ * The function is applied BEFORE setLocalDescription so the local encoder also
+ * honours the agreed parameters, and the munged SDP is what is sent to the
+ * remote peer via the signaling channel.
+ */
+function applyOpusSdpParams(sdp: string): string {
+  // Locate Opus payload type (e.g. "a=rtpmap:111 opus/48000/2")
+  const rtpmapMatch = sdp.match(/a=rtpmap:(\d+) opus\/48000\/2/i);
+  if (!rtpmapMatch) return sdp; // Opus not in SDP — leave unchanged
+
+  const pt = rtpmapMatch[1];
+  const desired: Record<string, string> = { useinbandfec: '1', usedtx: '1' };
+  const fmtpPrefix = `a=fmtp:${pt} `;
+  const fmtpRe = new RegExp(`(a=fmtp:${pt} )(.*)`);
+
+  let out = sdp;
+
+  // ── fmtp line ─────────────────────────────────────────────────────────────
+  if (fmtpRe.test(out)) {
+    // Merge desired params into the existing fmtp line.
+    out = out.replace(fmtpRe, (_m, prefix, existing) => {
+      const map: Record<string, string> = {};
+      for (const pair of existing.split(';')) {
+        const eqIdx = pair.indexOf('=');
+        if (eqIdx < 0) continue;
+        map[pair.slice(0, eqIdx).trim()] = pair.slice(eqIdx + 1).trim();
+      }
+      Object.assign(map, desired);
+      return prefix + Object.entries(map).map(([k, v]) => `${k}=${v}`).join(';');
+    });
+  } else {
+    // No fmtp yet — insert one immediately after the rtpmap line.
+    out = out.replace(
+      new RegExp(`(a=rtpmap:${pt} opus\\/48000\\/2[^\r\n]*)(\r?\n)`),
+      `$1$2${fmtpPrefix}${Object.entries(desired).map(([k, v]) => `${k}=${v}`).join(';')}$2`,
+    );
+  }
+
+  // ── ptime ─────────────────────────────────────────────────────────────────
+  if (/a=ptime:\d+/.test(out)) {
+    out = out.replace(/a=ptime:\d+/, 'a=ptime:40');
+  } else {
+    // Insert ptime after the Opus rtpmap / fmtp block.
+    out = out.replace(
+      new RegExp(`(a=fmtp:${pt} [^\r\n]*)(\r?\n)`),
+      `$1$2a=ptime:40$2`,
+    );
+  }
+
+  return out;
+}
+
 function CallTimer({ startTime }: { startTime: Date }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
@@ -371,10 +435,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
         try {
           const offer = await currentPc.createOffer({ iceRestart: true });
-          await currentPc.setLocalDescription(offer);
+          const restartSdp = applyOpusSdpParams(offer.sdp);
+          await currentPc.setLocalDescription({ type: offer.type, sdp: restartSdp });
           wsService.send({
             type: 'webrtc.offer',
-            payload: { sdp: offer.sdp, type: offer.type },
+            payload: { sdp: restartSdp, type: offer.type },
           });
         } catch (e) {
           console.error('[ICE] restart offer failed', e);
@@ -423,7 +488,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     };
 
     try {
-      const stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+      const stream = await mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false,
+      });
       localStreamRef.current = stream;
       stream.getTracks().forEach((track) => pc.addTrack(track));
     } catch (err: unknown) {
@@ -632,10 +704,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             // Mark this side as the ICE offerer so ICE restart offers originate here.
             isCallerRef.current = true;
             const offer = await pc.createOffer({});
-            await pc.setLocalDescription(offer);
+            const offerSdp = applyOpusSdpParams(offer.sdp);
+            await pc.setLocalDescription({ type: offer.type, sdp: offerSdp });
             wsService.send({
               type: 'webrtc.offer',
-              payload: { sdp: offer.sdp, type: offer.type },
+              payload: { sdp: offerSdp, type: offer.type },
             });
             setCallState('in-call');
             setCallStartTime(new Date());
@@ -684,10 +757,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             isCallerRef.current = false;
             await pc.setRemoteDescription({ type: 'offer', sdp: payload['sdp'] as string });
             const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
+            const answerSdp = applyOpusSdpParams(answer.sdp);
+            await pc.setLocalDescription({ type: answer.type, sdp: answerSdp });
             wsService.send({
               type: 'webrtc.answer',
-              payload: { sdp: answer.sdp, type: answer.type },
+              payload: { sdp: answerSdp, type: answer.type },
             });
           } catch (e) {
             console.error('[Call] answer failed', e);
