@@ -1,10 +1,19 @@
 import './_group.css';
 
+// Точное отражение текущей реализации:
+// Ionicons checkmark-sharp, size=18
+// Отправлено: rgba(255,255,255,0.85) — белая на голубом
+// Доставлено: #059669 — зелёная
 function Check({ delivered }: { delivered?: boolean }) {
   return (
-    <span className={`chat-checkmarks__check ${delivered ? 'chat-checkmarks__check--delivered' : 'chat-checkmarks__check--muted'}`}>
-      ✓
-    </span>
+    <svg
+      width="18" height="18" viewBox="0 0 512 512"
+      fill={delivered ? '#059669' : 'rgba(255,255,255,0.85)'}
+      style={{ display: 'inline-block', flexShrink: 0 }}
+    >
+      {/* Ionicons checkmark-sharp path */}
+      <path d="M480 128L198.4 428l-2.4 2.4L64 288" stroke={delivered ? '#059669' : 'rgba(255,255,255,0.85)'} strokeWidth="60" strokeLinecap="square" strokeLinejoin="miter" fill="none"/>
+    </svg>
   );
 }
 
