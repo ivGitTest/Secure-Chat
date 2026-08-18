@@ -62,9 +62,9 @@ function MessageBubble({ message, isMe, delivered }: MessageBubbleProps) {
           </Text>
           {isMe && !isTemp && (
             <Ionicons
-              name="checkmark"
-              size={16}
-              color={delivered ? '#059669' : 'rgba(31,58,82,0.62)'}
+              name="checkmark-sharp"
+              size={18}
+              color={delivered ? '#059669' : 'rgba(255,255,255,0.85)'}
             />
           )}
         </View>
