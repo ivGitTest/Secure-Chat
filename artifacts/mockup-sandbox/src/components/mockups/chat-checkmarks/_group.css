@@ -1,0 +1,173 @@
+.chat-checkmarks {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 18px;
+  background: #f7f8fa;
+  color: #09090b;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.chat-checkmarks__phone {
+  width: 100%;
+  max-width: 384px;
+  min-height: 520px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid #e4e4e7;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 16px 36px rgba(31, 58, 82, 0.1);
+}
+
+.chat-checkmarks__header {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 17px 18px;
+  border-bottom: 1px solid #e4e4e7;
+  background: #ffffff;
+}
+
+.chat-checkmarks__back {
+  color: #0044ff;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.chat-checkmarks__avatar {
+  display: grid;
+  width: 35px;
+  height: 35px;
+  place-items: center;
+  border-radius: 50%;
+  background: #52627a;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.chat-checkmarks__person {
+  display: grid;
+  gap: 2px;
+}
+
+.chat-checkmarks__name {
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.chat-checkmarks__status {
+  color: #71717a;
+  font-size: 11px;
+}
+
+.chat-checkmarks__messages {
+  display: grid;
+  align-content: end;
+  min-height: 405px;
+  gap: 9px;
+  padding: 24px 13px 18px;
+  background: #fafafa;
+}
+
+.chat-checkmarks__row {
+  display: flex;
+  width: 100%;
+}
+
+.chat-checkmarks__row--outgoing {
+  justify-content: flex-end;
+}
+
+.chat-checkmarks__row--incoming {
+  justify-content: flex-start;
+}
+
+.chat-checkmarks__bubble {
+  max-width: 82%;
+  padding: 10px 14px 8px;
+  border-radius: 20px;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.chat-checkmarks__bubble--outgoing {
+  border-bottom-right-radius: 6px;
+  background: #c6e0f5;
+  color: #1f3a52;
+}
+
+.chat-checkmarks__bubble--incoming {
+  border: 1px solid #e4e4e7;
+  border-bottom-left-radius: 6px;
+  background: #ffffff;
+  color: #09090b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.chat-checkmarks__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  margin-top: 5px;
+  color: #71717a;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.chat-checkmarks__bubble--outgoing .chat-checkmarks__footer {
+  color: rgba(31, 58, 82, 0.62);
+}
+
+.chat-checkmarks__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 86px;
+  color: #71717a;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.chat-checkmarks__check {
+  display: inline-block;
+  color: #ffffff;
+  font-family: Arial, sans-serif;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 0.75;
+  text-shadow: 0 0 0 #ffffff;
+}
+
+.chat-checkmarks__check--delivered {
+  color: #059669;
+  text-shadow: 0 0 0 #059669;
+}
+
+.chat-checkmarks__check--muted {
+  color: rgba(31, 58, 82, 0.62);
+  text-shadow: 0 0 0 rgba(31, 58, 82, 0.62);
+}
+
+.chat-checkmarks__check--double {
+  display: inline-flex;
+  width: 27px;
+  letter-spacing: -9px;
+}
+
+.chat-checkmarks__legend {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  padding: 12px 14px 15px;
+  background: #ffffff;
+  color: #52525b;
+  font-size: 11px;
+}
+
+.chat-checkmarks__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
