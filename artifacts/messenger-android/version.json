@@ -1,7 +1,7 @@
 {
-  "versionCode": 16,
+  "versionCode": 17,
   "versionName": "2.1.2",
-  "releasedAt": "2026-08-18T13:51:47.850Z",
-  "changelog": "окно чат: галки, улучшение голосовой связи",
+  "releasedAt": "2026-08-19T07:03:12.387Z",
+  "changelog": "галки и голосовая связь",
   "apkUrl": "messenger.apk"
 }
