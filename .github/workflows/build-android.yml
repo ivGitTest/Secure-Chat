@@ -36,6 +36,12 @@ on:
         required: true
         type: string
 
+concurrency:
+  # Не запускаем две ручные сборки одной ветки одновременно: обе могут
+  # вычислить одинаковый versionCode и одновременно обновлять version.json.
+  group: build-android-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -226,11 +232,35 @@ jobs:
         env:
           VERSION_CODE: ${{ steps.generate-version.outputs.version_code }}
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add artifacts/messenger-android/version.json
           git commit -m "chore: bump Android version to ${VERSION_CODE} [skip ci]"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+          # Сборка может идти несколько минут, за это время в main могли
+          # появиться новые commits. Синхронизируемся перед push, иначе Git
+          # отклонит push как non-fast-forward.
+          for attempt in 1 2 3; do
+            git fetch --no-tags origin "${GITHUB_REF_NAME}"
+
+            if ! git rebase "origin/${GITHUB_REF_NAME}"; then
+              echo "::error::Не удалось сделать rebase: конфликт в version.json."
+              echo "::error::APK собран со старым versionCode; запустите workflow повторно после актуального commit."
+              git rebase --abort || true
+              exit 1
+            fi
+
+            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
+              exit 0
+            fi
+
+            echo "Ветка изменилась во время push (попытка ${attempt}/3), повторяю..."
+            sleep $((attempt * 5))
+          done
+
+          echo "::error::Не удалось отправить обновление version.json после 3 попыток."
+          exit 1
 
       # ── Artifact ───────────────────────────────────────────────────────────
       # Скачай оба файла из артефакта и положи в /opt/messenger/updates/.
