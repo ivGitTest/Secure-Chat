@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './_group.css';
 
 export default function Server() {
-  const [url, setUrl] = useState('https://chat.naviry.xyz');
+  const [url, setUrl] = useState('https://chat.example.com');
   const [status, setStatus] = useState<'idle' | 'checking' | 'ok'>('idle');
 
   const handleSubmit = async (e: React.FormEvent) => {

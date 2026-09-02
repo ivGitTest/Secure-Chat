@@ -16,7 +16,7 @@
 #                         Requires `mail` or `sendmail` to be configured on the host.
 set -eu
 
-DOMAIN="${DOMAIN:-chat.naviry.xyz}"
+DOMAIN="${DOMAIN:-chat.example.com}"
 WARN_DAYS="${WARN_DAYS:-14}"
 CERT_FILE="${CERT_FILE:-$(cd "$(dirname "$0")/.." && pwd)/certs/fullchain.pem}"
 
