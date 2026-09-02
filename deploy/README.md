@@ -579,18 +579,29 @@ curl https://chat.naviry.xyz/api/v1/health
 в volume. В текущей конфигурации резервные копии находятся отдельно на хосте,
 но это не заменяет проверку базы и бэкапов.
 
-#### Публикация APK через deploy-update.sh
+#### Публикация APK и version.json через deploy-update.sh
 
 Для выкладки APK контейнеры перезапускать не нужно. Nginx раздаёт файлы из
 `/opt/messenger/updates/`, поэтому достаточно обновить APK в этой папке.
 
-Скрипт `deploy/deploy-update.sh` запускается **непосредственно на VPS** и
-принимает ссылку на APK из EAS Cloud или GitHub Actions:
+Скрипт `deploy/deploy-update.sh` запускается **непосредственно на VPS**.
+При передаче ссылки на GitHub Actions-артефакт он извлекает из ZIP и
+устанавливает оба файла: APK и вложенный `version.json`.
 
 ```bash
 cd /opt/messenger/deploy
+./deploy-update.sh "https://github.com/OWNER/REPO/actions/runs/RUN_ID/artifacts/ARTIFACT_ID"
+```
+
+Также принимается прямая ссылка на APK из EAS Cloud или любого CDN:
+
+```bash
 ./deploy-update.sh "https://ссылка-на-apk"
 ```
+
+В режиме прямой ссылки `version.json` не входит в загрузку и сохраняется
+без изменений. Для автоматического обновления метаданных используйте
+GitHub Actions-артефакт.
 
 Если запустить скрипт без параметра, он запросит ссылку интерактивно:
 
@@ -603,18 +614,12 @@ cd /opt/messenger/deploy
 
 1. Проверяет, что ссылка начинается с `http://` или `https://`.
 2. Если параметр отсутствует или не является URL, запрашивает ссылку повторно.
-3. Скачивает APK через `curl` в
-   `/opt/messenger/updates/messenger.apk`.
-4. Показывает текущий `version.json` и сообщает об успешной замене APK.
-
-`version.json` скрипт не изменяет. Перед публикацией он должен уже содержать
-данные той же сборки: `versionName`, `versionCode`, `releasedAt`, `changelog`
-и `apkUrl`. Например, после EAS-сборки его можно отдельно скопировать на VPS:
-
-```bash
-scp artifacts/messenger-android/version.json \
-  root@YOUR_VPS:/opt/messenger/updates/version.json
-```
+3. Для GitHub Actions-артефакта скачивает ZIP через GitHub API, находит APK и
+   `version.json` независимо от их вложенного пути.
+4. Проверяет формат `version.json` и запрещает откат на меньший `versionCode`.
+5. Атомарно заменяет APK в `/opt/messenger/updates/messenger.apk`, а затем
+   `version.json` в `/opt/messenger/updates/version.json`.
+6. Для прямой ссылки заменяет только APK и оставляет текущий `version.json`.
 
 После этого на VPS запускается `deploy-update.sh`. Для проверки:
 
