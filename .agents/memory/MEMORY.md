@@ -1,8 +1,0 @@
-- [JWT signing key](jwt-signing-key.md) — use SESSION_SECRET as fallback when JWT_SECRET not set; SESSION_SECRET is the only available Replit secret for now
-- [firebase-admin ESM import](firebase-admin-esm-import.md) — use subpackage imports (firebase-admin/app, firebase-admin/messaging), never `import * as admin from "firebase-admin"` with esbuild
-- [Express req.user typing](express-req-user-typing.md) — add "express" to tsconfig types array + declare namespace Express { interface Request } in a .d.ts file; do NOT use declare module "express-serve-static-core"
-- [drizzle-zod custom overrides](drizzle-zod-overrides.md) — do not pass custom Zod schema overrides to createInsertSchema; they cause type errors due to internal Zod version mismatch
-- [argon2 native build](argon2-native-build.md) — add argon2 to onlyBuiltDependencies in pnpm-workspace.yaml; esbuild externalizes it so it loads at runtime from node_modules
-- [EAS Firebase config](eas-google-services.md) — google-services.json is gitignored; EAS needs the one-time GOOGLE_SERVICES_JSON project secret
-- [GitHub workflow inputs](github-workflow-inputs.md) — workflow_dispatch fields are entered before jobs run, so repository values can only be shown in the first job step
-- [Symmetric contact visibility](contact-visibility.md) — use a two-way deny-list so the all-visible default cannot produce one-way contact visibility

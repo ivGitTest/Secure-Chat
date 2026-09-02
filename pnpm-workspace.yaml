@@ -76,6 +76,21 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+  # Keep vulnerable transitive packages on patched releases without forcing
+  # incompatible major versions onto their parents.
+  "brace-expansion@1.1.16": "1.1.18"
+  "brace-expansion@2.1.2": "2.1.4"
+  "brace-expansion@5.0.7": "5.0.9"
+  "browserslist@4.28.6": "4.28.7"
+  "fast-uri@3.1.4": "3.1.5"
+  "js-yaml@3.15.0": "3.15.1"
+  "js-yaml@4.2.0": "4.3.1"
+  "nanoid@3.3.16": "3.3.18"
+  "postcss@8.4.49": "8.5.23"
+  "postcss@8.5.20": "8.5.23"
+  "tar@7.5.20": "7.5.21"
+  "undici@6.27.0": "6.28.0"
+
   # replit uses linux-x64 only, we can exclude all other platforms
   "esbuild>@esbuild/darwin-arm64": "-"
   "esbuild>@esbuild/darwin-x64": "-"
