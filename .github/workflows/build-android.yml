@@ -51,28 +51,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── Node / pnpm ────────────────────────────────────────────────────────
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: '10'
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
-
-      - name: Install monorepo dependencies
-        run: pnpm install --no-frozen-lockfile
-
-      # ── Генерируем version.json ────────────────────────────────────────────
-      # Значения передаются через env-переменные: Node.js сам экранирует строки
-      # при JSON.stringify, поэтому кавычки и спецсимволы в полях безопасны.
-      # versionCode увеличивается на 1 относительно текущего version.json.
-      # apkUrl и releasedAt подставляются автоматически.
-      # Файл записывается до prebuild, чтобы app.config.js считал актуальную
-      # версию (versionCode → android.versionCode, versionName → version).
+      # ── Проверяем текущую версию ────────────────────────────────────────────
       - name: Show current version.json
         run: |
           if [ ! -f artifacts/messenger-android/version.json ]; then
@@ -97,43 +76,98 @@ jobs:
           console.log('   apkUrl:     ' + (info.apkUrl ?? 'не указано'));
           NODE
 
-      - name: Generate version.json
+      # ── Резервируем versionCode до начала сборки ────────────────────────────
+      # Версия должна быть отправлена в main ДО Gradle-сборки. Иначе за время
+      # сборки другой commit может изменить version.json, а post-build rebase
+      # закончится конфликтом и APK останется без артефакта.
+      #
+      # При гонке push повторяется с новым origin/main: reset берёт актуальный
+      # version.json, после чего номер увеличивается ещё на единицу. Поэтому
+      # versionCode APK всегда совпадает с сохранённым в репозитории.
+      - name: Reserve and commit version.json
         id: generate-version
         env:
           INPUT_VERSION_NAME: ${{ inputs.version_name }}
           INPUT_CHANGELOG:    ${{ inputs.changelog }}
         run: |
-          node -e "
-            const fs   = require('fs');
-            const versionPath = 'artifacts/messenger-android/version.json';
-            let currentCode = 0;
-            if (fs.existsSync(versionPath)) {
-              let current;
-              try {
-                current = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
-              } catch (error) {
-                throw new Error('Не удалось прочитать version.json: ' + error.message);
-              }
-              currentCode = Number(current.versionCode ?? 0);
-              if (!Number.isInteger(currentCode) || currentCode < 0)
-                throw new Error('versionCode в version.json должен быть целым неотрицательным числом');
+          set -euo pipefail
+          branch="${GITHUB_REF_NAME}"
+          version_path="artifacts/messenger-android/version.json"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch --no-tags origin "${branch}"
+            git reset --hard "origin/${branch}"
+
+            node <<'NODE'
+          const fs = require('fs');
+          const versionPath = 'artifacts/messenger-android/version.json';
+          let currentCode = 0;
+          if (fs.existsSync(versionPath)) {
+            let current;
+            try {
+              current = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
+            } catch (error) {
+              throw new Error('Не удалось прочитать version.json: ' + error.message);
             }
-            const code = currentCode + 1;
-            const versionName = process.env.INPUT_VERSION_NAME.trim();
-            const changelog = process.env.INPUT_CHANGELOG.trim();
-            if (!versionName || !changelog)
-              throw new Error('versionName и changelog не должны быть пустыми');
-            const info = {
-              versionCode : code,
-              versionName,
-              releasedAt  : new Date().toISOString(),
-              changelog,
-              apkUrl      : 'messenger.apk',
-            };
-            fs.writeFileSync(versionPath, JSON.stringify(info, null, 2));
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version_code=' + code + '\n');
-            console.log(JSON.stringify(info, null, 2));
-          "
+            currentCode = Number(current.versionCode ?? 0);
+            if (!Number.isInteger(currentCode) || currentCode < 0) {
+              throw new Error('versionCode в version.json должен быть целым неотрицательным числом');
+            }
+          }
+
+          const code = currentCode + 1;
+          const versionName = (process.env.INPUT_VERSION_NAME ?? '').trim();
+          const changelog = (process.env.INPUT_CHANGELOG ?? '').trim();
+          if (!versionName || !changelog) {
+            throw new Error('versionName и changelog не должны быть пустыми');
+          }
+
+          const info = {
+            versionCode: code,
+            versionName,
+            releasedAt: new Date().toISOString(),
+            changelog,
+            apkUrl: 'messenger.apk',
+          };
+          fs.writeFileSync(versionPath, JSON.stringify(info, null, 2) + '\n');
+          console.log(JSON.stringify(info, null, 2));
+          NODE
+
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "${version_path}"
+            git commit -m "chore: bump Android version [skip ci]"
+
+            if git push origin "HEAD:${branch}"; then
+              version_code="$(node -p "require('./${version_path}').versionCode")"
+              echo "version_code=${version_code}" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+
+            echo "Ветка изменилась во время резервирования версии (попытка ${attempt}/5), повторяю..."
+            sleep $((attempt * 5))
+          done
+
+          echo "::error::Не удалось зарезервировать versionCode после 5 попыток."
+          exit 1
+
+      # ── Node / pnpm ────────────────────────────────────────────────────────
+      # Эти шаги идут после резервирования версии: reserve-step мог перейти на
+      # более свежий origin/main, поэтому зависимости нужно читать и ставить
+      # уже из окончательного commit, на котором собирается APK.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10'
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install monorepo dependencies
+        run: pnpm install --frozen-lockfile
 
       # ── Java / Android SDK / NDK ───────────────────────────────────────────
       - name: Setup Java 17
@@ -224,43 +258,6 @@ jobs:
           ./gradlew assembleRelease --no-daemon
           cp app/build/outputs/apk/release/app-release.apk \
              "${{ github.workspace }}/messenger-family.apk"
-
-      # ── Сохраняем номер сборки ───────────────────────────────────────────────
-      # Без этого следующий ручной запуск снова прочитает старый versionCode
-      # из репозитория и не сможет автоматически увеличить его дальше.
-      - name: Commit updated version.json
-        env:
-          VERSION_CODE: ${{ steps.generate-version.outputs.version_code }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add artifacts/messenger-android/version.json
-          git commit -m "chore: bump Android version to ${VERSION_CODE} [skip ci]"
-
-          # Сборка может идти несколько минут, за это время в main могли
-          # появиться новые commits. Синхронизируемся перед push, иначе Git
-          # отклонит push как non-fast-forward.
-          for attempt in 1 2 3; do
-            git fetch --no-tags origin "${GITHUB_REF_NAME}"
-
-            if ! git rebase "origin/${GITHUB_REF_NAME}"; then
-              echo "::error::Не удалось сделать rebase: конфликт в version.json."
-              echo "::error::APK собран со старым versionCode; запустите workflow повторно после актуального commit."
-              git rebase --abort || true
-              exit 1
-            fi
-
-            if git push origin "HEAD:${GITHUB_REF_NAME}"; then
-              exit 0
-            fi
-
-            echo "Ветка изменилась во время push (попытка ${attempt}/3), повторяю..."
-            sleep $((attempt * 5))
-          done
-
-          echo "::error::Не удалось отправить обновление version.json после 3 попыток."
-          exit 1
 
       # ── Artifact ───────────────────────────────────────────────────────────
       # Скачай оба файла из артефакта и положи в /opt/messenger/updates/.
