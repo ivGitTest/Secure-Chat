@@ -9,6 +9,10 @@
 #   • ссылку на страницу артефакта GitHub Actions:
 #       https://github.com/OWNER/REPO/actions/runs/RUN_ID/artifacts/ARTIFACT_ID
 #
+# Прямая ссылка на APK не содержит метаданные версии: в этом режиме
+# version.json на VPS сохраняется без изменений. GitHub Actions-архив должен
+# содержать и APK, и version.json.
+#
 # Для GitHub-артефакта нужен токен с правом Actions: Read:
 #   export GITHUB_TOKEN='ghp_...'   # или GH_TOKEN
 #   ./deploy-update.sh "https://github.com/..."
@@ -60,6 +64,8 @@ trap cleanup EXIT
 
 UPDATES_DIR="${UPDATES_DIR:-/opt/messenger/updates}"
 mkdir -p "${UPDATES_DIR}"
+APK_PATH="${TMP_DIR}/messenger.apk"
+VERSION_PATH="${TMP_DIR}/version.json"
 
 # ── Download functions ────────────────────────────────────────────────────────
 
@@ -137,12 +143,28 @@ download_github_artifact() {
   fi
 
   echo "Извлекаю ${apk_name}..."
-  unzip -p "${archive_path}" "${apk_name}" > "${TMP_DIR}/messenger.apk"
+  unzip -p "${archive_path}" "${apk_name}" > "${APK_PATH}"
+
+  # version.json находится внутри артефакта во вложенной директории
+  # (например, .../artifacts/messenger-android/version.json). Ищем его
+  # по имени, а не по фиксированному пути.
+  local version_name
+  version_name="$(unzip -Z1 "${archive_path}" | grep -Ei '(^|/)version\.json$' | head -1 || true)"
+  if [[ -z "${version_name}" ]]; then
+    echo "Ошибка: version.json не найден внутри GitHub-артефакта." >&2
+    echo "APK не установлен, чтобы не оставить старые метаданные рядом с новой сборкой." >&2
+    return 1
+  fi
+
+  echo "Извлекаю ${version_name}..."
+  unzip -p "${archive_path}" "${version_name}" > "${VERSION_PATH}"
 }
 
 # ── Dispatch ──────────────────────────────────────────────────────────────────
 
+IS_GITHUB_ARTIFACT=0
 if is_github_artifact_url "${APK_URL}"; then
+  IS_GITHUB_ARTIFACT=1
   download_github_artifact
 else
   download_direct_apk
@@ -150,14 +172,52 @@ fi
 
 # ── Validate and install atomically ──────────────────────────────────────────
 
-if [[ ! -s "${TMP_DIR}/messenger.apk" ]]; then
+if [[ ! -s "${APK_PATH}" ]]; then
   echo "Ошибка: скачанный APK пустой." >&2
   exit 1
 fi
 
-# Write to a temp name first, then rename — Nginx never sees a partial file.
-install -m 0644 "${TMP_DIR}/messenger.apk" "${UPDATES_DIR}/messenger.apk.tmp"
+if [[ "${IS_GITHUB_ARTIFACT:-0}" == "1" && ! -s "${VERSION_PATH}" ]]; then
+  echo "Ошибка: для GitHub-артефакта отсутствует version.json." >&2
+  exit 1
+fi
+
+if [[ -s "${VERSION_PATH}" ]]; then
+  if ! jq -e '
+    (.versionCode | type == "number" and . > 0 and floor == .) and
+    (.versionName | type == "string" and length > 0) and
+    (.apkUrl | type == "string" and length > 0)
+  ' "${VERSION_PATH}" >/dev/null; then
+    echo "Ошибка: version.json имеет неожиданный формат." >&2
+    cat "${VERSION_PATH}" >&2
+    exit 1
+  fi
+
+  new_version_code="$(jq -r '.versionCode' "${VERSION_PATH}")"
+  current_version_code=0
+  if [[ -s "${UPDATES_DIR}/version.json" ]]; then
+    if ! current_version_code="$(jq -r '.versionCode // 0' "${UPDATES_DIR}/version.json" 2>/dev/null)"; then
+      echo "Ошибка: текущий version.json на VPS повреждён." >&2
+      exit 1
+    fi
+  fi
+
+  if (( new_version_code < current_version_code )); then
+    echo "Ошибка: новая версия ${new_version_code} меньше текущей ${current_version_code}." >&2
+    echo "Обновление остановлено, APK не заменён." >&2
+    exit 1
+  fi
+fi
+
+# Сначала заменяем APK, затем version.json. Так nginx не сможет увидеть новую
+# версию в метаданных раньше, чем новый APK станет доступен для скачивания.
+install -m 0644 "${APK_PATH}" "${UPDATES_DIR}/messenger.apk.tmp"
 mv -f "${UPDATES_DIR}/messenger.apk.tmp" "${UPDATES_DIR}/messenger.apk"
+
+if [[ -s "${VERSION_PATH}" ]]; then
+  install -m 0644 "${VERSION_PATH}" "${UPDATES_DIR}/version.json.tmp"
+  mv -f "${UPDATES_DIR}/version.json.tmp" "${UPDATES_DIR}/version.json"
+fi
 
 echo ""
 echo "✓ APK обновлён. Текущий version.json:"
