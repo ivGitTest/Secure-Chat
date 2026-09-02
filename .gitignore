@@ -48,6 +48,9 @@ Thumbs.db
 .cache/
 .local/
 
+# Agent-local state and memory — not application source
+.agents/memory/
+
 # Local scripts with real user data — never commit these
 scripts/create-users.sh
 deploy/.env
@@ -63,6 +66,9 @@ attached_assets/
 service-account*.json
 google-services.json
 GoogleService-Info.plist
+**/credentials/
+**/credentials.json
+**/debug.keystore
 
 # Expo / EAS local secrets
 eas-credentials.json
@@ -76,3 +82,10 @@ eas-credentials.json
 *.secret
 *.credentials
 *.pem
+
+# Local build and deployment artifacts
+*.apk
+*.aab
+*.ipa
+*.dSYM/
+**/updates/

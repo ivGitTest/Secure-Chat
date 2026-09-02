@@ -82,10 +82,25 @@ function serveLandingPage(req, res, landingPageTemplate, appName) {
 }
 
 function serveStaticFile(urlPath, res) {
-  const safePath = path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, '');
-  const filePath = path.join(STATIC_ROOT, safePath);
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(urlPath);
+  } catch {
+    res.writeHead(400);
+    res.end('Bad Request');
+    return;
+  }
 
-  if (!filePath.startsWith(STATIC_ROOT)) {
+  // Resolve against a path explicitly rooted at STATIC_ROOT, then validate
+  // with path.relative. A plain startsWith check is insufficient: for example,
+  // /static-build-evil also starts with /static-build but is outside the root.
+  const filePath = path.resolve(STATIC_ROOT, `.${decodedPath}`);
+  const relativePath = path.relative(STATIC_ROOT, filePath);
+  if (
+    !relativePath ||
+    relativePath.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relativePath)
+  ) {
     res.writeHead(403);
     res.end('Forbidden');
     return;
