@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const KEY = 'server_url';
 
-export const DEFAULT_SERVER_URL = 'https://chat.naviry.xyz';
+export const DEFAULT_SERVER_URL = 'https://chat.example.com';
 
 export async function getServerUrl(): Promise<string | null> {
   const stored = await AsyncStorage.getItem(KEY);

@@ -94,7 +94,7 @@ cd artifacts/messenger-android
 - загружает APK как `messenger.apk` на VPS
 - загружает `version.json` на VPS **последним** (пока не загружен — устройства не видят обновление)
 
-Проверить результат: `curl https://chat.naviry.xyz/updates/version.json`
+Проверить результат: `curl https://chat.example.com/updates/version.json`
 
 ## Сборка через EAS Cloud
 

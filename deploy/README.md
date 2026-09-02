@@ -64,7 +64,7 @@ nano deploy/.env        # или любой другой редактор
 
 | Переменная | Описание |
 |----------|-------------|
-| `DOMAIN` | Ваш публичный домен, например `chat.naviry.xyz` |
+| `DOMAIN` | Ваш публичный домен, например `chat.example.com` |
 | `POSTGRES_PASSWORD` | Надёжный случайный пароль (не менее 32 символов) |
 | `JWT_SECRET` | Случайный секрет для подписи JWT (не менее 32 символов) |
 | `JWT_EXPIRES_IN` | Срок действия токена, например `7d` |
@@ -82,19 +82,19 @@ openssl rand -hex 32
 ## Шаг 3 — Настройка обратного прокси на хосте
 
 Nginx мессенджера работает внутри Docker на `127.0.0.1:7080` (только HTTP).
-Обратный прокси на хосте обслуживает TLS для `chat.naviry.xyz` и перенаправляет сюда трафик.
+Обратный прокси на хосте обслуживает TLS для `chat.example.com` и перенаправляет сюда трафик.
 
 ### Если прокси на хосте — nginx (системный сервис)
 
-Создайте файл нового сайта, например `/etc/nginx/sites-available/chat.naviry.xyz`:
+Создайте файл нового сайта, например `/etc/nginx/sites-available/chat.example.com`:
 
 ```nginx
 server {
     listen 443 ssl;
-    server_name chat.naviry.xyz;
+    server_name chat.example.com;
 
-    ssl_certificate     /etc/letsencrypt/live/chat.naviry.xyz/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/chat.naviry.xyz/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/chat.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/chat.example.com/privkey.pem;
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_ciphers         HIGH:!aNULL:!MD5;
 
@@ -121,7 +121,7 @@ server {
 
 server {
     listen 80;
-    server_name chat.naviry.xyz;
+    server_name chat.example.com;
     return 301 https://$host$request_uri;
 }
 ```
@@ -129,7 +129,7 @@ server {
 Затем включите сайт и перезагрузите nginx:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/chat.naviry.xyz /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/chat.example.com /etc/nginx/sites-enabled/
 sudo nginx -t && sudo nginx -s reload
 ```
 
@@ -138,7 +138,7 @@ sudo nginx -t && sudo nginx -s reload
 Добавьте конфигурацию в `Caddyfile`:
 
 ```
-chat.naviry.xyz {
+chat.example.com {
     reverse_proxy /ws 127.0.0.1:7080 {
         transport http {
             versions 1.1
@@ -154,11 +154,11 @@ chat.naviry.xyz {
 
 ### TLS-сертификат для прокси на хосте
 
-Если у прокси ещё нет сертификата для `chat.naviry.xyz`, получите его через DNS-проверку (открывать порты не требуется):
+Если у прокси ещё нет сертификата для `chat.example.com`, получите его через DNS-проверку (открывать порты не требуется):
 
 ```bash
 sudo apt-get install -y certbot
-sudo certbot certonly --manual --preferred-challenges dns -d chat.naviry.xyz
+sudo certbot certonly --manual --preferred-challenges dns -d chat.example.com
 ```
 
 Следуйте инструкциям: добавьте TXT-запись, дождитесь её проверки и нажмите Enter.
@@ -198,7 +198,7 @@ nginx      healthy
 ### Проверка состояния сервера
 
 ```bash
-curl https://chat.naviry.xyz/api/v1/health
+curl https://chat.example.com/api/v1/health
 # Ожидаемый результат: {"status":"ok"}
 ```
 
@@ -210,7 +210,7 @@ curl -i -N \
   -H "Upgrade: websocket" \
   -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
   -H "Sec-WebSocket-Version: 13" \
-  https://chat.naviry.xyz/ws
+  https://chat.example.com/ws
 # Ожидаемый результат: HTTP/1.1 101 Switching Protocols
 ```
 
@@ -445,7 +445,7 @@ docker compose exec api node /app/dist/admin.mjs unblock-user --id alice
    cd /opt/messenger/deploy
    git pull
    docker compose up -d --build api
-   curl https://chat.naviry.xyz/api/v1/health
+   curl https://chat.example.com/api/v1/health
    ```
 
 2. **Приложение**: соберите новый APK (EAS или GitHub Actions), выложите его
@@ -529,7 +529,7 @@ cd /opt/messenger/deploy
 git pull
 docker compose up -d --build api
 docker compose ps
-curl https://chat.naviry.xyz/api/v1/health
+curl https://chat.example.com/api/v1/health
 ```
 
 Команда пересобирает и перезапускает только `api`. Данные PostgreSQL не
@@ -570,7 +570,7 @@ git pull
 docker compose down
 docker compose up -d --build
 docker compose ps
-curl https://chat.naviry.xyz/api/v1/health
+curl https://chat.example.com/api/v1/health
 ```
 
 `docker compose down` не удаляет данные PostgreSQL, если не добавлять флаг
@@ -624,8 +624,8 @@ GitHub Actions-артефакт.
 После этого на VPS запускается `deploy-update.sh`. Для проверки:
 
 ```bash
-curl https://chat.naviry.xyz/updates/version.json
-curl -I https://chat.naviry.xyz/updates/messenger.apk
+curl https://chat.example.com/updates/version.json
+curl -I https://chat.example.com/updates/messenger.apk
 ```
 
 Перезапуск Docker-контейнеров после публикации APK не требуется.
@@ -694,7 +694,7 @@ sudo crontab -e
 
 ```cron
 # Проверять срок действия сертификата каждое утро в 08:00
-0 8 * * * DOMAIN=chat.naviry.xyz /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+0 8 * * * DOMAIN=chat.example.com /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
 ```
 
 ### Настройка канала уведомлений
@@ -710,7 +710,7 @@ sudo crontab -e
    ```
 3. Добавьте переменные в строку crontab:
    ```cron
-   0 8 * * * DOMAIN=chat.naviry.xyz TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+   0 8 * * * DOMAIN=chat.example.com TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
    ```
 
 #### Вариант B — электронная почта
@@ -724,7 +724,7 @@ sudo apt-get install -y mailutils
 Затем добавьте `ALERT_EMAIL` в строку cron:
 
 ```cron
-0 8 * * * DOMAIN=chat.naviry.xyz ALERT_EMAIL=you@example.com /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+0 8 * * * DOMAIN=chat.example.com ALERT_EMAIL=you@example.com /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
 ```
 
 Оба канала могут работать одновременно — задайте все четыре переменные.
@@ -734,7 +734,7 @@ sudo apt-get install -y mailutils
 Порог по умолчанию — 14 дней. Переопределите его с помощью `WARN_DAYS`:
 
 ```cron
-0 8 * * * DOMAIN=chat.naviry.xyz WARN_DAYS=21 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+0 8 * * * DOMAIN=chat.example.com WARN_DAYS=21 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
 ```
 
 ### Проверка без ожидания
@@ -742,7 +742,7 @@ sudo apt-get install -y mailutils
 Чтобы принудительно получить предупреждение, временно задайте для `WARN_DAYS` значение больше фактического количества оставшихся дней:
 
 ```bash
-DOMAIN=chat.naviry.xyz WARN_DAYS=999 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> \
+DOMAIN=chat.example.com WARN_DAYS=999 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> \
   deploy/scripts/check-cert-expiry.sh
 ```
 
@@ -875,7 +875,7 @@ docker compose start api
 ### 6 — Проверьте результат
 
 ```bash
-curl https://chat.naviry.xyz/api/v1/health
+curl https://chat.example.com/api/v1/health
 # Ожидаемый результат: {"status":"ok"}
 
 # Выборочно проверьте несколько строк

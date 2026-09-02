@@ -212,7 +212,7 @@ cd /path/to/project/deploy
 git pull
 docker compose up -d --build api
 docker compose ps
-curl https://chat.naviry.xyz/api/v1/health
+curl https://chat.example.com/api/v1/health
 ```
 
 Проверить, что новая версия запустилась:

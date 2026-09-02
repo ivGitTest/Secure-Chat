@@ -9,7 +9,7 @@
 #   DEPLOY_DIR  — absolute path to the repo's deploy/ directory
 set -eu
 
-DOMAIN="${DOMAIN:-chat.naviry.xyz}"
+DOMAIN="${DOMAIN:-chat.example.com}"
 # Default: the deploy/ directory this script lives in (../ from scripts/)
 DEPLOY_DIR="${DEPLOY_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
 
