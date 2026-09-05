@@ -1,5 +1,7 @@
 # Обновление приложения по кнопке (in-app updater)
 
+**[English version](#english-version)**
+
 ## Оглавление
 
 - [Как это работает](#как-это-работает)
@@ -125,3 +127,129 @@ cd artifacts/messenger-android
 
 Клиенты увидят обновление при следующей проверке (≤24 ч) или сразу — по кнопке
 «Проверить обновления» на экране «О приложении».
+
+---
+
+# English Version
+
+# In-App Update (Update by Button)
+
+**[Русская версия](#обновление-приложения-по-кнопке-in-app-updater)**
+
+## Table of Contents
+
+- [How It Works](#how-it-works)
+- [version.json Contract](#versionjson-contract)
+- [Single Source of Truth — release.json](#single-source-of-truth--releasejson)
+- [One-time VPS Setup](#one-time-vps-setup)
+- [Deploy Update in One Command](#deploy-update-in-one-command)
+- [Build via EAS Cloud](#build-via-eas-cloud)
+- [Build via GitHub Actions](#build-via-github-actions)
+
+## How It Works
+
+1. App once daily (or by button on "About" screen) requests `https://<server>/updates/version.json`.
+2. If `versionCode` in file is higher than installed APK — update banner/card shown.
+3. On "Update" button tap APK downloads and Android system installer launches.
+
+### Client Versioning Logic
+
+```
+effectiveCode = max(nativeBuildVersion, installedCode)
+```
+
+- `nativeBuildVersion` — actual versionCode of installed APK from Android Package Manager.
+- `installedCode` — versionCode recorded by updater in AsyncStorage **before** launching installer (Android kills process during install, so we record beforehand).
+- If `nativeBuildVersion > installedCode` (e.g., APK updated manually), AsyncStorage syncs with real value automatically on next launch.
+
+## version.json Contract
+
+```json
+{
+  "versionCode": 9,
+  "versionName": "2.0.5",
+  "releasedAt": "2026-08-12T10:00:00Z",
+  "changelog": "What's new…",
+  "apkUrl": "messenger.apk"
+}
+```
+
+`apkUrl` — filename relative to `/updates/` or absolute URL.
+
+> ⚠ `versionCode` in `version.json` **must exactly match** versionCode of built APK. Mismatch causes update loop.
+
+## Single Source of Truth — release.json
+
+All versions come from `artifacts/messenger-android/release.json`:
+
+```json
+{
+  "version": "2.0.5",
+  "versionCode": 9,
+  "releaseNotes": "What's new in this version"
+}
+```
+
+Before each release:
+1. Change `version` and increment `versionCode` by 1.
+2. Update `releaseNotes`.
+
+`version.json` generated automatically by script — don't edit manually.
+
+## One-time VPS Setup
+
+```bash
+# 1. Create updates directory
+ssh user@<vps> mkdir -p ~/docker_containers/messenger/updates
+
+# 2. Set env var for push-update.sh
+echo 'VPS_HOST=user@<ip>' >> artifacts/messenger-android/.env
+```
+
+nginx mounts `~/docker_containers/messenger/updates` → `/var/www/updates` and serves via `location /updates/`.
+
+## Deploy Update in One Command
+
+Regardless of build method (EAS or GitHub Actions) VPS deploy is one script:
+
+```bash
+cd artifacts/messenger-android
+./scripts/push-update.sh ~/Downloads/messenger-preview.apk
+```
+
+Script automatically:
+- reads `release.json` (version + versionCode + releaseNotes)
+- generates `version.json`
+- uploads APK as `messenger.apk` to VPS
+- uploads `version.json` to VPS **last** (devices don't see update until uploaded)
+
+Verify: `curl https://chat.example.com/updates/version.json`
+
+## Build via EAS Cloud
+
+```bash
+cd artifacts/messenger-android
+
+# 1. Update release.json (version, versionCode, releaseNotes)
+
+# 2. Run cloud build
+./scripts/eas-build.sh              # profile: preview (APK)
+
+# 3. Wait for completion → download APK from EAS Dashboard
+
+# 4. Deploy to VPS
+./scripts/push-update.sh ~/Downloads/<downloaded>.apk
+```
+
+## Build via GitHub Actions
+
+1. Update `release.json` (version, versionCode, releaseNotes) → commit → push.
+2. GitHub Actions → **Build Android APK** → **Run workflow**.
+3. In artifact `messenger-android-v<N>` — `messenger-family.apk`.
+4. Deploy to VPS:
+   ```bash
+   cd artifacts/messenger-android
+   ./scripts/push-update.sh ~/Downloads/messenger-family.apk
+   ```
+
+Clients see update on next check (≤24h) or immediately — via "Check Updates" button on "About" screen.

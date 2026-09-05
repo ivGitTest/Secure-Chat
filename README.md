@@ -1,5 +1,7 @@
 # Семейный мессенджер
 
+**[English version](#english-version)**
+
 ## Оглавление
 
 - [Возможности](#Возможности)
@@ -453,3 +455,448 @@ Push-уведомления о входящих звонках работают 
 | [`docs/voip-call-notifications.md`](docs/voip-call-notifications.md) | FCM VoIP — уведомления о звонках |
 | [`docs/in-app-updates.md`](docs/in-app-updates.md) | Механизм авто-обновления APK |
 | [`deploy/README.md`](deploy/README.md) | Полный гайд по деплою на VPS |
+
+---
+
+# English Version
+
+# Family Messenger
+
+**[Русская версия](#семейный-мессенджер)**
+
+## Table of Contents
+
+- [Features](#features)
+- [Technologies](#technologies)
+- [External Services](#external-services)
+- [Repository Structure](#repository-structure)
+- [Deploy to VPS](#deploy-to-vps)
+- [User Management](#user-management)
+- [Building Android APK](#building-android-apk)
+- [Firebase Setup (for calls)](#firebase-setup-for-calls)
+- [Security](#security)
+- [Documentation](#documentation)
+
+---
+
+Private self-hosted messenger for family or a small group of people. Runs on your own VPS, data never leaves your server.
+
+---
+
+## Features
+
+- **Text chats** — private conversations between participants, history stored on your server.
+- **Voice calls** — WebRTC calls via built-in STUN/TURN server (coturn). Works behind NAT.
+- **Incoming call notifications** — FCM push wakes the app even when fully closed; opens Android system call screen.
+- **PIN login** — 6-digit PIN instead of password, stored as argon2id hash.
+- **Auto client update** — app checks for new APK and prompts to update.
+- **User management** — create, block, and unblock users via CLI script.
+
+---
+
+## Technologies
+
+### Server (`artifacts/api-server`)
+
+| Component | Version | Purpose |
+|-----------|---------|---------|
+| Node.js | 24 | Runtime |
+| TypeScript | 5.9 | Typing |
+| Express | 5 | REST API |
+| `ws` | 8 | WebSocket — chat and WebRTC signaling |
+| Drizzle ORM | — | Schema and queries for PostgreSQL |
+| argon2 | — | PIN hashing |
+| jsonwebtoken | 9 | JWT sessions |
+| pino | 9 | Structured JSON logging |
+| esbuild | 0.27 | Single bundle build for Docker image |
+| firebase-admin | 13 | Direct FCM pushes for VoIP calls |
+| helmet | 8 | Security HTTP headers |
+| express-rate-limit | 7 | Rate limiting |
+
+### Client (`artifacts/messenger-android`)
+
+| Component | Version | Purpose |
+|-----------|---------|---------|
+| Expo SDK | 54 | React Native build |
+| React Native | 0.81 | UI framework (Android) |
+| react-native-webrtc | 124 | WebRTC (audio calls) |
+| react-native-callkeep | 4 | System call screen (TelecomManager) |
+| @react-native-firebase/messaging | 21 | FCM token and push reception |
+| expo-notifications | 0.32 | Notification channels |
+| expo-secure-store | 15 | JWT token storage |
+| expo-router | 6 | Navigation |
+| react-native-reanimated | 3 | Animations |
+| react-native-keyboard-controller | 1.18 | Keyboard behavior in chat |
+
+### Infrastructure (`deploy/`)
+
+| Service | Image | Purpose |
+|---------|-------|---------|
+| PostgreSQL | `postgres:16-alpine` | Database |
+| API | Dockerfile on Node.js | REST + WebSocket + signaling |
+| nginx | `nginx:alpine` | Reverse proxy inside Docker |
+| coturn | `coturn/coturn:latest` | STUN/TURN for WebRTC |
+
+Host reverse proxy (nginx or Caddy) terminates TLS and proxies traffic to `127.0.0.1:7080`.
+
+---
+
+## External Services
+
+| Service | Purpose |
+|---------|---------|
+| **Firebase / FCM** | Push notifications for incoming calls on killed app. Requires Google account, Firebase project, and `google-services.json`. Server uses Service Account JSON for direct FCM data-push. |
+| **GitHub Actions** | Manual CI build of signed APK (`.github/workflows/build-android.yml`). APK and `version.json` saved as workflow artifacts. |
+| **Let's Encrypt / Certbot** | TLS certificate for domain. Obtained once and renewed via `certbot renew`. |
+| **Expo CLI** | Native Android project build via `expo prebuild`. CI doesn't use EAS cloud — only local Gradle. |
+
+---
+
+## Repository Structure
+
+```
+artifacts/
+  api-server/          # Express server: REST + WebSocket + WebRTC signaling
+  messenger-android/   # Expo React Native Android client
+    plugins/           # Expo config plugins: CallKeep, Firebase, TelecomManager
+    app/               # Screens (Expo Router)
+    context/           # CallContext, AuthContext
+    services/          # WS, notifications, calls
+lib/
+  db/                  # Drizzle schema and PostgreSQL connection
+  api-zod/             # Shared Zod schemas
+scripts/               # Helper scripts (gen-keystore, create-users)
+deploy/
+  docker-compose.yml   # Main compose file
+  api/Dockerfile       # API server image
+  nginx/               # nginx configs
+  coturn/              # TURN server config
+  admin-cli.sh         # Interactive CLI for user management
+  .env.example         # Environment variables template
+  README.md            # Detailed deployment guide
+docs/
+  api.md               # HTTP and WebSocket API
+  architecture.md      # Architectural decisions
+  containers.md        # Docker services and network topology
+  database.md          # Database schema
+  push-notifications.md       # Expo Push — message notifications
+  voip-call-notifications.md  # FCM VoIP — call notifications
+  in-app-updates.md    # Auto-update APK mechanism
+.github/
+  workflows/
+    build-android.yml  # CI: build and sign APK
+```
+
+---
+
+## Deploy to VPS
+
+Full guide: [`deploy/README.md`](deploy/README.md).
+
+### Requirements
+
+- Ubuntu 22.04 / 24.04
+- Docker Engine 24+, Docker Compose Plugin v2.20+
+- Domain with A record pointing to server IP
+- Open ports: `80`, `443`, `3478/udp`, `49152–65535/udp`
+
+### 1. Install Docker
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER && newgrp docker
+```
+
+### 2. Clone Repository
+
+```bash
+git clone <REPO_URL> /opt/messenger
+cd /opt/messenger
+```
+
+### 3. Create `.env`
+
+```bash
+cp deploy/.env.example deploy/.env
+nano deploy/.env
+```
+
+| Variable | Description |
+|----------|-------------|
+| `DOMAIN` | Server domain, e.g., `chat.example.com` |
+| `POSTGRES_PASSWORD` | PostgreSQL password (≥ 32 chars) |
+| `JWT_SECRET` | JWT signing secret (≥ 32 chars) |
+| `JWT_EXPIRES_IN` | Token lifetime, e.g., `7d` |
+| `TURN_SECRET` | TURN secret (≥ 32 chars) |
+| `TURN_REALM` | Usually same as `DOMAIN` |
+| `EXTERNAL_IP` | Server public IP: `curl -s https://ifconfig.me` |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase Service Account JSON (single line) — for VoIP pushes |
+
+Generate random secrets:
+```bash
+openssl rand -hex 32
+```
+
+### 4. Configure Host Reverse Proxy
+
+Internal Docker nginx listens on `127.0.0.1:7080`. Host nginx (or Caddy) terminates TLS and proxies traffic.
+
+**nginx** (`/etc/nginx/sites-available/chat.example.com`):
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name chat.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/chat.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/chat.example.com/privkey.pem;
+
+    location /ws {
+        proxy_pass         http://127.0.0.1:7080/ws;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade    $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_read_timeout 3600s;
+    }
+
+    location / {
+        proxy_pass         http://127.0.0.1:7080;
+        proxy_set_header   Host             $host;
+        proxy_set_header   X-Forwarded-Proto https;
+    }
+}
+
+server {
+    listen 80;
+    server_name chat.example.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/chat.example.com /etc/nginx/sites-enabled/
+sudo nginx -t && sudo nginx -s reload
+```
+
+TLS certificate (if not yet obtained):
+```bash
+sudo apt install certbot
+sudo certbot certonly --manual --preferred-challenges dns -d chat.example.com
+```
+
+### 5. Start Stack
+
+```bash
+cd /opt/messenger/deploy
+docker compose up -d --build
+```
+
+Check status:
+```bash
+docker compose ps
+docker compose logs -f api
+```
+
+Health check:
+```bash
+curl https://chat.example.com/api/v1/health
+# {"status":"ok"}
+```
+
+### Server Update
+
+```bash
+cd /opt/messenger
+git pull
+cd deploy
+docker compose build api
+docker compose up -d api
+```
+
+---
+
+## User Management
+
+Interactive CLI script:
+
+```bash
+cd /opt/messenger
+./deploy/admin-cli.sh
+```
+
+Script shows menu: create user, change PIN, block/unblock, list users, and configure contact visibility.
+
+Or directly:
+
+```bash
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs create-user --id vasya --name Vasily --pin 123456
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs list-users
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs block-user --id vasya
+```
+
+### Contact Visibility
+
+By default each user sees all others. Admin can hide a pair via **"Contact Visibility"** in `./deploy/admin-cli.sh`. Setting is always symmetric: if you hide A and B, both stop seeing each other; one-way visibility is not possible.
+
+Available actions:
+
+- show all mutually visible pairs;
+- show who a selected user sees;
+- link two users — make them visible to each other;
+- unlink two users — hide them from each other;
+- reset user restrictions — user sees everyone again, connections removed from both sides.
+
+Only hidden pairs are stored in the table. Missing record means user sees everyone, including new users. New list applies on next contact screen open. Already open dialog is not part of this setting.
+
+Direct commands:
+
+```bash
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs link-users --a alice --b bob
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs unlink-users --a alice --b bob
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs list-visibility
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs show-contacts --id alice
+
+docker compose -f deploy/docker-compose.yml exec api \
+  node /app/dist/admin.mjs reset-visibility --id alice
+```
+
+---
+
+## Building Android APK
+
+### Recommended — EAS Cloud
+
+To build APK via EAS use script:
+
+```bash
+cd artifacts/messenger-android
+./build_apk.sh
+```
+
+Script shows current values from `version.json`, then asks for only two values:
+
+| Field | What to enter |
+|-------|---------------|
+| `versionName` | App version, e.g., `2.0.8` |
+| `changelog` | Brief description of changes, e.g., `Fixed notifications` |
+
+No need to enter `versionCode`. Script automatically takes current `versionCode` from `version.json` and increments by `1`. E.g., after `11` it creates `12`.
+
+After input, script:
+
+1. Writes new `version.json` with `versionName`, `versionCode`, `releasedAt`, `changelog`, and `apkUrl`.
+2. Runs APK build in EAS Cloud with `preview` profile.
+3. After build completes, outputs instructions to download APK.
+
+To run different profile:
+
+```bash
+cd artifacts/messenger-android
+./scripts/eas-build.sh production
+```
+
+EAS requires project access and EAS CLI auth.
+
+### GitHub Actions
+
+In GitHub open **Actions → Build Android APK → Run workflow**. Form asks for two required values:
+
+| Field | What to enter |
+|-------|---------------|
+| `version_name` | App version, e.g., `2.0.8` |
+| `changelog` | Brief description of changes |
+
+GitHub Actions:
+
+1. Runs `expo prebuild` on Ubuntu runner.
+2. Increments `versionCode` from current `version.json` by `1`.
+3. Automatically adds current date/time to `releasedAt`.
+4. Builds signed APK via Gradle.
+5. Publishes APK and `version.json` as workflow artifacts.
+6. After successful build saves updated `version.json` to selected branch, so next build continues numbering automatically.
+
+This workflow doesn't deploy APK to VPS. After completion, download APK, upload `version.json` to VPS, and use deploy script described in [`deploy/README.md`](deploy/README.md#публикация-apk-через-deploy-updatesh).
+
+**Required GitHub Secrets:**
+
+| Secret | Content |
+|--------|---------|
+| `ANDROID_KEYSTORE_BASE64` | Keystore file in base64 (see `scripts/gen-keystore.sh`) |
+| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
+| `ANDROID_KEY_ALIAS` | Key alias |
+| `ANDROID_KEY_PASSWORD` | Key password |
+| `GOOGLE_SERVICES_JSON` | Contents of `google-services.json` (no base64) |
+
+Generate keystore:
+```bash
+bash scripts/gen-keystore.sh
+```
+
+### Manual — Local Build
+
+Requirements: JDK 17, Android SDK, Node.js 24, pnpm.
+
+```bash
+cd artifacts/messenger-android
+
+# Prebuild native project
+GOOGLE_SERVICES_JSON="$(cat google-services.json)" \
+  pnpm exec expo prebuild --platform android --clean
+
+# Build debug APK
+cd android && ./gradlew assembleDebug
+
+# Install on connected phone
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+---
+
+## Firebase Setup (for calls)
+
+Push notifications for incoming calls work via Firebase Cloud Messaging (FCM).
+
+1. Create project in [Firebase Console](https://console.firebase.google.com).
+2. Add Android app with package name `com.ivaexpi.messengerandroid`.
+3. Download `google-services.json` → place in `artifacts/messenger-android/`.
+4. In **Project Settings → Service accounts** generate private key.
+5. Copy JSON file contents to `FIREBASE_SERVICE_ACCOUNT_JSON` in `deploy/.env` (single line).
+6. Add `GOOGLE_SERVICES_JSON` to GitHub Secrets (for CI APK build).
+
+---
+
+## Security
+
+- **PIN stored as argon2id hash** — original PIN not recoverable.
+- **JWT signed** with secret from `JWT_SECRET`.
+- **5 failed login attempts** block account.
+- **Rate limiting**: 5 login attempts per minute per IP; 120 requests per minute per authenticated user.
+- **Messages stored in plaintext** in PostgreSQL — server sees text. Transport encryption (TLS), but not end-to-end.
+- **TLS mandatory** in production — all tokens and PINs transmitted over encrypted channel.
+
+---
+
+## Documentation
+
+| File | Content |
+|------|---------|
+| [`docs/api.md`](docs/api.md) | HTTP and WebSocket API, message formats, error codes |
+| [`docs/architecture.md`](docs/architecture.md) | Architectural decisions |
+| [`docs/containers.md`](docs/containers.md) | Docker services and network topology |
+| [`docs/database.md`](docs/database.md) | Database schema |
+| [`docs/push-notifications.md`](docs/push-notifications.md) | Expo Push — message notifications |
+| [`docs/voip-call-notifications.md`](docs/voip-call-notifications.md) | FCM VoIP — call notifications |
+| [`docs/in-app-updates.md`](docs/in-app-updates.md) | Auto-update APK mechanism |
+| [`deploy/README.md`](deploy/README.md) | Full guide to deploy on VPS |

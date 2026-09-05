@@ -1,5 +1,7 @@
 # Руководство по развёртыванию — Семейный мессенджер
 
+**[English version](#english-version)**
+
 Это руководство описывает развёртывание мессенджера на чистом VPS с Ubuntu с помощью Docker Compose.
 
 ---
@@ -896,3 +898,847 @@ docker compose exec postgres psql -U messenger -d messenger \
 | Ошибка сертификата на Android | Убедитесь, что используется настоящий сертификат Certbot, а не самоподписанный |
 | Скрипт резервного копирования завершается с ошибкой | Проверьте `/var/log/messenger-backup.log` и убедитесь, что контейнер postgres запущен (`docker compose ps`) |
 | Восстановление: `DROP DATABASE` завершается ошибкой | Сначала остановите все сервисы (`docker compose stop api nginx`), чтобы не осталось активных подключений |
+
+---
+
+# English Version
+
+# Deployment Guide — Family Messenger
+
+**[Русская версия](#руководство-по-развёртыванию---семейный-мессенджер)**
+
+This guide describes deploying the messenger on a clean VPS with Ubuntu using Docker Compose.
+
+---
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Step 1 — Clone Repository](#step-1--clone-repository)
+- [Step 2 — Configure Environment Variables](#step-2--configure-environment-variables)
+- [Step 3 — Configure Host Reverse Proxy](#step-3--configure-host-reverse-proxy)
+- [Step 4 — Build and Start Stack](#step-4--build-and-start-stack)
+- [Step 5 — Verify Deployment](#step-5--verify-deployment)
+- [Step 6 — Configure Push Notifications (optional but recommended)](#step-6--configure-push-notifications-optional-but-recommended)
+- [Step 7 — Create Users](#step-7--create-users)
+- [Application Updates](#application-updates)
+- [Phone Setup for Reliable Calls (Xiaomi / Samsung)](#phone-setup-for-reliable-calls-xiaomi--samsung)
+- [Contact Visibility Configuration](#contact-visibility-configuration)
+- [Useful Commands](#useful-commands)
+- [Architecture Overview](#architecture-overview)
+- [Certificate Expiry Notifications](#certificate-expiry-notifications)
+- [Automatic Database Backup](#automatic-database-backup)
+- [Database Restore](#database-restore)
+- [Troubleshooting](#troubleshooting)
+
+## Prerequisites
+
+| Requirement | Version |
+|-------------|---------|
+| Ubuntu | 22.04 LTS or 24.04 |
+| Docker Engine | 24+ |
+| Docker Compose Plugin | v2.20+ |
+| Domain with DNS A record | Must point to your VPS IP |
+| Open ports | 3478 (UDP) · 49152–65535 (UDP); ports 80/443 handled by host proxy |
+
+### Install Docker (Ubuntu)
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+---
+
+## Step 1 — Clone Repository
+
+```bash
+git clone <YOUR_REPO_URL> messenger
+cd messenger
+```
+
+---
+
+## Step 2 — Configure Environment Variables
+
+```bash
+cp deploy/.env.example deploy/.env
+nano deploy/.env        # or any other editor
+```
+
+Fill in all values:
+
+| Variable | Description |
+|----------|-------------|
+| `DOMAIN` | Your public domain, e.g., `chat.example.com` |
+| `POSTGRES_PASSWORD` | Strong random password (at least 32 chars) |
+| `JWT_SECRET` | Random secret for JWT signing (at least 32 chars) |
+| `JWT_EXPIRES_IN` | Token lifetime, e.g., `7d` |
+| `TURN_SECRET` | Random secret for TURN credentials (at least 32 chars) |
+| `TURN_REALM` | Usually matches `DOMAIN` |
+| `EXTERNAL_IP` | Your VPS public IP — run `curl -s https://ifconfig.me` |
+
+Generate random secrets:
+```bash
+openssl rand -hex 32
+```
+
+---
+
+## Step 3 — Configure Host Reverse Proxy
+
+Messenger's nginx runs inside Docker on `127.0.0.1:7080` (HTTP only). Host reverse proxy serves TLS for `chat.example.com` and forwards traffic here.
+
+### If host proxy is nginx (system service)
+
+Create new site file, e.g., `/etc/nginx/sites-available/chat.example.com`:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name chat.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/chat.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/chat.example.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    # WebSocket — must appear before /api/
+    location /ws {
+        proxy_pass         http://127.0.0.1:7080/ws;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade    $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_set_header   Host $host;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location / {
+        proxy_pass         http://127.0.0.1:7080;
+        proxy_http_version 1.1;
+        proxy_set_header   Host             $host;
+        proxy_set_header   X-Real-IP        $remote_addr;
+        proxy_set_header   X-Forwarded-For  $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto https;
+    }
+}
+
+server {
+    listen 80;
+    server_name chat.example.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+Then enable site and reload nginx:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/chat.example.com /etc/nginx/sites-enabled/
+sudo nginx -t && sudo nginx -s reload
+```
+
+### If host proxy is Caddy
+
+Add configuration to `Caddyfile`:
+
+```
+chat.example.com {
+    reverse_proxy /ws 127.0.0.1:7080 {
+        transport http {
+            versions 1.1
+        }
+        header_up Upgrade {http.upgrade}
+        header_up Connection "upgrade"
+    }
+    reverse_proxy 127.0.0.1:7080
+}
+```
+
+Then reload Caddy: `sudo systemctl reload caddy`
+
+### TLS Certificate for Host Proxy
+
+If proxy doesn't have certificate for `chat.example.com` yet, get it via DNS challenge (no need to open ports):
+
+```bash
+sudo apt-get install -y certbot
+sudo certbot certonly --manual --preferred-challenges dns -d chat.example.com
+```
+
+Follow instructions: add TXT record, wait for verification, press Enter.
+
+---
+
+## Step 4 — Build and Start Stack
+
+```bash
+cd deploy
+docker compose up -d --build
+```
+
+First build takes several minutes: downloads Node.js, installs pnpm, runs esbuild.
+
+### Check Service Status
+
+```bash
+docker compose ps
+docker compose logs -f api
+```
+
+All four services should have `healthy` or `running` status:
+
+```
+NAME       STATUS
+postgres   healthy
+api        healthy
+coturn     running
+nginx      healthy
+```
+
+---
+
+## Step 5 — Verify Deployment
+
+### Check Server Health
+
+```bash
+curl https://chat.example.com/api/v1/health
+# Expected: {"status":"ok"}
+```
+
+### Test WebSocket Connection
+
+```bash
+curl -i -N \
+  -H "Connection: Upgrade" \
+  -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Key: $(openssl rand -base64 16)" \
+  -H "Sec-WebSocket-Version: 13" \
+  https://chat.example.com/ws
+# Expected: HTTP/1.1 101 Switching Protocols
+```
+
+---
+
+## Step 6 — Configure Push Notifications (optional but recommended)
+
+Push notifications allow family members to receive messages about new messages and calls even when app is in background or phone is locked.
+
+### Overview
+
+App uses **Expo Push Service → Google FCM** for Android notifications. Server doesn't need Firebase credentials: it calls Expo Push API (`exp.host/--/api/v2/push/send`), which forwards notifications to FCM.
+
+### 6a — Create Firebase Project
+
+1. Open [console.firebase.google.com](https://console.firebase.google.com) and sign in with any Google account.
+2. Click **Add project**, set name (e.g., `family-messenger`), disable Google Analytics (not needed), click **Create project**.
+3. In project overview click **Android** icon (➕ Add app).
+4. Specify **Android package name**: `com.ivaexpi.messengerandroid`
+5. Nickname: `Family Messenger` (optional).
+6. Click **Register app**, then **Download `google-services.json`**.
+7. Skip rest of wizard: `expo-notifications` handles SDK setup.
+
+### 6b — Add google-services.json to GitHub Actions Secrets
+
+File `google-services.json` is auto-created during CI build. Save **entire contents** to GitHub secret:
+
+```bash
+# Output file contents
+cat google-services.json
+```
+
+In GitHub repo open **Settings → Secrets and variables → Actions → New repository secret**:
+
+| Secret Name | Value |
+|-------------|-------|
+| `GOOGLE_SERVICES_JSON` | Full contents of `google-services.json` |
+
+Build workflow already has step to write this file before build.
+
+### 6c — Add google-services.json to EAS Secrets (one-time)
+
+For EAS cloud build, the file (local, in `.gitignore`) doesn't get into repo. Upload its contents to EAS project secret once:
+
+```bash
+cd artifacts/messenger-android
+pnpm dlx eas-cli@latest secret:create \
+  --scope project \
+  --name GOOGLE_SERVICES_JSON \
+  --type string \
+  --value "$(cat google-services.json)"
+```
+
+After this, no need to run again. `app.config.js` gets secret at build time and creates `google-services.json` before `prebuild`.
+
+### 6d — Link Firebase to Expo Project (one-time)
+
+Expo push service must know Firebase project credentials to forward notifications. Run once on your machine:
+
+```bash
+cd artifacts/messenger-android
+pnpm dlx eas-cli@latest credentials
+# Select: Android → Manage FCM credentials → Upload FCM API key
+```
+
+Get **Server key** in Firebase Console → Project Settings → Cloud Messaging → **Cloud Messaging API (Legacy)** or use **Service Account** (API v1). Follow EAS prompts.
+
+### Notes
+
+- Notifications work only in **standalone APK builds** (including GitHub Actions). In Expo Go console shows `[Push] Registration skipped` — expected.
+- `google-services.json` **contains no secrets**. Safe to add to repo if you don't want GitHub secret. Add exception `!artifacts/messenger-android/google-services.json` to `.gitignore`.
+- If you skip this step entirely, app works normally but push notifications won't deliver in standalone mode.
+
+### 6e — FCM Push Architecture for Incoming Calls
+
+For calls, **direct FCM** via Firebase Admin SDK is used (not Expo Push Service). This allows precise control of payload and priority.
+
+#### When Server Sends FCM Push
+
+| Recipient State | Server Action |
+|---|---|
+| Online (active WebSocket) | Deliver via WS (`call.incoming`), push **not sent** |
+| Offline / app killed | Send FCM data-push with `priority=high` |
+
+This split guarantees exactly one system incoming call screen: WS and FCM never trigger `TelecomManager.addNewIncomingCall()` simultaneously.
+
+#### FCM Message Structure for Call
+
+```json
+{
+  "token": "<FCM device token>",
+  "data": {
+    "type": "call",
+    "callId": "<uuid>",
+    "callerId": "<userId>",
+    "callerName": "<display name>"
+  },
+  "android": {
+    "priority": "high",
+    "ttl": 30000
+  }
+}
+```
+
+**Why data-only (no `notification` block):**
+Android Firebase distinguishes two FCM message types:
+
+- **Data-only** (only `data`, no `notification`): always triggers `FirebaseMessagingService.onMessageReceived()` — even when app killed. This is what incoming call needs: `CallFirebaseMessagingService` receives message and calls `TelecomManager.addNewIncomingCall()`.
+
+- **Notification message** (has `notification` block): when app in background or killed, Android handles notification in system tray itself and **does not call** `onMessageReceived()`. `CallFirebaseMessagingService` won't get control, and system call screen won't open.
+
+**`android.priority: "high"`** exempts push from standard Doze mode: Android wakes device and delivers message to `onMessageReceived()` even with locked screen — if app was **stopped normally** (by system or user swipe).
+
+> **Limitation: force-stop**
+> FCM high-priority data messages **don't guarantee** delivery to `onMessageReceived()` if user force-stopped app via Settings → Apps → Force stop. In this state Android blocks all incoming messages until next explicit app launch. This is considered unsupported edge case — app instructions should warn users not to use force stop.
+
+> **Note on OEM devices (Xiaomi, Huawei, OPPO):** Battery managers of these vendors may additionally restrict background processes beyond standard Android. If call doesn't arrive with killed app, add app to battery optimization exceptions in device settings.
+
+---
+
+## Step 7 — Create Users
+
+Run administrative CLI inside `api` container. Commands take flags, no interactive prompts.
+
+```bash
+# Create user (PIN must be exactly 6 digits)
+docker compose exec api node /app/dist/admin.mjs create-user \
+  --id alice --name "Alice" --pin 123456
+
+# List all users
+docker compose exec api node /app/dist/admin.mjs list-users
+
+# Block / unblock user
+docker compose exec api node /app/dist/admin.mjs block-user   --id alice
+docker compose exec api node /app/dist/admin.mjs unblock-user --id alice
+```
+
+Available commands:
+
+| Command | Required Flags |
+|---------|---------------|
+| `create-user` | `--id <userId>` `--name <name>` `--pin <6-digit-pin>` |
+| `list-users` | — |
+| `block-user` | `--id <userId>` |
+| `unblock-user` | `--id <userId>` |
+| `change-pin` | `--id <userId>` `--pin <6-digit-pin>` |
+| `link-users` | `--a <userId>` `--b <userId>` |
+| `unlink-users` | `--a <userId>` `--b <userId>` |
+| `list-visibility` | — |
+| `show-contacts` | `--id <userId>` |
+| `reset-visibility` | `--id <userId>` |
+
+---
+
+## Phone Setup for Reliable Calls (Xiaomi / Samsung)
+
+To prevent call drops when screen off and show incoming call on locked phone, do this setup once on each device. Vendors (especially Xiaomi) aggressively restrict background apps — without these permissions system may "freeze" messenger.
+
+### Common for all Android (once after install)
+
+1. **Calling account**: Settings → Apps → Phone (or Settings → Calls) → "Calling accounts" → enable "Family Messenger". Without this, system incoming call screen won't appear on locked phone.
+2. On first app launch grant all requested permissions: microphone, notifications, phone.
+
+### Xiaomi (MIUI / HyperOS)
+
+Settings → Apps → All apps → "Family Messenger":
+
+1. **Auto-start** — enable.
+2. **Battery saver** — "No restrictions".
+3. **Other permissions** → enable:
+   - "Show on lock screen";
+   - "Show pop-up windows";
+   - "Show pop-up windows in background".
+4. In recent apps (square menu) pull messenger card down and tap "lock" — protects app from being killed on memory clear.
+
+### Samsung (One UI)
+
+Settings → Apps → "Family Messenger":
+
+1. **Battery** → "Unrestricted" (remove optimization).
+2. Settings → Battery → "Background usage limits" → ensure messenger **not** in "Deep sleeping apps" or "Sleeping apps". If needed, add to "Never sleeping apps".
+3. Messenger notifications — allow, including pop-ups.
+
+### Verification
+
+1. Call configured phone with locked screen — system call screen should appear; answering from it immediately connects call (no need to open app).
+2. Accept call, turn off screen, wait 3–5 minutes — call shouldn't drop.
+3. End call from one side — other side's call screen should close within seconds.
+
+### Update after "Reliable Calls" Release
+
+Changes affect both server and app — update both:
+
+1. **Server** (on VPS):
+
+```bash
+cd /opt/messenger/deploy
+git pull
+docker compose up -d --build api
+curl https://chat.example.com/api/v1/health
+```
+
+2. **App**: build new APK (EAS or GitHub Actions), deploy via `./deploy-update.sh "https://apk-link"` (see [Application Updates](#application-updates)) and install update on all phones.
+
+3. After install verify points from "Verification" section above.
+
+Order matters: server first, then clients. Old client with old server keeps working, but call fixes work fully only when both sides updated.
+
+---
+
+## Contact Visibility Configuration
+
+By default all users see all others. To restrict list, run interactive CLI:
+
+```bash
+cd /opt/messenger
+./deploy/admin-cli.sh
+# select item 6 "Contact Visibility"
+```
+
+All settings symmetric. "Link A and B" makes them visible both ways, "unlink" hides both ways. One-way setup impossible. DB stores only hidden pairs; if no pair, users see each other.
+
+Submenu options:
+
+1. Show all actual mutually visible user pairs. List grouped by user and separated by lines. Since visibility symmetric, each pair shows from both sides:
+
+```text
+Current visible pairs:
+Visible pairs (users who see each other):
+------------------------------
+  alice (Alice) ↔ bob (Bob)
+  alice (Alice) ↔ ivan (Ivan)
+  alice (Alice) ↔ test (Test)
+------------------------------
+  bob (Bob) ↔ alice (Alice)
+  bob (Bob) ↔ ivan (Ivan)
+  bob (Bob) ↔ test (Test)
+------------------------------
+  ivan (Ivan) ↔ alice (Alice)
+  ivan (Ivan) ↔ bob (Bob)
+```
+
+2. Show selected user's contacts.
+3. Link two users (show to each other).
+4. Unlink two users (hide from each other).
+5. Reset user restrictions. After this they see everyone again.
+
+For automation, same commands directly:
+
+```bash
+docker compose exec api node /app/dist/admin.mjs link-users --a alice --b bob
+docker compose exec api node /app/dist/admin.mjs unlink-users --a alice --b bob
+docker compose exec api node /app/dist/admin.mjs list-visibility
+docker compose exec api node /app/dist/admin.mjs show-contacts --id alice
+docker compose exec api node /app/dist/admin.mjs reset-visibility --id alice
+```
+
+Change applies on next contact screen open in app. App restart not required.
+
+---
+
+## Application Updates
+
+### Universal Instructions After Changes
+
+In most updates only server code (`api`) changes. In this case no need to stop full stack and PostgreSQL:
+
+```bash
+cd /opt/messenger/deploy
+git pull
+docker compose up -d --build api
+docker compose ps
+curl https://chat.example.com/api/v1/health
+```
+
+Command rebuilds and restarts only `api`. PostgreSQL data untouched, `nginx` and `coturn` keep running uninterrupted.
+
+#### Which Container to Update
+
+| What Changed | Command |
+|---|---|
+| `artifacts/api-server`, API, WebSocket, migrations | `docker compose up -d --build api` |
+| `deploy/nginx.conf` or files nginx serves | `docker compose up -d --force-recreate nginx` |
+| `deploy/coturn.conf` or TURN settings | `docker compose up -d --force-recreate coturn` |
+| `deploy/docker-compose.yml`, Dockerfile, or shared env vars | `docker compose up -d --build` |
+| Multiple services or unsure what exactly changed | `docker compose up -d --build` |
+
+After nginx update check local healthcheck:
+
+```bash
+curl http://127.0.0.1:7080/healthz
+```
+
+After `coturn` update check:
+
+```bash
+docker compose logs --tail=50 coturn
+docker compose ps coturn
+```
+
+#### Full Restart
+
+`docker compose down` needed only if you need to fully stop stack, networks/mounts changed, or regular `up -d --build` doesn't apply config. Safe full scenario without removing volumes:
+
+```bash
+cd /opt/messenger/deploy
+git pull
+docker compose down
+docker compose up -d --build
+docker compose ps
+curl https://chat.example.com/api/v1/health
+```
+
+`docker compose down` doesn't delete PostgreSQL data unless you add `-v` flag. **Never use `docker compose down -v` for regular updates**: this removes Docker volumes and can destroy data if stored in volume. Current config has backups separately on host, but doesn't replace DB and backup verification.
+
+#### Publish APK and version.json via deploy-update.sh
+
+No container restart needed to publish APK. Nginx serves files from `/opt/messenger/updates/`, so just update APK in that folder.
+
+Script `deploy/deploy-update.sh` runs **directly on VPS**. Given GitHub Actions artifact link it extracts ZIP and installs both files: APK and embedded `version.json`.
+
+```bash
+cd /opt/messenger/deploy
+./deploy-update.sh "https://github.com/OWNER/REPO/actions/runs/RUN_ID/artifacts/ARTIFACT_ID"
+```
+
+Also accepts direct APK link from EAS Cloud or any CDN:
+
+```bash
+./deploy-update.sh "https://apk-link"
+```
+
+In direct link mode `version.json` not included in download and stays unchanged. For automatic metadata update use GitHub Actions artifact.
+
+If run script without parameter, it prompts for link interactively:
+
+```bash
+./deploy-update.sh
+Enter APK URL:
+```
+
+Script behavior:
+
+1. Checks link starts with `http://` or `https://`.
+2. If parameter missing or not URL, prompts again.
+3. For GitHub Actions artifact downloads ZIP via GitHub API, finds APK and `version.json` regardless of nested path.
+4. Validates `version.json` format and forbids rollback to lower `versionCode`.
+5. Atomically replaces APK in `/opt/messenger/updates/messenger.apk`, then `version.json` in `/opt/messenger/updates/version.json`.
+6. For direct link replaces only APK and keeps current `version.json`.
+
+After this `deploy-update.sh` runs on VPS. To verify:
+
+```bash
+curl https://chat.example.com/updates/version.json
+curl -I https://chat.example.com/updates/messenger.apk
+```
+
+No Docker container restart needed after APK publish.
+
+---
+
+## Useful Commands
+
+```bash
+# Watch logs in real time
+docker compose logs -f
+
+# Stop all services
+docker compose down
+
+# Stop services and remove all data (⚠ irreversible)
+docker compose down -v
+
+# Restart individual service
+docker compose restart api
+docker compose restart nginx
+
+# Open database console
+docker compose exec postgres psql -U messenger -d messenger
+```
+
+---
+
+## Architecture Overview
+
+```
+Internet
+   │
+   ├── :80  ──────────────────────► nginx (HTTP → HTTPS redirect)
+   ├── :443 ─────────────────────── nginx (TLS termination)
+   │           /ws  ──────────────► api:3000  (WebSocket)
+   │           /api/ ─────────────► api:3000  (REST)
+   │
+   └── :3478/udp ─────────────────► coturn (STUN/TURN relay)
+       :49152-65535/udp ──────────► coturn (media relay)
+
+Internal Docker network (messenger):
+  nginx ──► api ──► postgres
+```
+
+---
+
+## Certificate Expiry Notifications
+
+Script `deploy/scripts/check-cert-expiry.sh` checks days until TLS certificate expires and sends notification if less than **14 days** remain. Run daily via cron to fix renewal in time and avoid messenger downtime.
+
+### How It Works
+
+1. If local cert file (`deploy/certs/fullchain.pem`) exists, script reads it; otherwise connects to live domain via `openssl s_client`.
+2. Calculates days until certificate expiry.
+3. If days **below threshold**, sends one or more notifications and exits with code 1 (so cron can also email root user).
+4. If cert valid, logs OK line and exits with code 0.
+
+### Configure Daily Cron Job
+
+```bash
+sudo crontab -e
+```
+
+Add task, adjusting path to match cloned repo location:
+
+```cron
+# Check certificate expiry every morning at 08:00
+0 8 * * * DOMAIN=chat.example.com /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+```
+
+### Configure Notification Channel
+
+Set variables in shell, `/etc/environment`, or add to cron line start.
+
+#### Option A — Telegram (recommended, no SMTP needed)
+
+1. Create bot: message [@BotFather](https://t.me/BotFather) → `/newbot` → copy token.
+2. Start chat with bot (or add to group), then get chat ID:
+   ```bash
+   curl -s "https://api.telegram.org/bot<TOKEN>/getUpdates" | python3 -m json.tool | grep '"id"'
+   ```
+3. Add variables to crontab line:
+   ```cron
+   0 8 * * * DOMAIN=chat.example.com TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+   ```
+
+#### Option B — Email
+
+Requires `mailutils` (or compatible `mail` command) and configured MTA on host, e.g., Postfix with relay or `msmtp`:
+
+```bash
+sudo apt-get install -y mailutils
+```
+
+Then add `ALERT_EMAIL` to cron line:
+
+```cron
+0 8 * * * DOMAIN=chat.example.com ALERT_EMAIL=you@example.com /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+```
+
+Both channels can work simultaneously — set all four variables.
+
+### Change Warning Threshold
+
+Default threshold — 14 days. Override with `WARN_DAYS`:
+
+```cron
+0 8 * * * DOMAIN=chat.example.com WARN_DAYS=21 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> /path/to/messenger/deploy/scripts/check-cert-expiry.sh >> /var/log/check-cert-expiry.log 2>&1
+```
+
+### Test Without Waiting
+
+To force warning, temporarily set `WARN_DAYS` higher than actual days remaining:
+
+```bash
+DOMAIN=chat.example.com WARN_DAYS=999 TELEGRAM_BOT_TOKEN=<token> TELEGRAM_CHAT_ID=<chat_id> \
+  deploy/scripts/check-cert-expiry.sh
+```
+
+---
+
+## Automatic Database Backup
+
+Script `deploy/scripts/backup-postgres.sh` runs `pg_dump` inside running postgres container and writes compressed dump to host directory. No additional tools needed: uses `docker compose exec` available on host.
+
+### Backup Rotation
+
+| Type | Filename Pattern | Retention |
+|------|-----------------|-----------|
+| Daily | `daily-YYYY-MM-DD.sql.gz` | Last **7** dumps |
+| Weekly | `weekly-YYYY-MM-DD.sql.gz` | Last **4** dumps (created on Sundays) |
+
+By default backups written to `/opt/messenger/backups` (changeable via `BACKUP_DIR`). It's on **host filesystem**, outside all Docker volumes, so `docker compose down -v` and `docker volume prune` don't touch these files.
+
+### Configure Daily Cron Job
+
+```bash
+sudo crontab -e
+```
+
+Add task, adjusting path to match cloned repo location:
+
+```cron
+# Create Postgres backup every night at 02:00
+0 2 * * * COMPOSE_DIR=/path/to/messenger/deploy /path/to/messenger/deploy/scripts/backup-postgres.sh >> /var/log/messenger-backup.log 2>&1
+```
+
+### Optional: Telegram Error Notification
+
+If Telegram already used for cert expiry notifications, use same bot token and chat ID. Add both variables to cron line:
+
+```cron
+0 2 * * * COMPOSE_DIR=/path/to/messenger/deploy \
+          TELEGRAM_BOT_TOKEN=<token> \
+          TELEGRAM_CHAT_ID=<chat_id> \
+          /path/to/messenger/deploy/scripts/backup-postgres.sh >> /var/log/messenger-backup.log 2>&1
+```
+
+Telegram message sent **only on error**; on success no notification sent, only log entry appears.
+
+### Configuration Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `COMPOSE_DIR` | Script directory | Directory containing `docker-compose.yml` |
+| `BACKUP_DIR` | `/opt/messenger/backups` | Host directory for dump files |
+| `KEEP_DAILY` | `7` | Number of daily dumps to keep |
+| `KEEP_WEEKLY` | `4` | Number of weekly dumps to keep |
+| `TELEGRAM_BOT_TOKEN` | *(empty)* | Bot token for error notifications |
+| `TELEGRAM_CHAT_ID` | *(empty)* | Chat or user ID for error notifications |
+
+### Manual Immediate Backup
+
+```bash
+COMPOSE_DIR=/path/to/messenger/deploy \
+  /path/to/messenger/deploy/scripts/backup-postgres.sh
+```
+
+### Verify Backup Creation
+
+```bash
+ls -lh /opt/messenger/backups/
+# Example output:
+# -rw-r--r-- 1 root root  42K Jul 28 02:00 daily-2026-07-28.sql.gz
+# -rw-r--r-- 1 root root  41K Jul 27 02:00 daily-2026-07-27.sql.gz
+# -rw-r--r-- 1 root root  40K Jul 27 02:00 weekly-2026-07-27.sql.gz
+```
+
+### Off-VPS Copies (recommended)
+
+For VPS loss protection periodically sync backup directory elsewhere, e.g., via `rsync`:
+
+```bash
+# Run daily or weekly from another computer / via cron
+rsync -avz user@your-vps:/opt/messenger/backups/ ~/messenger-backups/
+```
+
+Also any cloud storage tool (`rclone`, `s3cmd`, `restic`, etc.) that can read host directory.
+
+---
+
+## Database Restore
+
+Follow these steps to restore database from backup file.
+
+### 1 — Select Backup File
+
+```bash
+ls -lht /opt/messenger/backups/
+# Select file to restore, e.g., daily-2026-07-28.sql.gz
+```
+
+### 2 — Stop API to Prevent New Writes
+
+```bash
+cd /path/to/messenger/deploy
+docker compose stop api
+```
+
+### 3 — Drop and Recreate Database
+
+```bash
+# Open psql console inside postgres container
+docker compose exec postgres psql -U messenger -d postgres
+
+-- Inside psql:
+DROP DATABASE messenger;
+CREATE DATABASE messenger OWNER messenger;
+\q
+```
+
+### 4 — Restore Dump
+
+```bash
+# Decompress dump and pipe directly to psql inside container
+gunzip -c /opt/messenger/backups/daily-2026-07-28.sql.gz \
+  | docker compose exec -T postgres psql -U messenger -d messenger
+```
+
+### 5 — Restart API
+
+```bash
+docker compose start api
+```
+
+### 6 — Verify Result
+
+```bash
+curl https://chat.example.com/api/v1/health
+# Expected: {"status":"ok"}
+
+# Spot-check a few rows
+docker compose exec postgres psql -U messenger -d messenger \
+  -c "SELECT COUNT(*) FROM messages;"
+```
+
+---
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `api` container restarts | Check `docker compose logs api` — usually wrong env var or DB not ready |
+| 502 Bad Gateway | API still starting; wait 30 seconds and retry |
+| WebSocket disconnects after 60 seconds | Ensure nginx config has `proxy_read_timeout 3600s` |
+| TURN not working | Verify `EXTERNAL_IP` correct and UDP ports 3478 / 49152–65535 open |
+| Certificate error on Android | Ensure real Certbot cert used, not self-signed |
+| Backup script fails | Check `/var/log/messenger-backup.log` and ensure postgres container running (`docker compose ps`) |
+| Restore: `DROP DATABASE` fails | Stop all services first (`docker compose stop api nginx`) to close active connections |
